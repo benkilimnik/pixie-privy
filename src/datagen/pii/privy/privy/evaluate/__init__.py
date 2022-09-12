@@ -13,23 +13,3 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-load("@rules_python//python:defs.bzl", "py_library")
-
-package(default_visibility = ["//privy:__subpackages__"])
-
-py_library(
-    name = "privy_providers",
-    testonly = True,
-    srcs = glob([
-        "*.py",
-        "**/*.py",
-    ]),
-    data = [
-        "america.csv",
-        "names_us_misc.csv",
-        "nationalities.csv",
-        "companies_and_organizations.csv",
-        "us_driver_license_format.yaml",
-    ],
-    srcs_version = "PY3",
-)

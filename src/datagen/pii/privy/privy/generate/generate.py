@@ -88,7 +88,8 @@ def parse_args():
     parser.add_argument(
         "--api_specs",
         "-a",
-        required=True,
+        required=False,
+        default=Path(__file__).parent,
         help="Absolute path to folder download openapi specs into. Privy checks if this folder already exists.",
     )
 
@@ -125,7 +126,7 @@ def parse_args():
         "--timeout",
         "-t",
         required=False,
-        default=400,
+        default=800,
         type=check_positive,
         help="""Timeout (in seconds) after which data generation for the current openAPI descriptor will
         be halted. Very large descriptors tend to slow down data generation and skew the output dataset,
@@ -154,7 +155,7 @@ def parse_args():
         "-s",
         required=False,
         type=check_positive,
-        default=10,
+        default=1,
         help="""Number of (non-)PII spans (NER-compatible, token-wise labeled samples)
         to generate per unique payload template.""",
     )
@@ -163,7 +164,7 @@ def parse_args():
         "--ignore_spec",
         "-ig",
         nargs='+',
-        default=["stripe.com"],
+        default=["stripe.com", "microsoft.com/graph/beta"],
         required=False,
         help="OpenAPI specs to ignore. If not specified, all specs will be matched.",
     )
@@ -183,9 +184,11 @@ def generate(args: argparse.Namespace, out_files: dict[str, Tuple[Any]], api_spe
                 csv_writer = csv.writer(open_file, quotechar="|")
                 if file_type == PrivyFileType.PAYLOADS:
                     csv_writer.writerow(headers)
-                file_writers[generate_type].append(PrivyWriter(file_type, open_file, csv_writer))
+                file_writers[generate_type].append(
+                    PrivyWriter(file_type, open_file, csv_writer))
         api_specs_folder = api_specs_folder / "APIs"
-        payload_generator = PayloadGenerator(api_specs_folder, file_writers, args)
+        payload_generator = PayloadGenerator(
+            api_specs_folder, file_writers, args)
         payload_generator.generate_payloads()
     # ------ Close File Handles --------
     finally:

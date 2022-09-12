@@ -18,7 +18,7 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 package(default_visibility = ["//privy:__subpackages__"])
 
 py_library(
-    name = "privy_train",
+    name = "privy_evaluate",
     testonly = True,
     srcs = glob([
         "*.py",
@@ -28,12 +28,12 @@ py_library(
 )
 
 py_binary(
-    name = "privy_lstm_binary",
+    name = "privy_convert",
     testonly = True,
     srcs = [
-        "lstm_binary.py",
+        "convert_dataset.py",
     ],
-    main = "lstm_binary.py",
+    main = "convert_dataset.py",
     srcs_version = "PY3",
     deps = [
         "//privy:privy_library",
@@ -42,12 +42,12 @@ py_binary(
 )
 
 py_binary(
-    name = "privy_flair",
+    name = "privy_eval_presidio",
     testonly = True,
     srcs = [
-        "flair_ner.py",
+        "eval_presidio.py",
     ],
-    main = "flair_ner.py",
+    main = "eval_presidio.py",
     srcs_version = "PY3",
     deps = [
         "//privy:privy_library",
@@ -56,12 +56,40 @@ py_binary(
 )
 
 py_binary(
-    name = "crf",
+    name = "privy_eval_spacy",
     testonly = True,
     srcs = [
-        "crf_ner.py",
+        "eval_spacy.py",
     ],
-    main = "crf_ner.py",
+    main = "eval_spacy.py",
+    srcs_version = "PY3",
+    deps = [
+        "//privy:privy_library",
+        "@rules_python//python/runfiles",
+    ],
+)
+
+py_binary(
+    name = "privy_eval_flair",
+    testonly = True,
+    srcs = [
+        "eval_flair.py",
+    ],
+    main = "eval_flair.py",
+    srcs_version = "PY3",
+    deps = [
+        "//privy:privy_library",
+        "@rules_python//python/runfiles",
+    ],
+)
+
+py_binary(
+    name = "utils",
+    testonly = True,
+    srcs = [
+        "utils.py",
+    ],
+    main = "utils.py",
     srcs_version = "PY3",
     deps = [
         "//privy:privy_library",

@@ -13,13 +13,16 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-import random
+from pathlib import Path
 import datetime
 from decimal import Decimal
 from faker_airtravel import AirTravelProvider
-from privy.providers.generic import GenericProvider, Provider
-from privy.providers.generic import MacAddress, IMEI, Gender, Passport, DriversLicense, String
-from privy.providers.spans import SpanGenerator
+import pandas as pd
+from presidio_evaluator.data_generator import PresidioDataGenerator
+from presidio_evaluator.data_generator.faker_extensions.providers import NationalityProvider, AgeProvider, AddressProviderNew, PhoneNumberProviderNew, IpAddressProvider
+from presidio_evaluator.data_generator.faker_extensions import RecordsFaker
+from privy.providers.generic import GenericProvider, OrganizationProvider, Provider
+from privy.providers.generic import MacAddress, IMEI, Gender, Passport, DriversLicense, String, TaxID, Religion, Race
 
 
 # English United States - inherits standard, region-agnostic methods
@@ -27,16 +30,52 @@ class English_US(GenericProvider):
     def __init__(self, pii_types=None, locale="en_US"):
         # initialize standard, region-agnostic methods
         super().__init__()
+        # read name df if present
+        fake_name_generator_file = Path(
+            __file__).parent / "america.csv"
+        fake_name_generator_file2 = Path(
+            __file__).parent / "names_us_misc.csv"
+        a = pd.read_csv(fake_name_generator_file)
+        b = pd.read_csv(fake_name_generator_file2)
+        # fake_name_generator_df = pd.read_csv(fake_name_generator_file)
+        fake_name_generator_df = pd.concat([a, b])
+        # a = fake_name_generator_df[fake_name_generator_df.CountryFull == "United States"]
+        # b = fake_name_generator_df[fake_name_generator_df.CountryFull == "Canada"]
+        # c = fake_name_generator_df[fake_name_generator_df.CountryFull == "United Kingdom"]
+        # d = fake_name_generator_df[fake_name_generator_df.CountryFull == "Australia"]
+        # e = fake_name_generator_df[fake_name_generator_df.CountryFull == "New Zealand"]
+        # fake_name_generator_df = pd.concat([a, b, c, d, e])
+        print("df has len: ", len(fake_name_generator_df))
+        fake_name_generator_df = PresidioDataGenerator.update_fake_name_generator_df(
+            fake_name_generator_df)
+
         # initialize Faker instance with specific Faker locale
-        f = SpanGenerator(locale=locale)
-        # extend faker providers
-        f.add_provider(AirTravelProvider)
-        f.add_provider(MacAddress)
-        f.add_provider(IMEI)
-        f.add_provider(Gender)
-        f.add_provider(Passport)
-        f.add_provider(DriversLicense)
-        f.add_provider(String)
+        # f = SpanGenerator(locale=locale)
+        # sample names, addresses etc. from one person-record for realism
+        records_faker = RecordsFaker(
+            records=fake_name_generator_df, locale=locale)
+        # extend faker with custom providers
+        records_faker.add_provider(AirTravelProvider)
+        records_faker.add_provider(MacAddress)
+        records_faker.add_provider(IMEI)
+        records_faker.add_provider(Gender)
+        records_faker.add_provider(Passport)
+        records_faker.add_provider(DriversLicense)
+        records_faker.add_provider(String)
+        records_faker.add_provider(TaxID)
+        records_faker.add_provider(OrganizationProvider)
+        records_faker.add_provider(Religion)
+        records_faker.add_provider(Race)
+        records_faker.add_provider(DriversLicense)
+        # providers by presidio-research
+        records_faker.add_provider(NationalityProvider)
+        records_faker.add_provider(AgeProvider)
+        records_faker.add_provider(AddressProviderNew)
+        records_faker.add_provider(PhoneNumberProviderNew)
+        records_faker.add_provider(IpAddressProvider)
+
+        f = PresidioDataGenerator(
+            custom_faker=records_faker, lower_case_ratio=0.05)
         self.f = f
         # define language/region-specific providers
         self.pii_providers = [
@@ -56,79 +95,78 @@ class English_US(GenericProvider):
                     "buyer user name",
                     "shareholder",
                     "owner",
-                ]),
-                generator=f.name),
+                ])),
             Provider(
                 "name_male",
                 set([
                     "full name male",
                 ]),
-                f.name_male),
+            ),
             Provider(
                 "name_female",
                 set([
                     "full name female",
                 ]),
-                f.name_female),
+            ),
             Provider(
                 "first_name",
                 set([
                     "given name",
                     "middle name",
                 ]),
-                f.first_name),
+            ),
             Provider(
                 "first_name_nonbinary",
                 set([
                     "given name nonbinary",
                 ]),
-                f.first_name_nonbinary),
+            ),
             Provider(
                 "first_name_male",
                 set([
                     "given name male",
                 ]),
-                f.first_name_male),
+            ),
             Provider(
                 "first_name_female",
                 set([
                     "given name female",
                 ]),
-                f.first_name_male),
+            ),
             Provider(
                 "last_name",
                 set([
                     "family name",
                 ]),
-                f.last_name),
+            ),
             Provider(
                 "last_name_male",
                 set([
                     "family name male",
                 ]),
-                f.last_name_male),
+            ),
             Provider(
                 "last_name_female",
                 set([
-                    "family fename",
+                    "family name female",
                 ]),
-                f.last_name_female),
+            ),
             Provider(
                 "prefix",
                 set(),
-                f.prefix),
+            ),
             Provider(
                 "prefix_male",
                 set(),
-                f.prefix_male),
+            ),
             Provider(
                 "prefix_female",
                 set(),
-                f.prefix_female),
+            ),
             Provider(
-                "company",
+                "organization",
                 set([
-                    "organization",
+                    "company",
                     "company name",
                     "department",
                     "manufacturer",
@@ -137,24 +175,31 @@ class English_US(GenericProvider):
                     "doing business as",
                     "business name",
                     "business",
-                ]),
-                f.company),
+                ])),
             Provider(
                 "nationality",
                 set(),
-                f.country),
+            ),
             Provider(
                 "nation_woman",
                 set(),
-                f.country),
+            ),
             Provider(
                 "nation_man",
                 set(),
-                f.country),
+            ),
             Provider(
                 "nation_plural",
                 set(),
-                f.country),
+            ),
+            Provider(
+                "religion",
+                set(),
+            ),
+            # Provider(
+            #     "race",
+            #     set(),
+            # ),
             # ------ Location ------
             Provider(
                 "address",
@@ -166,7 +211,18 @@ class English_US(GenericProvider):
                     "spot",
                     "facility",
                 ]),
-                f.address),
+            ),
+            Provider(
+                "secondary_address",
+                set([
+                    "home",
+                    "work",
+                    "venue",
+                    "place",
+                    "spot",
+                    "facility",
+                ]),
+            ),
             Provider(
                 "street_address",
                 set([
@@ -174,14 +230,14 @@ class English_US(GenericProvider):
                     "avenue",
                     "alley",
                 ]),
-                f.street_address),
+            ),
             Provider(
                 "country",
                 set([
                     "destination",
                     "origin",
                 ]),
-                f.country),
+            ),
             Provider(
                 "country_code",
                 set([
@@ -189,7 +245,7 @@ class English_US(GenericProvider):
                     "from country code",
                     "phone country code",
                 ]),
-                f.country_code),
+            ),
             Provider(
                 "state",
                 set([
@@ -197,7 +253,13 @@ class English_US(GenericProvider):
                     "region",
                     "federal state",
                 ]),
-                f.state),
+            ),
+            Provider(
+                "state_abbr",
+                set([
+                    "state abbreviation",
+                ]),
+            ),
             Provider(
                 "city",
                 set([
@@ -205,14 +267,15 @@ class English_US(GenericProvider):
                     "municipality",
                     "urban area",
                 ]),
-                f.city),
+            ),
             Provider(
-                "postcode",
+                "zipcode",
                 set([
                     "post code",
                     "postal code",
+                    "zip",
                 ]),
-                f.postcode),
+            ),
             Provider(
                 "building_number",
                 set([
@@ -220,7 +283,7 @@ class English_US(GenericProvider):
                     "building",
                     "apartment",
                 ]),
-                f.building_number),
+            ),
             Provider(
                 "street_name",
                 set([
@@ -228,35 +291,32 @@ class English_US(GenericProvider):
                     "lane",
                     "drive",
                 ]),
-                f.street_name),
+            ),
             Provider(
                 "coordinate",
                 set([
                     "location",
                     "position",
                 ]),
-                f.coordinate,
                 Decimal),
             Provider(
                 "latitude",
                 set([
                     "lat",
                 ]),
-                f.latitude,
                 Decimal),
             Provider(
                 "longitude",
                 set([
                     "lon",
                 ]),
-                f.longitude,
                 Decimal),
             Provider(
                 "airport_name",
                 set([
                     "airport",
                 ]),
-                f.airport_name),
+            ),
             Provider(
                 "airport_iata",
                 set([
@@ -265,15 +325,15 @@ class English_US(GenericProvider):
                     "arrival airport code",
                     "destination airport code",
                 ]),
-                f.airport_iata),
+            ),
             Provider(
                 "airport_icao",
                 set(),
-                f.airport_icao),
+            ),
             Provider(
                 "airline",
                 set(["arline name"]),
-                f.airline),
+            ),
             # ------ Financial ------
             Provider(
                 "bban",
@@ -282,20 +342,20 @@ class English_US(GenericProvider):
                     "bank account",
                     "bic",
                 ]),
-                f.bban),
+            ),
             Provider(
                 "aba",
                 set([
                     "routing_transit_number",
                     "routing number",
                 ]),
-                f.aba),
+            ),
             Provider(
                 "iban",
                 set([
                     "international_bank_account_number",
                 ]),
-                f.iban),
+            ),
             Provider(
                 "credit_card_number",
                 set([
@@ -305,7 +365,7 @@ class English_US(GenericProvider):
                     "visa",
                     "american express",
                 ]),
-                f.credit_card_number),
+            ),
             Provider(
                 "credit_card_expire",
                 set([
@@ -314,34 +374,37 @@ class English_US(GenericProvider):
                     "expiration",
                     "expires",
                 ]),
-                f.credit_card_expire),
+            ),
             Provider(
                 "swift",
                 set([
                     "swift code",
                 ]),
-                f.swift),
+            ),
             Provider(
                 "currency_code",
                 set([
                     "fare currency",
                     "currency",
                 ]),
-                f.currency_code),
+            ),
             # ------ Time ------
+            Provider(
+                "age",
+                set(),
+            ),
             Provider(
                 "day_of_week",
                 set([
                     "week day",
                 ]),
-                f.day_of_week),
+            ),
             Provider(
                 "date_of_birth",
                 set([
                     "birth day",
                     "birth date",
                 ]),
-                f.date_of_birth,
                 datetime.date),
             Provider(
                 "date",
@@ -361,19 +424,18 @@ class English_US(GenericProvider):
                     "from date",
                     "install date",
                 ]),
-                f.date),
+            ),
             Provider(
                 "year",
                 set([
                     "birth year",
                 ]),
-                f.year),
+            ),
             Provider(
                 "month",
                 set([
                     "birth month",
                 ]),
-                f.month,
             ),
             Provider(
                 "date_time",
@@ -395,7 +457,7 @@ class English_US(GenericProvider):
                     "start",
                     "end",
                 ]),
-                f.iso8601),
+            ),
             # ------ Identification ------
             Provider(
                 "ssn",
@@ -404,7 +466,7 @@ class English_US(GenericProvider):
                     "id number",
                     "id card",
                 ]),
-                f.ssn),
+            ),
             Provider(
                 "passport",
                 set([
@@ -414,21 +476,30 @@ class English_US(GenericProvider):
                     "identity document",
                     "national identity",
                 ]),
-                f.passport),
+            ),
             Provider(
-                "drivers_license",
+                "driver_license",
                 set([
                     "driving license",
                     "driver's license",
+                    "drivers license",
                     "driver license",
                 ]),
-                f.drivers_license),
+            ),
             Provider(
                 "license_plate",
                 set([
                     "lic plate",
                 ]),
-                f.license_plate),
+            ),
+            Provider(
+                "itin",
+                set([
+                    "tax identification number",
+                    "taxpayer identification number",
+                    "tax id",
+                ])
+            ),
             # ------ Contact Info ------
             Provider(
                 "email",
@@ -437,7 +508,7 @@ class English_US(GenericProvider):
                     "contact email",
                     "to contact",
                 ]),
-                f.email),
+            ),
             Provider(
                 "phone_number",
                 set([
@@ -445,7 +516,7 @@ class English_US(GenericProvider):
                     "contact phone",
                     "associate phone number",
                 ]),
-                f.phone_number),
+            ),
             # ------ Demographic ------
             Provider(
                 "gender",
@@ -453,7 +524,6 @@ class English_US(GenericProvider):
                     "sexuality",
                     "sex",
                 ]),
-                f.gender
             ),
             Provider(
                 "job",
@@ -464,7 +534,6 @@ class English_US(GenericProvider):
                     "vocation",
                     "career",
                 ]),
-                f.job,
             ),
             # ------ Internet / Devices ------
             Provider(
@@ -472,7 +541,6 @@ class English_US(GenericProvider):
                 set([
                     "domain",
                 ]),
-                f.domain_name
             ),
             Provider(
                 "url",
@@ -483,7 +551,6 @@ class English_US(GenericProvider):
                     "site",
                     "host name",
                 ]),
-                f.url
             ),
             Provider(
                 "ip_address",
@@ -491,7 +558,6 @@ class English_US(GenericProvider):
                     "ipv4",
                     "ipv6",
                 ]),
-                random.choice([f.ipv6, f.ipv4])
             ),
             Provider(
                 "mac_address",
@@ -499,14 +565,12 @@ class English_US(GenericProvider):
                     "device mac",
                     "mac_address__nie",
                 ]),
-                f.mac_address,
             ),
             Provider(
                 "imei",
                 set([
                     "international mobile equipment identity"
                 ]),
-                f.imei,
             ),
             Provider(
                 "password",
@@ -515,38 +579,33 @@ class English_US(GenericProvider):
                     "key store password",
                     "current password",
                 ]),
-                f.password,
             ),
         ]
         self.nonpii_providers = [
             Provider(
                 template_name="string",
                 aliases=set(["string", "text", "message"]),
-                generator=f.string,
                 type_=str,
             ),
             Provider(
                 "boolean",
                 set(["bool"]),
-                f.boolean,
                 bool,
             ),
             Provider(
                 "color",
                 set(["hue", "colour"]),
-                f.color,
             ),
             Provider(
                 "random_number",
                 set(["integer", "int", "number", "to number", "from number"]),
-                f.random_number,
                 int,
             ),
             Provider(
                 "sha1",
                 set(["signature sha1", "serial", "app key",
-                    "id", "org id", "statement id", "device id"]),
-                f.sha1,
+                    "id", "org id", "statement id", "device id",
+                    "item uuid", "vault uuid"]),
             ),
         ]
         # filter providers, marking providers matching given pii_types as pii
@@ -555,4 +614,12 @@ class English_US(GenericProvider):
         self.add_delimited_aliases(self.pii_providers)
         self.add_delimited_aliases(self.nonpii_providers)
         # add aliases for all providers
-        self.set_provider_aliases()
+        self.f.add_provider_alias(provider_name="name", new_name="person")
+        self.f.add_provider_alias(
+            provider_name="credit_card_number", new_name="credit_card"
+        )
+        self.f.add_provider_alias(
+            provider_name="date_of_birth", new_name="birthday"
+        )
+
+        # self.set_provider_aliases()
