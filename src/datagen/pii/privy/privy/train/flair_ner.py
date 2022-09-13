@@ -5,12 +5,13 @@ from presidio_evaluator.models import FlairTrainer
 from presidio_evaluator.data_objects import InputSample
 from presidio_evaluator.validation import split_dataset, save_to_json
 from datetime import date
+from pathlib import Path
 
 
 class FlairDataset:
     def __init__(self, dataset_path, out_folder):
         self.dataset = InputSample.read_dataset_json(dataset_path)
-        self.output_folder = out_folder
+        self.output_folder = Path(out_folder)
 
     def train_test_val_split(self, ratios):
         """Split converted dataset into train, validation, and test sets"""
