@@ -78,7 +78,7 @@ def main(args):
     # train Flair
     trainer = FlairTrainer()
     trainer.create_flair_corpus(train, test, val)
-    corpus = trainer.read_corpus(args.out_folder)
+    corpus = trainer.read_corpus(Path(args.out_folder))
 
     # GloVe embeddings
     trainer.train_with_flair_embeddings(corpus)
