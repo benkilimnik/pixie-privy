@@ -180,7 +180,7 @@ def main(args):
     print(
         f"Converting Privy dataset from {args.input} to {args.convert_to} format(s)...")
     print(f"Downloading spacy model for tokenization")
-    # spacy.cli.download("en_core_web_sm")
+    spacy.cli.download("en_core_web_sm")
 
     privy_converter = PrivyConverter(args.input, args.output_folder)
     privy_converter.convert_to_presidio(args.filter_out_entities)
