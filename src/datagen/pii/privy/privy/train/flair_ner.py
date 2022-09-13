@@ -72,13 +72,16 @@ def parse_args():
 
 def main(args):
     # load dataset
+    # print(Path(__file__))
+    # print(Path(__file__).parents[2])
+    # print(Path(__file__).parent.parent.parent)
     dataset = FlairDataset(args.input, args.out_folder)
     train, test, val = dataset.train_test_val_split(args.ratios)
 
     # train Flair
     trainer = FlairTrainer()
     trainer.create_flair_corpus(train, test, val)
-    corpus = trainer.read_corpus(Path(args.out_folder))
+    corpus = trainer.read_corpus(Path(__file__).parents[2])
 
     # GloVe embeddings
     trainer.train_with_flair_embeddings(corpus)
