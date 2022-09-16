@@ -117,8 +117,9 @@ class SchemaHooks:
                               type_: Optional[Union[str, bool]], case_attr: dict, parameter_type: ParamType):
             """assign a provider to a given parameter_name in the case_attr"""
             # Check for enum
-            if self.check_for_enum(name, enum, schema, case_attr):
-                return case_attr[name]
+            # ! but enums won't be labelled...
+            # if self.check_for_enum(name, enum, schema, case_attr):
+            #     return case_attr[name]
             # Check for pii keywords
             if self.check_for_pii_keywords(
                 name, schema, type_, case_attr, parameter_type

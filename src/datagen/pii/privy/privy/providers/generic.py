@@ -190,7 +190,7 @@ class Alphanum(BaseProvider):
         return self.bothify(text=alphanumeric_string)
 
 
-class TaxID(BaseProvider):
+class ITIN(BaseProvider):
     def itin(self) -> str:
         # US Individual Taxpayer Identification Number (ITIN).
         # Nine digits that start with a "9" and contain a "7" or "8" as the 4 digit.

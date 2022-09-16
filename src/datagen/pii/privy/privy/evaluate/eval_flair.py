@@ -43,7 +43,7 @@ def parse_args():
     return parser.parse_args()
 
 
-class PrivyPresidioEvaluator:
+class PrivyFlairEvaluator:
     def __init__(self, input_file: str, output_folder: str):
         self.input_file = Path(input_file)
         self.output_folder = Path(output_folder) / "flair-benchmark"
@@ -72,11 +72,9 @@ def main(args):
     print(
         f"Evaluating Privy generated dataset on Flair NER models: {args.model_names}...")
     print(f"Downloading spacy model for tokenization")
-    # spacy.cli.download("en_core_web_sm")
-    # spacy.cli.download("en_core_web_lg")
-    # spacy.cli.download("en_core_web_trf")
+    spacy.cli.download("en_core_web_sm")
 
-    privy_converter = PrivyPresidioEvaluator(args.input, args.output_folder)
+    privy_converter = PrivyFlairEvaluator(args.input, args.output_folder)
     privy_converter.evaluate_presidio_analyzer(args.model_names)
 
 

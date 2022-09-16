@@ -87,8 +87,7 @@ def main(args):
     trainer.train_with_flair_embeddings(corpus)
     
     # BERT embeddings
-    # ! todo: add method to presidio fork
-    # trainer.train_with_bert_embeddings(corpus)
+    trainer.train_with_bert_embeddings(corpus)
 
     # Transformer
     trainer.train_with_transformers(corpus)

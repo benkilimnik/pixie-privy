@@ -66,7 +66,7 @@ def main(args):
     print(
         f"Evaluating Privy generated dataset on SpaCy NER models: {args.model_names}...")
     print(f"Downloading spacy model for tokenization")
-    # spacy.cli.download("en_core_web_sm")
+    spacy.cli.download("en_core_web_sm")
     # spacy.cli.download("en_core_web_lg")
     # spacy.cli.download("en_core_web_trf")
 

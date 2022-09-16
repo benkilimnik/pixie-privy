@@ -22,7 +22,7 @@ from presidio_evaluator.data_generator import PresidioDataGenerator
 from presidio_evaluator.data_generator.faker_extensions.providers import NationalityProvider, AgeProvider, AddressProviderNew, PhoneNumberProviderNew, IpAddressProvider
 from presidio_evaluator.data_generator.faker_extensions import RecordsFaker
 from privy.providers.generic import GenericProvider, OrganizationProvider, Provider
-from privy.providers.generic import MacAddress, IMEI, Gender, Passport, DriversLicense, String, TaxID, Religion, Race
+from privy.providers.generic import MacAddress, IMEI, Gender, Passport, DriversLicense, String, ITIN, Religion, Race
 
 
 # English United States - inherits standard, region-agnostic methods
@@ -62,7 +62,7 @@ class English_US(GenericProvider):
         records_faker.add_provider(Passport)
         records_faker.add_provider(DriversLicense)
         records_faker.add_provider(String)
-        records_faker.add_provider(TaxID)
+        records_faker.add_provider(ITIN)
         records_faker.add_provider(OrganizationProvider)
         records_faker.add_provider(Religion)
         records_faker.add_provider(Race)
