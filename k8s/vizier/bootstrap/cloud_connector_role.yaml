@@ -11,31 +11,20 @@ metadata:
 rules:
 - apiGroups:
   - ""
-  - px.dev
   resources:
-  - pods
   - nodes
-  - services
-  - endpoints
-  - namespaces
-  - jobs
-  - events
-  - pods/log
-  - viziers
   verbs:
-  - "*"
-- apiGroups:
-  - batch
-  resources:
-  - jobs
-  verbs:
-  - "*"
+  - "get"
+  - "watch"
+  - "list"
 - apiGroups:
   - ""
   resources:
-  - secrets
+  - namespaces
   verbs:
-  - "*"
+  - "get"
+  resourceNames:
+  - "kube-system"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -48,3 +37,48 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: cloud-conn-service-account
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pl-cloud-connector-ns-role
+rules:
+- apiGroups:
+  - ""
+  - px.dev
+  resources:
+  - services
+  - events
+  - pods/log
+  - viziers
+  verbs:
+  - "get"
+  - "watch"
+  - "list"
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - "*"
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - endpoints
+  - pods
+  verbs:
+  - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pl-cloud-connector-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pl-cloud-connector-ns-role
+subjects:
+- kind: ServiceAccount
+  name: cloud-conn-service-account
+  namespace: pl

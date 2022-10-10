@@ -63,6 +63,7 @@ type VizierTmplValues struct {
 	DatastreamBufferSpikeSize uint32
 	ElectionPeriodMs          int64
 	CustomPEMFlags            map[string]string
+	Registry                  string
 }
 
 // VizierTmplValuesToArgs converts the vizier template values to args which can be used to fill out a template.
@@ -87,6 +88,7 @@ func VizierTmplValuesToArgs(tmplValues *VizierTmplValues) *yamls.YAMLTmplArgumen
 			"datastreamBufferSpikeSize": tmplValues.DatastreamBufferSpikeSize,
 			"electionPeriodMs":          tmplValues.ElectionPeriodMs,
 			"customPEMFlags":            tmplValues.CustomPEMFlags,
+			"registry":                  tmplValues.Registry,
 		},
 		Release: &map[string]interface{}{
 			"Namespace": tmplValues.Namespace,
@@ -362,14 +364,14 @@ func generateVzYAMLs(clientset *kubernetes.Clientset, yamlMap map[string]string)
 			TemplateValue:   fmt.Sprintf(".%s.svc", nsTmpl),
 		},
 		{
-			TemplateMatcher: yamls.GenerateResourceNameMatcherFn("pl-psp-binding"),
-			Patch:           `{ "subjects": [{ "name": "updater-service-account", "namespace": "__PX_SUBJECT_NAMESPACE__", "kind": "ServiceAccount" }] }`,
+			TemplateMatcher: yamls.GenerateResourceNameMatcherFn("pl-updater-binding"),
+			Patch:           `{ "subjects": [{ "name": "pl-updater-service-account", "namespace": "__PX_SUBJECT_NAMESPACE__", "kind": "ServiceAccount" }] }`,
 			Placeholder:     "__PX_SUBJECT_NAMESPACE__",
 			TemplateValue:   nsTmpl,
 		},
 		{
-			TemplateMatcher: yamls.GenerateResourceNameMatcherFn("pl-updater-binding"),
-			Patch:           `{ "subjects": [{ "name": "updater-service-account", "namespace": "__PX_SUBJECT_NAMESPACE__", "kind": "ServiceAccount" }] }`,
+			TemplateMatcher: yamls.GenerateResourceNameMatcherFn("pl-updater-cluster-binding"),
+			Patch:           `{ "subjects": [{ "name": "pl-updater-service-account", "namespace": "__PXqgq_SUBJECT_NAMESPACE__", "kind": "ServiceAccount" }] }`,
 			Placeholder:     "__PX_SUBJECT_NAMESPACE__",
 			TemplateValue:   nsTmpl,
 		},
@@ -380,7 +382,19 @@ func generateVzYAMLs(clientset *kubernetes.Clientset, yamlMap map[string]string)
 			TemplateValue:   nsTmpl,
 		},
 		{
+			TemplateMatcher: yamls.GenerateResourceNameMatcherFn("pl-cloud-connector-binding"),
+			Patch:           `{ "subjects": [{ "name": "cloud-conn-service-account", "namespace": "__PX_SUBJECT_NAMESPACE__", "kind": "ServiceAccount" }] }`,
+			Placeholder:     "__PX_SUBJECT_NAMESPACE__",
+			TemplateValue:   nsTmpl,
+		},
+		{
 			TemplateMatcher: yamls.GenerateResourceNameMatcherFn("pl-vizier-metadata-cluster-binding"),
+			Patch:           `{ "subjects": [{ "name": "metadata-service-account", "namespace": "__PX_SUBJECT_NAMESPACE__", "kind": "ServiceAccount" }] }`,
+			Placeholder:     "__PX_SUBJECT_NAMESPACE__",
+			TemplateValue:   nsTmpl,
+		},
+		{
+			TemplateMatcher: yamls.GenerateResourceNameMatcherFn("pl-vizier-metadata-binding"),
 			Patch:           `{ "subjects": [{ "name": "metadata-service-account", "namespace": "__PX_SUBJECT_NAMESPACE__", "kind": "ServiceAccount" }] }`,
 			Placeholder:     "__PX_SUBJECT_NAMESPACE__",
 			TemplateValue:   nsTmpl,

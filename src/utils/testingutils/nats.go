@@ -21,10 +21,11 @@ package testingutils
 import (
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/cenkalti/backoff/v3"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats-server/v2/test"
 	"github.com/nats-io/nats.go"
@@ -45,7 +46,10 @@ func startNATS() (*server.Server, *nats.Conn, error) {
 	}
 
 	opts := test.DefaultTestOptions
+	opts.ServerName = "test_nats_js"
+	opts.JetStream = true
 	opts.Port = port
+	opts.StoreDir = os.TempDir()
 	gnatsd := test.RunServer(&opts)
 	if gnatsd == nil {
 		return nil, nil, errors.New("Could not run NATS server")
@@ -57,8 +61,7 @@ func startNATS() (*server.Server, *nats.Conn, error) {
 		gnatsd.Shutdown()
 		return nil, nil, err
 	}
-
-	return gnatsd, conn, nil
+	return gnatsd, conn, err
 }
 
 // MustStartTestNATS starts up a NATS server at an open port.
@@ -69,6 +72,9 @@ func MustStartTestNATS(t *testing.T) (*nats.Conn, func()) {
 	natsConnectFn := func() error {
 		var err error
 		gnatsd, conn, err = startNATS()
+		if gnatsd == nil && conn == nil { // Handle case where startNATS has a recover.
+			err = errors.New("Failed to connect to NATS")
+		}
 		if err != nil {
 			return err
 		}

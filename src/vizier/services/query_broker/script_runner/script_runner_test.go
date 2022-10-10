@@ -155,8 +155,8 @@ func TestScriptRunner_CompareScriptState(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			nc, natsCleanup := testingutils.MustStartTestNATS(t)
 			defer natsCleanup()
-
-			sr, err := New(nc, &fakeCronStore{scripts: map[uuid.UUID]*cvmsgspb.CronScript{}}, nil, "test")
+			fvs := &fakeVizierServiceClient{err: errors.New("not implemented")}
+			sr, err := New(nc, &fakeCronStore{scripts: map[uuid.UUID]*cvmsgspb.CronScript{}}, fvs, "test")
 			require.NoError(t, err)
 
 			// Subscribe to request channel.
@@ -189,7 +189,6 @@ func TestScriptRunner_CompareScriptState(t *testing.T) {
 				err = mdSub.Unsubscribe()
 				require.NoError(t, err)
 			}()
-
 			match, err := sr.compareScriptState(test.persistedScripts)
 			require.Nil(t, err)
 			assert.Equal(t, test.checksumMatch, match)
@@ -201,7 +200,8 @@ func TestScriptRunner_GetCloudScripts(t *testing.T) {
 	nc, natsCleanup := testingutils.MustStartTestNATS(t)
 	defer natsCleanup()
 
-	sr, err := New(nc, nil, nil, "test")
+	fvs := &fakeVizierServiceClient{err: errors.New("not implemented")}
+	sr, err := New(nc, nil, fvs, "test")
 	require.NoError(t, err)
 
 	scripts := map[string]*cvmsgspb.CronScript{
@@ -667,7 +667,8 @@ func TestScriptRunner_SyncScripts(t *testing.T) {
 			}
 
 			fcs := &fakeCronStore{scripts: initialScripts}
-			sr, err := New(nc, fcs, nil, "test")
+			fvs := &fakeVizierServiceClient{err: errors.New("not implemented")}
+			sr, err := New(nc, fcs, fvs, "test")
 			require.NoError(t, err)
 
 			var wg sync.WaitGroup
@@ -797,6 +798,10 @@ func (vs *fakeVizierServiceClient) ExecuteScript(ctx context.Context, in *vizier
 	return &fakeExecuteScriptClient{responses: vs.responses, err: vs.err}, nil
 }
 func (vs *fakeVizierServiceClient) HealthCheck(ctx context.Context, in *vizierpb.HealthCheckRequest, opts ...grpc.CallOption) (vizierpb.VizierService_HealthCheckClient, error) {
+	return nil, errors.New("Not implemented")
+}
+
+func (vs *fakeVizierServiceClient) GenerateOTelScript(ctx context.Context, req *vizierpb.GenerateOTelScriptRequest, opts ...grpc.CallOption) (*vizierpb.GenerateOTelScriptResponse, error) {
 	return nil, errors.New("Not implemented")
 }
 

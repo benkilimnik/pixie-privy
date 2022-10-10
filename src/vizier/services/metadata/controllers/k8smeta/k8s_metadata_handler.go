@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/EvilSuperstars/go-cidrman"
-	"github.com/cenkalti/backoff/v3"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/gogo/protobuf/types"
 	"github.com/nats-io/nats.go"
 	log "github.com/sirupsen/logrus"
@@ -104,6 +104,19 @@ type Store interface {
 	SetUpdateVersion(topic string, uv int64) error
 }
 
+// PodLabelStore handles storing and fetching data of pods and their associated labels.
+type PodLabelStore interface {
+	// SetPodLabels stores the pod labels information. `<namespace>/<labelKey>/<podName>` is the key and
+	// `<labelValue>` is the value.
+	SetPodLabels(namespace string, podName string, labels map[string]string) error
+	// DeletePodLabels deletes the labels information associated with a pod.
+	DeletePodLabels(namespace string, podName string) error
+	// FetchPodsWithLabelKey gets the names of all the pods that has a certain label key.
+	FetchPodsWithLabelKey(namespace string, key string) ([]string, error)
+	// FetchPodsWithLabels gets the names of all the pods whose labels match exactly all the labels provided.
+	FetchPodsWithLabels(namespace string, labels map[string]string) ([]string, error)
+}
+
 // An UpdateProcessor is responsible for processing an incoming update, such as determining what
 // updates should be persisted and sent to NATS.
 type UpdateProcessor interface {
@@ -142,6 +155,8 @@ type Handler struct {
 	updateCh <-chan *K8sResourceMessage
 	// The store where k8s resources are stored.
 	mds Store
+	// The store where pod label information is stored.
+	pls PodLabelStore
 	// The NATS connection on which to send messages on.
 	conn *nats.Conn
 	// Done channel, to stop processing metadata updates.
@@ -155,12 +170,12 @@ type Handler struct {
 }
 
 // NewHandler creates a new Handler.
-func NewHandler(updateCh <-chan *K8sResourceMessage, mds Store, conn *nats.Conn) *Handler {
+func NewHandler(updateCh <-chan *K8sResourceMessage, mds Store, pls PodLabelStore, conn *nats.Conn) *Handler {
 	done := make(chan struct{})
 	leaderMsgs := make(map[string]*metadatapb.Endpoints)
 	handlerMap := make(map[string]UpdateProcessor)
 	state := ProcessorState{LeaderMsgs: leaderMsgs, PodCIDRs: make([]string, 0), NodeToIP: make(map[string]string), PodToIP: make(map[string]string)}
-	mh := &Handler{updateCh: updateCh, mds: mds, conn: conn, done: done, processHandlerMap: handlerMap, state: state}
+	mh := &Handler{updateCh: updateCh, mds: mds, pls: pls, conn: conn, done: done, processHandlerMap: handlerMap, state: state}
 
 	// Register update processors.
 	mh.processHandlerMap["endpoints"] = &EndpointsUpdateProcessor{}
@@ -222,6 +237,14 @@ func (m *Handler) processUpdates() {
 			if !valid {
 				continue
 			}
+
+			if msg.ObjectType == "pods" {
+				err := UpdatePodLabelStore(update, m.pls)
+				if err != nil {
+					log.WithError(err).Error("Failed to update pod labels state")
+				}
+			}
+
 			// Persist the update in the data store.
 			updates := processor.GetStoredProtos(update)
 			if updates == nil {
@@ -718,6 +741,31 @@ func (p *PodUpdateProcessor) GetUpdatesToSend(storedUpdates []*StoredUpdate, sta
 	}
 
 	return updates
+}
+
+// UpdatePodLabelStore reads the pod resource update. If the pod is running, we update the store with new labels. If the pod has finished, we delete its labels in the store.
+func UpdatePodLabelStore(update *storepb.K8SResource, pls PodLabelStore) error {
+	p := update.GetPod()
+	namespace := p.GetMetadata().GetNamespace()
+	if namespace == "" {
+		namespace = "default"
+	}
+	podName := p.GetMetadata().GetName()
+
+	switch phase := p.GetStatus().GetPhase(); phase {
+	case metadatapb.RUNNING:
+		labels := p.GetMetadata().GetLabels()
+		err := pls.SetPodLabels(namespace, podName, labels)
+		if err != nil {
+			return err
+		}
+	case metadatapb.PHASE_UNKNOWN, metadatapb.SUCCEEDED, metadatapb.FAILED, metadatapb.TERMINATED:
+		err := pls.DeletePodLabels(namespace, podName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // NodeUpdateProcessor is a processor for nodes.

@@ -23,10 +23,10 @@ REPOSITORY_LOCATIONS = dict(
         ],
     ),
     io_bazel_rules_go = dict(
-        sha256 = "16e9fca53ed6bd4ff4ad76facc9b7b651a89db1689a2877d6fd7b82aa824e366",
+        sha256 = "099a9fb96a376ccbbb7d291ed4ecbdfd42f6bc822ab77ae6f1b5cb9e914e94fa",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.34.0/rules_go-v0.34.0.zip",
-            "https://github.com/bazelbuild/rules_go/releases/download/v0.34.0/rules_go-v0.34.0.zip",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.35.0/rules_go-v0.35.0.zip",
+            "https://github.com/bazelbuild/rules_go/releases/download/v0.35.0/rules_go-v0.35.0.zip",
         ],
     ),
     io_bazel_rules_scala = dict(
@@ -54,9 +54,9 @@ REPOSITORY_LOCATIONS = dict(
         urls = ["https://github.com/bazelbuild/buildtools/archive/refs/tags/4.2.5.tar.gz"],
     ),
     com_google_benchmark = dict(
-        sha256 = "dccbdab796baa1043f04982147e67bb6e118fe610da2c65f88912d73987e700c",
-        strip_prefix = "benchmark-1.5.2",
-        urls = ["https://github.com/google/benchmark/archive/refs/tags/v1.5.2.tar.gz"],
+        sha256 = "3aff99169fa8bdee356eaa1f691e835a6e57b1efeadb8a0f9f228531158246ac",
+        strip_prefix = "benchmark-1.7.0",
+        urls = ["https://github.com/google/benchmark/archive/refs/tags/v1.7.0.tar.gz"],
     ),
     com_github_packetzero_dnsparser = dict(
         sha256 = "bdf6c7f56f33725c1c32e672a4779576fb639dd2df565115778eb6be48296431",
@@ -64,9 +64,9 @@ REPOSITORY_LOCATIONS = dict(
         urls = ["https://github.com/pixie-io/dnsparser/archive/77398ffc200765db1cea9000d9f550ea99a29f7b.tar.gz"],
     ),
     com_github_serge1_elfio = dict(
-        sha256 = "386bbeaac176683a68ee1941ab5b12dc381b7d43ff300cccca060047c2c9b291",
-        strip_prefix = "ELFIO-9a70dd299199477bf9f8319424922d0fa436c225",
-        urls = ["https://github.com/pixie-io/ELFIO/archive/9a70dd299199477bf9f8319424922d0fa436c225.tar.gz"],
+        sha256 = "f1e2edddec556ac61705b931b5d59f1c89440442d5be522d3ae7d317b917e2d9",
+        strip_prefix = "ELFIO-b8d2a419b0edf185cfd7dc49a837d8d97001a7ba",
+        urls = ["https://github.com/pixie-io/ELFIO/archive/b8d2a419b0edf185cfd7dc49a837d8d97001a7ba.tar.gz"],
     ),
     bazel_skylib = dict(
         sha256 = "710c2ca4b4d46250cdce2bf8f5aa76ea1f0cba514ab368f2988f70e864cfaf51",
@@ -180,9 +180,9 @@ REPOSITORY_LOCATIONS = dict(
         urls = ["https://github.com/h2o/picohttpparser/archive/1d2b8a184e7ebe6651c30dcede37ba1d89691351.tar.gz"],
     ),
     com_github_nats_io_natsc = dict(
-        sha256 = "c2b5a5e62dfbdcb110f00960c413ab6e8ef09dd71863c15c9f81aa598dcd339d",
-        strip_prefix = "nats.c-2.6.0",
-        urls = ["https://github.com/nats-io/nats.c/archive/refs/tags/v2.6.0.tar.gz"],
+        sha256 = "16e700d912034faefb235a955bd920cfe4d449a260d0371b9694d722eb617ae1",
+        strip_prefix = "nats.c-3.3.0",
+        urls = ["https://github.com/nats-io/nats.c/archive/refs/tags/v3.3.0.tar.gz"],
     ),
     com_github_libuv_libuv = dict(
         sha256 = "371e5419708f6aaeb8656671f89400b92a9bba6443369af1bb70bcd6e4b3c764",

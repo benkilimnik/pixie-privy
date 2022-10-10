@@ -625,16 +625,13 @@ func TestHandleLoginPerformsRedirects(t *testing.T) {
 func TestManageUserInfo(t *testing.T) {
 	email := "a@b.com"
 	plUserID := "123456789"
-	plOrgID := "b.com"
 	kratosID := "6f41e7a4-12ef-44bd-8bfe-c307a1cf325f"
 	token := "usertoken"
 
 	updateIdentityFn := func(params *kratosAdmin.UpdateIdentityParams) (*kratosAdmin.UpdateIdentityOK, error) {
 		assert.Equal(t, params.ID, plUserID)
 		ui := &KratosUserInfo{
-			Email:    email,
-			PLOrgID:  plOrgID,
-			PLUserID: plUserID,
+			Email: email,
 		}
 		assert.Equal(t, params.Body.Traits, ui)
 		return &kratosAdmin.UpdateIdentityOK{
@@ -654,9 +651,7 @@ func TestManageUserInfo(t *testing.T) {
 		var idStruct strfmt.UUID4
 		require.NoError(t, idStruct.UnmarshalText([]byte(kratosID)))
 		identy := convertKratosUserInfoToIdentity(t, &KratosUserInfo{
-			Email:    email,
-			PLOrgID:  plOrgID,
-			PLUserID: plUserID,
+			Email: email,
 		})
 		identy.ID = kratosModels.UUID(idStruct)
 		assert.Equal(t, params.ID, plUserID)
@@ -673,9 +668,7 @@ func TestManageUserInfo(t *testing.T) {
 
 	defer cleanup()
 	_, err := c.UpdateUserInfo(context.Background(), plUserID, &KratosUserInfo{
-		Email:    email,
-		PLOrgID:  plOrgID,
-		PLUserID: plUserID,
+		Email: email,
 	})
 	require.NoError(t, err)
 
@@ -688,8 +681,6 @@ func TestManageUserInfo(t *testing.T) {
 
 	assert.Equal(t, userInfo.KratosID, kratosID)
 	assert.Equal(t, userInfo.Email, email)
-	assert.Equal(t, userInfo.PLUserID, plUserID)
-	assert.Equal(t, userInfo.PLOrgID, plOrgID)
 }
 
 func Test_CreateIdentity(t *testing.T) {

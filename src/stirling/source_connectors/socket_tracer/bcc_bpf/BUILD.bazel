@@ -28,7 +28,6 @@ package(default_visibility = ["//src/stirling:__subpackages__"])
 
 socket_trace_hdrs = [
     "grpc_c_trace.c",
-    "go_runtime_trace.c",
     "go_http2_trace.c",
     "go_tls_trace.c",
     "go_trace_common.h",
@@ -71,7 +70,6 @@ pl_cc_test(
         "ENABLE_DNS_TRACING=true",
         "ENABLE_REDIS_TRACING=true",
         "ENABLE_NATS_TRACING=true",
-        "ENABLE_MUX_TRACING=true",
         "ENABLE_MONGO_TRACING=true",
         "ENABLE_AMQP_TRACING=true",
     ],

@@ -156,6 +156,10 @@ Status PopulateCommonTypeAddrs(ElfReader* elf_reader, std::string_view vendor_pr
   LOG_ASSIGN_OPTIONAL(symaddrs->net_TCPConn,
                       elf_reader->SymbolAddress("go.itab.*net.TCPConn,net.Conn"));
 
+  // TODO(chengruizhe): Refer to setGStructOffsetElf in dlv for a more accurate way of setting
+  // g_addr_offset using elf.
+  symaddrs->g_addr_offset = -8;
+
   // TCPConn is mandatory by the HTTP2 uprobes probe, so bail if it is not found (-1).
   // It should be the last layer of nested interface, and contains the FD.
   // The other conns can be invalid, and will simply be ignored.
@@ -180,16 +184,6 @@ Status PopulateCommonDebugSymbols(DwarfReader* dwarf_reader, std::string_view ve
           VENDOR_SYMBOL("google.golang.org/grpc/credentials/internal.syscallConn"), "conn"));
   LOG_ASSIGN_STATUSOR(symaddrs->g_goid_offset,
                       dwarf_reader->GetStructMemberOffset("runtime.g", "goid"));
-
-  // Arguments of runtime.casgstatus.
-  {
-    const std::map<std::string, obj_tools::ArgInfo> kEmptyMap;
-    std::string_view fn = "runtime.casgstatus";
-    auto args_map = dwarf_reader->GetFunctionArgInfo(fn).ValueOr(kEmptyMap);
-    LOG_ASSIGN(symaddrs->casgstatus_gp_loc, GetArgOffset(args_map, "gp"));
-    LOG_ASSIGN(symaddrs->casgstatus_newval_loc, GetArgOffset(args_map, "newval"));
-  }
-
 #undef VENDOR_SYMBOL
 
   // List mandatory symaddrs here (symaddrs without which all probes become useless).
@@ -197,17 +191,6 @@ Status PopulateCommonDebugSymbols(DwarfReader* dwarf_reader, std::string_view ve
   if (symaddrs->FD_Sysfd_offset == -1) {
     return error::Internal("FD_Sysfd_offset not found");
   }
-
-  if (symaddrs->casgstatus_gp_loc.type == kLocationTypeInvalid ||
-      symaddrs->casgstatus_gp_loc.offset < 0) {
-    return error::Internal("Invalid go_ptr location.");
-  }
-
-  if (symaddrs->casgstatus_newval_loc.type == kLocationTypeInvalid ||
-      symaddrs->casgstatus_newval_loc.offset < 0) {
-    return error::Internal("Invalid newval location.");
-  }
-
   return Status::OK();
 }
 
@@ -583,7 +566,6 @@ StatusOr<uint64_t> GetOpenSSLVersionNumUsingDLOpen(const std::filesystem::path& 
 }
 
 StatusOr<uint64_t> GetOpenSSLVersionNumUsingFptr(RawFptrManager* fptr_manager) {
-  PL_RETURN_IF_ERROR(fptr_manager->Init());
   const std::string symbol = "OpenSSL_version_num";
   // NOLINTNEXTLINE(runtime/int): 'unsigned long' is from upstream, match that here (vs. uint64_t)
   PL_ASSIGN_OR_RETURN(auto version_num_f, fptr_manager->RawSymbolToFptr<unsigned long()>(symbol));
@@ -655,6 +637,19 @@ StatusOr<uint32_t> OpenSSLFixSubversionNum(RawFptrManager* fptrManager,
 
 }  // namespace
 
+// Used for determining if a given tracing target is using
+// borginssl or not. At this time it's difficult to generalize this
+// to other use cases until more boringssl integrations are made. This
+// interface will likely change as we learn more about other ssl library
+// integrations.
+bool IsBoringSSL(const std::filesystem::path& openssl_lib) {
+  if (absl::StrContains(openssl_lib.string(), kLibNettyTcnativePrefix)) {
+    return true;
+  }
+
+  return false;
+}
+
 StatusOr<struct openssl_symaddrs_t> OpenSSLSymAddrs(RawFptrManager* fptrManager,
                                                     const std::filesystem::path& openssl_lib,
                                                     uint32_t pid) {
@@ -675,6 +670,21 @@ StatusOr<struct openssl_symaddrs_t> OpenSSLSymAddrs(RawFptrManager* fptrManager,
   //  - 1.1.1a to 1.1.1e
   constexpr int32_t kSSL_RBIO_offset = 0x10;
 
+  // BoringSSL was originally derived from OpenSSL 1.0.2. For now we
+  // are only supporting the offsets of its current release, which tracks
+  // OpenSSL 1.1.0 at this time (Sept 2022). See it's PORTING.md doc for
+  // more details.
+  // https://github.com/google/boringssl/blob/0cc51a793eef6b5295b9e0de8aafb1d87a39e210/PORTING.md
+  //
+  // TODO(yzhao): Determine the offsets for BoringSSL's openssl 1.0.x compatibility.
+  // See https://github.com/pixie-io/pixie/issues/588 for more details.
+  //
+  // These were calculated from compiling libnetty_tcnative locally
+  // with symbols and attaching gdb to walk the data structures.
+  // https://pixie-community.slack.com/files/U027UA1MRPA/F03FA23U8FQ/untitled.txt
+  constexpr int32_t kBoringSSL_RBIO_offset = 0x18;
+  constexpr int32_t kBoringSSL_1_1_1_RBIO_num_offset = 0x18;
+
   // Offset of num in struct bio_st.
   // Struct is defined in crypto/bio/bio_lcl.h, crypto/bio/bio_local.h depending on the version.
   //  - In 1.1.1a to 1.1.1e, the offset appears to be 0x30
@@ -688,18 +698,32 @@ StatusOr<struct openssl_symaddrs_t> OpenSSLSymAddrs(RawFptrManager* fptrManager,
   PL_ASSIGN_OR_RETURN(uint32_t openssl_fix_sub_version,
                       OpenSSLFixSubversionNum(fptrManager, openssl_lib, pid));
 
-  switch (openssl_fix_sub_version) {
-    case 0:
-      symaddrs.RBIO_num_offset = kOpenSSL_1_1_0_RBIO_num_offset;
-      break;
-    case 1:
-      symaddrs.RBIO_num_offset = kOpenSSL_1_1_1_RBIO_num_offset;
-      break;
-    default:
-      // Supported versions are checked in function OpenSSLFixSubversionNum(),
-      // should not fall through to here, ever.
-      DCHECK(false);
-      return error::Internal("Unsupported openssl_fix_sub_version: $0", openssl_fix_sub_version);
+  if (!IsBoringSSL(openssl_lib)) {
+    switch (openssl_fix_sub_version) {
+      case 0:
+        symaddrs.RBIO_num_offset = kOpenSSL_1_1_0_RBIO_num_offset;
+        break;
+      case 1:
+        symaddrs.RBIO_num_offset = kOpenSSL_1_1_1_RBIO_num_offset;
+        break;
+      default:
+        // Supported versions are checked in function OpenSSLFixSubversionNum(),
+        // should not fall through to here, ever.
+        DCHECK(false);
+        return error::Internal("Unsupported openssl_fix_sub_version: $0", openssl_fix_sub_version);
+    }
+  } else {
+    switch (openssl_fix_sub_version) {
+      case 1:
+        symaddrs.RBIO_num_offset = kBoringSSL_1_1_1_RBIO_num_offset;
+        symaddrs.SSL_rbio_offset = kBoringSSL_RBIO_offset;
+        break;
+      default:
+        // Supported versions are checked in function OpenSSLFixSubversionNum(),
+        // should not fall through to here, ever.
+        DCHECK(false);
+        return error::Internal("Unsupported openssl_fix_sub_version: $0", openssl_fix_sub_version);
+    }
   }
 
   // Using GDB to confirm member offsets on OpenSSL 1.1.1:

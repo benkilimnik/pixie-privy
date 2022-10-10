@@ -20,9 +20,10 @@ go_library(
     name = "controllers",
     srcs = [
         "auth0.go",
-        "domain.go",
+        "hosted_domain.go",
         "hydra_kratos_auth.go",
         "login.go",
+        "oidc.go",
         "server.go",
     ],
     importpath = "px.dev/pixie/src/cloud/auth/controllers",
@@ -34,7 +35,6 @@ go_library(
         "//src/cloud/profile/profilepb:service_pl_go_proto",
         "//src/cloud/shared/idprovider",
         "//src/shared/services/authcontext",
-        "//src/shared/services/handler",
         "//src/shared/services/utils",
         "//src/utils",
         "@com_github_gofrs_uuid//:uuid",
@@ -54,6 +54,7 @@ go_test(
         "auth0_test.go",
         "hydra_kratos_auth_test.go",
         "login_test.go",
+        "oidc_test.go",
     ],
     deps = [
         ":controllers",

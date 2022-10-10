@@ -46,6 +46,7 @@ var reasonToMessageMap = map[VizierReason]string{
 	NATSPodPending:               "NATS message bus pods are still pending. If this status persists, investigate failures on the Pending NATS pods in the Vizier namespace (default `pl`).",
 	NATSPodMissing:               "NATS message bus pods are missing. If this status persists, clobber and redeploy this Pixie instance.",
 	NATSPodFailed:                "NATS message bus pods have failed. Investigate failures on the Pending NATS pods in the Vizier namespace (default `pl`).",
+	UnableToConnectToCloud:       "Failed to connect to Pixie Cloud. Please check the cloud address (and optional dev cloud namespace) in the Vizier object to ensure it is correct and accessible within your firewall and network configurations.",
 	PEMsSomeInsufficientMemory: "Some PEMs are failing to schedule due to insufficient memory available on the nodes. You will not be able to receive data from those failing nodes. " +
 		"Free up memory on those nodes to start scraping Pixie data from those nodes.",
 	PEMsAllInsufficientMemory: "None of the PEMs can schedule due to insufficient memory available on the nodes. " +
@@ -56,17 +57,18 @@ var reasonToMessageMap = map[VizierReason]string{
 	PEMsAllFailing:      "PEMs are all crashing. If PEMs are getting OOMKilled, increase your PEM memory limits using the `pemMemoryLimit` flag. Otherwise, consider filing a bug so someone can address your problem: https://github.com/pixie-io/pixie",
 }
 
-// GetMessageFromReason gets the human-readable message for a Vizier status reason.
-func GetMessageFromReason(reason VizierReason) string {
-	if msg, ok := reasonToMessageMap[reason]; ok {
-		return msg
-	}
-	return ""
-}
-
 // VizierReason is the reason that Vizier is in its current state.
 // All VizierReason values should be included in this file.
 type VizierReason string
+
+// GetMessage gets the human-readable message for a Vizier status reason.
+func (reason VizierReason) GetMessage() string {
+	msg := reasonToMessageMap[reason]
+	if msg == "" {
+		msg = string(reason)
+	}
+	return msg
+}
 
 const (
 	// VizierVersionTooOld occurs when the running Vizier version is more than one major version too old.
@@ -112,6 +114,9 @@ const (
 	NATSPodMissing VizierReason = "NATSPodMissing"
 	// NATSPodFailed occurs when the nats pod failed to start up.
 	NATSPodFailed VizierReason = "NATSPodFailed"
+
+	// UnableToConnectToCloud occurs when the Operator cannot make requests to the Pixie Cloud instance.
+	UnableToConnectToCloud VizierReason = "UnableToConnectToCloud"
 
 	// PEMsSomeInsufficientMemory occurs when some PEMs (strictly not all) fail to schedule due to insufficient memory. If all PEMs experience
 	// insufficient memory, then the Reason should be PEMsAllInsufficientMemory.

@@ -23,7 +23,7 @@ pl_go_overrides()
 
 go_download_sdk(
     name = "go_sdk",
-    version = "1.19",
+    version = "1.19.2",
 )
 
 go_rules_dependencies()
@@ -154,7 +154,17 @@ load("@pxapi_python_doc_deps//:requirements.bzl", pxapi_py_doc_install_deps = "i
 pxapi_py_doc_install_deps()
 
 # Setup thrift: used for building Stirling tracing targets.
+load("//bazel:netty.bzl", "fetch_netty_tcnative_jars")
 load("//bazel:thrift.bzl", "thrift_deps")
+
+# TODO(ddelnano): Remove once rules_jvm_external is no longer impacted.
+# Recent netty-tcnative releases cause rules_jvm_external to fail with a
+# cyclic dependency issue due to its use of multi-classifiers. This is fixed
+# by installing the netty jars manually and then overriding maven to use them. See
+# https://github.com/bazelbuild/rules_jvm_external/issues/704 for more details.
+netty_tcnative_version = "2.0.53.Final"
+
+fetch_netty_tcnative_jars(netty_tcnative_version)
 
 thrift_deps(scala_version = scala_version)
 
@@ -188,22 +198,22 @@ gazelle_dependencies(go_sdk = "go_sdk")
 # Download alternative go toolchains after all other dependencies, so that they aren't used by external dependencies.
 go_download_sdk(
     name = "go_sdk_1_16",
-    version = "1.16.14",
+    version = "1.16.15",
 )
 
 go_download_sdk(
     name = "go_sdk_1_17",
-    version = "1.17.11",
+    version = "1.17.13",
 )
 
 go_download_sdk(
     name = "go_sdk_1_18",
-    version = "1.18.5",
+    version = "1.18.7",
 )
 
 go_download_sdk(
     name = "go_sdk_1_19",
-    version = "1.19",
+    version = "1.19.2",
 )
 
 pip_parse(

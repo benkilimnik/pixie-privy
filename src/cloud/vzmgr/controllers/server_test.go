@@ -133,28 +133,28 @@ func mustLoadTestData(db *sqlx.DB) {
 	testPastStatus := "UNHEALTHY"
 
 	insertClusterInfo := `INSERT INTO vizier_cluster_info(vizier_cluster_id, status, jwt_signing_key, last_heartbeat,
-						  vizier_version, cluster_version, control_plane_pod_statuses,
+						  vizier_version, operator_version, cluster_version, control_plane_pod_statuses,
 							unhealthy_data_plane_pod_statuses, num_nodes, num_instrumented_nodes, status_message,
 							prev_status, prev_status_time)
-						  VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
+						  VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
 	db.MustExec(insertClusterInfo, "123e4567-e89b-12d3-a456-426655440000", "UNKNOWN",
-		"key0", "2011-05-16 15:36:38", "", "", testPodStatuses, testDataPlanePodStatuses, 10, 8, "",
+		"key0", "2011-05-16 15:36:38", "", "", "", testPodStatuses, testDataPlanePodStatuses, 10, 8, "",
 		&testPastStatus, testPastTime)
 	db.MustExec(insertClusterInfo, "123e4567-e89b-12d3-a456-426655440001", "HEALTHY",
 		"\\xc30d04070302c5374a5098262b6d7bd23f01822f741dbebaa680b922b55fd16eb985aeb09505f8fc4a36f0e11ebb8e18f01f684146c761e2234a81e50c21bca2907ea37736f2d9a5834997f4dd9e288c",
-		"2011-05-17 15:36:38", "vzVers", "cVers", "{}", "{}", 12, 9, "This is a test", &testPastStatus, testPastTime)
+		"2011-05-17 15:36:38", "vzVers", "opVers", "cVers", "{}", "{}", 12, 9, "This is a test", &testPastStatus, testPastTime)
 	db.MustExec(insertClusterInfo, "123e4567-e89b-12d3-a456-426655440002", "UNHEALTHY", "key2", "2011-05-18 15:36:38",
-		"", "", "{}", "{}", 4, 4, "", nil, nil)
+		"", "", "", "{}", "{}", 4, 4, "", nil, nil)
 	db.MustExec(insertClusterInfo, testDisconnectedClusterEmptyUID, "DISCONNECTED", "key3", "2011-05-19 15:36:38",
-		"", "", "{}", "{}", 3, 2, "", nil, nil)
+		"", "", "", "{}", "{}", 3, 2, "", nil, nil)
 	db.MustExec(insertClusterInfo, testExistingCluster, "DISCONNECTED", "key3", "2011-05-19 15:36:38",
-		"", "", "{}", "{}", 5, 4, "", nil, nil)
+		"", "", "", "{}", "{}", 5, 4, "", nil, nil)
 	db.MustExec(insertClusterInfo, testExistingClusterActive, "UNHEALTHY", "key3", "2011-05-19 15:36:38",
-		"", "", "{}", "{}", 10, 4, "", nil, nil)
+		"", "", "", "{}", "{}", 10, 4, "", nil, nil)
 	db.MustExec(insertClusterInfo, "223e4567-e89b-12d3-a456-426655440003", "HEALTHY", "key3", "2011-05-19 15:36:38",
-		"", "", "{}", "{}", 2, 0, "", nil, nil)
+		"", "", "", "{}", "{}", 2, 0, "", nil, nil)
 	db.MustExec(insertClusterInfo, "323e4567-e89b-12d3-a456-426655440003", "HEALTHY", "key3", "2011-05-19 15:36:38",
-		"", "", "{}", "{}", 4, 2, "", nil, nil)
+		"", "", "", "{}", "{}", 4, 2, "", nil, nil)
 
 	db.MustExec(`UPDATE vizier_cluster SET cluster_name=NULL WHERE id=$1`, testDisconnectedClusterEmptyUID)
 }
@@ -243,6 +243,7 @@ func TestServer_GetVizierInfo(t *testing.T) {
 	assert.Equal(t, resp.Status, cvmsgspb.VZ_ST_HEALTHY)
 	assert.Greater(t, resp.LastHeartbeatNs, int64(0))
 	assert.Equal(t, "vzVers", resp.VizierVersion)
+	assert.Equal(t, "opVers", resp.OperatorVersion)
 	assert.Equal(t, "cVers", resp.ClusterVersion)
 	assert.Equal(t, "healthy_cluster", resp.ClusterName)
 	assert.Equal(t, "cUID", resp.ClusterUID)
@@ -400,6 +401,7 @@ func TestServer_HandleVizierHeartbeat(t *testing.T) {
 		expectedControlPlanePodStatuses controllers.PodStatuses
 		unhealthyDataPlanePodStatuses   controllers.PodStatuses
 		clusterVersion                  string
+		operatorVersion                 string
 		numNodes                        int32
 		numInstrumentedNodes            int32
 		checkVersion                    bool
@@ -417,6 +419,7 @@ func TestServer_HandleVizierHeartbeat(t *testing.T) {
 			controlPlanePodStatuses:         testPodStatuses,
 			unhealthyDataPlanePodStatuses:   testDataPlanePodStatuses,
 			clusterVersion:                  "v1.20.1",
+			operatorVersion:                 "0.0.30",
 			numNodes:                        4,
 			numInstrumentedNodes:            3,
 			checkVersion:                    true,
@@ -514,6 +517,7 @@ func TestServer_HandleVizierHeartbeat(t *testing.T) {
 				PodStatuses:                   tc.controlPlanePodStatuses,
 				UnhealthyDataPlanePodStatuses: tc.unhealthyDataPlanePodStatuses,
 				K8sClusterVersion:             tc.clusterVersion,
+				OperatorVersion:               tc.operatorVersion,
 				NumNodes:                      tc.numNodes,
 				NumInstrumentedNodes:          tc.numInstrumentedNodes,
 				DisableAutoUpdate:             tc.disableAutoUpdate,
@@ -538,7 +542,7 @@ func TestServer_HandleVizierHeartbeat(t *testing.T) {
 			clusterQuery := `
 			SELECT status, last_heartbeat, control_plane_pod_statuses, num_nodes, num_instrumented_nodes,
 			auto_update_enabled, unhealthy_data_plane_pod_statuses, prev_status,
-			prev_status_time, cluster_version, status_message
+			prev_status_time, cluster_version, operator_version, status_message
 			FROM vizier_cluster_info WHERE vizier_cluster_id=$1`
 			var clusterInfo struct {
 				Status                        string                  `db:"status"`
@@ -546,6 +550,7 @@ func TestServer_HandleVizierHeartbeat(t *testing.T) {
 				PrevStatus                    *string                 `db:"prev_status"`
 				PrevStatusTime                *time.Time              `db:"prev_status_time"`
 				ClusterVersion                *string                 `db:"cluster_version"`
+				OperatorVersion               *string                 `db:"operator_version"`
 				ControlPlanePodStatuses       controllers.PodStatuses `db:"control_plane_pod_statuses"`
 				UnhealthyDataPlanePodStatuses controllers.PodStatuses `db:"unhealthy_data_plane_pod_statuses"`
 				NumNodes                      int32                   `db:"num_nodes"`
@@ -564,6 +569,7 @@ func TestServer_HandleVizierHeartbeat(t *testing.T) {
 				assert.Equal(t, tc.expectedPrevStatus, *clusterInfo.PrevStatus)
 			}
 			assert.Equal(t, tc.clusterVersion, *clusterInfo.ClusterVersion)
+			assert.Equal(t, tc.operatorVersion, *clusterInfo.OperatorVersion)
 			assert.Equal(t, tc.updatedClusterStatus, clusterInfo.Status)
 			assert.Equal(t, tc.numNodes, clusterInfo.NumNodes)
 			assert.Equal(t, tc.numInstrumentedNodes, clusterInfo.NumInstrumentedNodes)

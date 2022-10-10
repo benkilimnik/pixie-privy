@@ -5,7 +5,7 @@ namespace: plc-testing
 commonLabels:
   app: pl-cloud
 resources:
+- ../base/ssd
 - elastic
 - kibana
 - nats
-- stan

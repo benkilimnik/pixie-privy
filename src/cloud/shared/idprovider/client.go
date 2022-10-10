@@ -623,9 +623,7 @@ func (c *HydraKratosClient) GetUserIDFromToken(ctx context.Context, token string
 
 // KratosUserInfo contains the user information format as stored in Kratos.
 type KratosUserInfo struct {
-	Email    string `json:"email,omitempty"`
-	PLOrgID  string `json:"plOrgID,omitempty"`
-	PLUserID string `json:"plUserID,omitempty"`
+	Email string `json:"email,omitempty"`
 	// KratosID is the ID assigned to the user by Kratos.
 	KratosID string `json:"-"`
 }
@@ -737,17 +735,4 @@ func (c *HydraKratosClient) CreateInviteLinkForIdentity(ctx context.Context, req
 	return &CreateInviteLinkForIdentityResponse{
 		InviteLink: *recovery.Payload.RecoveryLink,
 	}, nil
-}
-
-// SetPLMetadata will update the client with the related info.
-func (c *HydraKratosClient) SetPLMetadata(userID, plOrgID, plUserID string) error {
-	// TODO(philkuz,PC-1073) get rid of this in favor of not duplicating hydra_kratos_auth.go.
-	kratosInfo, err := c.GetUserInfo(context.Background(), userID)
-	if err != nil {
-		return err
-	}
-	kratosInfo.PLOrgID = plOrgID
-	kratosInfo.PLUserID = plUserID
-	_, err = c.UpdateUserInfo(context.Background(), userID, kratosInfo)
-	return err
 }

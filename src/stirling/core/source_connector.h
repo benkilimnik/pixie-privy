@@ -19,6 +19,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "src/common/base/base.h"
@@ -27,6 +28,7 @@
 #include "src/stirling/core/connector_context.h"
 #include "src/stirling/core/data_table.h"
 #include "src/stirling/core/frequency_manager.h"
+#include "src/stirling/core/info_class_manager.h"
 
 /**
  * These are the steps to follow to add a new data source connector.
@@ -39,6 +41,9 @@
 
 namespace px {
 namespace stirling {
+
+// Holds InfoClassManager and DataTable.
+struct SourceOutput {};
 
 class SourceConnector : public NotCopyable {
  public:
@@ -58,16 +63,17 @@ class SourceConnector : public NotCopyable {
   void InitContext(ConnectorContext* ctx);
 
   /**
-   * Transfers all collected data to data tables.
+   * Populates local data tables.
+   * For BPF based source connectors, the BPF tables will be drained and data transferred into
+   * the local data tables.
    * @param ctx Shared context, e.g. ASID & tracked PIDs.
-   * @param data_tables Map from the table number to DataTable objects.
    */
-  void TransferData(ConnectorContext* ctx, const std::vector<DataTable*>& data_tables);
+  void TransferData(ConnectorContext* ctx);
 
   /**
    * Pushes data in data tables into table store.
    */
-  void PushData(DataPushCallback agent_callback, const std::vector<DataTable*>& data_tables);
+  void PushData(DataPushCallback agent_callback);
 
   /**
    * Stops the source connector and releases any acquired resources.
@@ -114,8 +120,13 @@ class SourceConnector : public NotCopyable {
   virtual void EnablePIDTrace(int pid) { pids_to_trace_.insert(pid); }
   virtual void DisablePIDTrace(int pid) { pids_to_trace_.erase(pid); }
 
-  const FrequencyManager& sampling_freq_mgr() const { return sampling_freq_mgr_; }
-  const FrequencyManager& push_freq_mgr() const { return push_freq_mgr_; }
+  FrequencyManager& sampling_freq_mgr() { return sampling_freq_mgr_; }
+  FrequencyManager& push_freq_mgr() { return push_freq_mgr_; }
+  const std::vector<DataTable*>& data_tables() const { return data_tables_; }
+
+  void set_data_tables(std::vector<DataTable*> data_tables) {
+    data_tables_ = std::move(data_tables);
+  }
 
  protected:
   explicit SourceConnector(std::string_view source_name,
@@ -128,7 +139,7 @@ class SourceConnector : public NotCopyable {
   // SourceConnectors only need override if action is required on the initial context.
   virtual void InitContextImpl(ConnectorContext* /* ctx */) {}
 
-  virtual void TransferDataImpl(ConnectorContext*, const std::vector<DataTable*>&) = 0;
+  virtual void TransferDataImpl(ConnectorContext* /* ctx */) = 0;
 
   virtual Status StopImpl() = 0;
 
@@ -148,6 +159,8 @@ class SourceConnector : public NotCopyable {
 
   FrequencyManager sampling_freq_mgr_;
   FrequencyManager push_freq_mgr_;
+
+  std::vector<DataTable*> data_tables_;
 
   // Debug members.
   int debug_level_ = 0;

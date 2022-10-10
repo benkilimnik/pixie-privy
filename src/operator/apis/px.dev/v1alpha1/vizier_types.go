@@ -28,6 +28,8 @@ package v1alpha1
 import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"px.dev/pixie/src/shared/status"
 )
 
 // VizierSpec defines the desired state of Vizier
@@ -73,6 +75,10 @@ type VizierSpec struct {
 	DataCollectorParams *DataCollectorParams `json:"dataCollectorParams,omitempty"`
 	// LeadershipElectionParams specifies configurable values for the K8s leaderships elections which Vizier uses manage pod leadership.
 	LeadershipElectionParams *LeadershipElectionParams `json:"leadershipElectionParams,omitempty"`
+	// Registry specifies the image registry to use rather than Pixie's default registry (gcr.io). We expect any forward slashes in
+	// Pixie's image paths are replaced with a "-". For example: "gcr.io/pixie-oss/pixie-dev/vizier/metadata_server_image:latest"
+	// should be pushed to "$registry/gcr.io-pixie-oss-pixie-dev-vizier-metadata_server_image:latest".
+	Registry string `json:"registry,omitempty"`
 }
 
 // DataAccessLevel defines the levels of data access that can be used when executing a script on a cluster.
@@ -124,6 +130,8 @@ type VizierStatus struct {
 	// A checksum of the last reconciled Vizier spec. If this checksum does not match the checksum
 	// of the current vizier spec, reconciliation should be performed.
 	Checksum []byte `json:"checksum,omitempty"`
+	// OperatorVersion is the actual version of the Operator instance.
+	OperatorVersion string `json:"operatorVersion,omitempty"`
 }
 
 // VizierPhase is a high-level summary of where the Vizier is in its lifecycle.
@@ -183,7 +191,7 @@ type PodPolicy struct {
 }
 
 // PodSecurityContext describes the desired security context for non-privileged pods. This may be required for some
-// cases with more restrictive PodSecurityPolicies.
+// cases with more restrictive PodSecurityAdmissions.
 type PodSecurityContext struct {
 	// Whether a securityContext should be set on the pod. In cases where no PSPs are applied to the cluster, this is
 	// not necessary.
@@ -226,6 +234,34 @@ type Vizier struct {
 
 	Spec   VizierSpec   `json:"spec,omitempty"`
 	Status VizierStatus `json:"status,omitempty"`
+}
+
+// SetReconciliationPhase updates the Vizier status with the given ReconciliationPhase.
+func (vz *Vizier) SetReconciliationPhase(rp ReconciliationPhase) {
+	vz.Status.ReconciliationPhase = rp
+	timeNow := metav1.Now()
+	vz.Status.LastReconciliationPhaseTime = &timeNow
+}
+
+// SetStatus updates the Vizier status with the given Reason.
+func (vz *Vizier) SetStatus(reason status.VizierReason) {
+	vz.Status.VizierPhase = ReasonToPhase(reason)
+	vz.Status.VizierReason = string(reason)
+	vz.Status.Message = reason.GetMessage()
+}
+
+// ReasonToPhase converts the Reason into the relevant Phase.
+func ReasonToPhase(reason status.VizierReason) VizierPhase {
+	switch reason {
+	case "":
+		return VizierPhaseHealthy
+	case status.CloudConnectorMissing:
+		return VizierPhaseDisconnected
+	case status.PEMsSomeInsufficientMemory, status.KernelVersionsIncompatible, status.PEMsHighFailureRate:
+		return VizierPhaseDegraded
+	default:
+		return VizierPhaseUnhealthy
+	}
 }
 
 // VizierList contains a list of Vizier

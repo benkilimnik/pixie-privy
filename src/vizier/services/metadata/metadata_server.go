@@ -21,9 +21,11 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/cockroachdb/pebble"
@@ -115,9 +117,10 @@ func cleanupOldPebbleData() {
 	if err != nil {
 		log.WithError(err).Fatal("Failed to read the metadata dir. Is the PVC correctly provisioned and running?")
 	}
+	pebblePath := strings.TrimPrefix(pebbleOpenDir, fmt.Sprintf("%s/", metadataBaseMount))
 
 	for _, file := range files {
-		if file.IsDir() && file.Name() == pebbleOpenDir {
+		if file.IsDir() && strings.HasPrefix(file.Name(), pebblePath) {
 			// This is the current pebble dir, skip.
 			continue
 		}
@@ -230,7 +233,7 @@ func main() {
 	k8sMds := k8smeta.NewDatastore(dataStore)
 	// Listen for K8s metadata updates.
 	updateCh := make(chan *k8smeta.K8sResourceMessage)
-	mdh := k8smeta.NewHandler(updateCh, k8sMds, nc)
+	mdh := k8smeta.NewHandler(updateCh, k8sMds, k8sMds, nc)
 
 	k8sMc, err := k8smeta.NewController(updateCh)
 	defer k8sMc.Stop()

@@ -24,9 +24,15 @@ spec:
         envFrom:
         - configMapRef:
             name: pl-db-config
+        - configMapRef:
+            name: pl-domain-config
+        - configMapRef:
+            name: pl-tls-config
         volumeMounts:
         - mountPath: /tmp/pod
           name: tmp-pod
+        - name: certs
+          mountPath: /certs
         env:
         - name: PL_POSTGRES_USERNAME
           valueFrom:
@@ -38,6 +44,16 @@ spec:
             secretKeyRef:
               name: pl-db-secrets
               key: PL_POSTGRES_PASSWORD
+        - name: PL_JWT_SIGNING_KEY
+          valueFrom:
+            secretKeyRef:
+              name: cloud-auth-secrets
+              key: jwt-signing-key
+        - name: PL_PLUGIN_SERVICE
+          valueFrom:
+            configMapKeyRef:
+              name: pl-service-config
+              key: PL_PLUGIN_SERVICE
         - name: PL_PLUGIN_REPO
           value: "pixie-io/pixie-plugin"
       - image: b.gcr.io/cloudsql-docker/gce-proxy:1.14
@@ -71,6 +87,9 @@ spec:
       - name: pl-db-secrets
         secret:
           secretName: pl-db-secrets
+      - name: certs
+        secret:
+          secretName: service-tls-certs
       - name: tmp-pod
         emptyDir: {}
   backoffLimit: 1

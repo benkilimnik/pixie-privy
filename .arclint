@@ -10,11 +10,11 @@
     "(\\.tsx\\.snap$)",
     "(\\.pbtxt$)",
     "(\\.sublime-project$)",
-    "(^credentials\/.*\\.sh)",
-    "(^credentials\/.*\\.yaml)",
-    "(^credentials\/.*\\.sh)",
+    "(^private\/credentials\/.*\\.sh)",
+    "(^private\/credentials\/.*\\.yaml)",
+    "(^private\/credentials\/.*\\.sh)",
     "(^docs/customer/)",
-    "(^experimental/users/)",
+    "(^private/users/)",
     "(^k8s/operator/crd/base/px\\.dev_viziers\\.yaml$)",
     "(^src/operator/client/versioned/)",
     "(^src/stirling/bpf_tools/bcc_bpf/system-headers)",
@@ -32,7 +32,8 @@
     "(c_cpp_properties.json$)",
     "(go\\.mod$)",
     "(go\\.sum$)",
-    "(^third_party/cpplint/cpplint.py$)"
+    "(^third_party/cpplint/cpplint.py$)",
+    "(^third_party/github.com/gogo/protobuf/gogoproto/gogo.proto$)"
   ],
   "linters": {
     "bpf-naming": {
@@ -49,6 +50,7 @@
     "build-linter": {
       "type": "script-and-regex",
       "include": [
+        "(^WORKSPACE$)",
         "(^third_party/BUILD\\.bazel$)",
         "(\\.BUILD$)",
         "(BUILD\\.bazel$)",
@@ -61,7 +63,8 @@
     "clang-format": {
       "type": "clang-format",
       "include": [
-        "(\\.(m|h|mm|c|cc)$)"
+        "(\\.(m|h|mm|c|cc)$)",
+        "(\\.proto$)"
       ]
     },
     "cpplint": {

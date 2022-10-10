@@ -59,6 +59,7 @@ func (c *ConfigServiceServer) GetConfigForVizier(ctx context.Context,
 			DataCollectorParams:      vizSpecReq.DataCollectorParams,
 			DataAccess:               vizSpecReq.DataAccess,
 			LeadershipElectionParams: vizSpecReq.LeadershipElectionParams,
+			Registry:                 vizSpecReq.Registry,
 		},
 	})
 	if err != nil {
@@ -68,5 +69,21 @@ func (c *ConfigServiceServer) GetConfigForVizier(ctx context.Context,
 	return &cloudpb.ConfigForVizierResponse{
 		NameToYamlContent: resp.NameToYamlContent,
 		SentryDSN:         resp.SentryDSN,
+	}, nil
+}
+
+// GetConfigForOperator provides the key for the operator that is used to send errors and stacktraces to Sentry
+func (c *ConfigServiceServer) GetConfigForOperator(ctx context.Context,
+	req *cloudpb.ConfigForOperatorRequest) (*cloudpb.ConfigForOperatorResponse, error) {
+	ctx, err := contextWithAuthToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.ConfigServiceClient.GetConfigForOperator(ctx, &configmanagerpb.ConfigForOperatorRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return &cloudpb.ConfigForOperatorResponse{
+		SentryOperatorDSN: resp.SentryOperatorDSN,
 	}, nil
 }

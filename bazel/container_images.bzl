@@ -271,3 +271,10 @@ def stirling_test_images():
         "sha256:650c7e0093842739ddfaadec0d45946c052dba42941bd5c0a082cbe914451c25",
         "pixie-oss/demo-apps/rabbitmq/rabbitmq:3-management",
     )
+
+    # Built and pushed by src/stirling/testing/demo_apps/py_grpc/update_gcr.sh
+    _gcr_io_image(
+        "py_grpc_helloworld_image",
+        "sha256:e04fc4e9b10508eed74c4154cb1f96d047dc0195b6ef0c9d4a38d6e24238778e",
+        "pixie-oss/pixie-dev-public/python_grpc_1_19_0_helloworld:1.2",
+    )

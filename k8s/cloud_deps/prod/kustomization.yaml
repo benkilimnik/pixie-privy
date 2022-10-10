@@ -5,10 +5,10 @@ namespace: plc
 commonLabels:
   app: pl-cloud
 resources:
+- ../base/ssd
 - elastic
 - kibana
 - nats
-- stan
 patches:
 - path: node_selector_patch.yaml
   target:

@@ -21,9 +21,9 @@ package md
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v3"
 	"github.com/gofrs/uuid"
 	"github.com/olivere/elastic/v7"
 	"github.com/prometheus/client_golang/prometheus"
@@ -34,20 +34,20 @@ import (
 )
 
 const (
-	maxActionsPerBatch          = 256
-	maxActionBatchFlushInterval = time.Second * 30
-	maxElasticBackoffInterval   = time.Second * 60
+	maxActionsPerBatch = 256
+	// The period when we flush data to Elasticsearch.
+	defaultFlushInterval = time.Second * 10
 )
 
 var (
-	elasticRetriesCollector = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "elastic_index_retries",
-		Help: "The number of retries for this particular index",
+	elasticFailuresCollector = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "elastic_index_failures",
+		Help: "The number of failures for the vizier_id index",
 	}, []string{"vizier_id"})
 )
 
 func init() {
-	prometheus.MustRegister(elasticRetriesCollector)
+	prometheus.MustRegister(elasticFailuresCollector)
 }
 
 // VizierIndexer run the indexer for a single vizier index.
@@ -64,35 +64,62 @@ type VizierIndexer struct {
 	quitCh chan bool
 	errCh  chan error
 
-	// Specification for when to flush updates to Elastic using the bulk API.
-	maxActionsPerBatch          int
-	maxActionBatchFlushInterval time.Duration
-	lastFlushTime               time.Time
+	bulkMu            sync.Mutex
+	bulkFlushInterval time.Duration
 }
 
 // NewVizierIndexerWithBulkSettings creates a new Vizier indexer with bulk settings.
 func NewVizierIndexerWithBulkSettings(vizierID uuid.UUID, orgID uuid.UUID, k8sUID, indexName string, st msgbus.Streamer,
-	es *elastic.Client, actionsPerBatch int, batchFlushInterval time.Duration) *VizierIndexer {
+	es *elastic.Client, batchFlushInterval time.Duration) *VizierIndexer {
 	return &VizierIndexer{
 		st: st,
 		es: es,
 		// This will get automatically reset for reuse after every call to `bulk.Do`.
-		bulk:                        es.Bulk().Index(indexName),
-		vizierID:                    vizierID,
-		orgID:                       orgID,
-		k8sUID:                      k8sUID,
-		indexName:                   indexName,
-		quitCh:                      make(chan bool),
-		errCh:                       make(chan error),
-		maxActionsPerBatch:          actionsPerBatch,
-		maxActionBatchFlushInterval: batchFlushInterval,
-		lastFlushTime:               time.Now(),
+		bulk:              es.Bulk().Index(indexName),
+		vizierID:          vizierID,
+		orgID:             orgID,
+		k8sUID:            k8sUID,
+		indexName:         indexName,
+		quitCh:            make(chan bool),
+		errCh:             make(chan error),
+		bulkFlushInterval: batchFlushInterval,
 	}
 }
 
 // NewVizierIndexer creates a new Vizier indexer.
 func NewVizierIndexer(vizierID uuid.UUID, orgID uuid.UUID, k8sUID, indexName string, st msgbus.Streamer, es *elastic.Client) *VizierIndexer {
-	return NewVizierIndexerWithBulkSettings(vizierID, orgID, k8sUID, indexName, st, es, maxActionsPerBatch, maxActionBatchFlushInterval)
+	return NewVizierIndexerWithBulkSettings(vizierID, orgID, k8sUID, indexName, st, es, defaultFlushInterval)
+}
+
+func (v *VizierIndexer) flush() {
+	v.bulkMu.Lock()
+	defer v.bulkMu.Unlock()
+
+	// Don't run if there's nothing to flush.
+	if v.bulk.NumberOfActions() == 0 {
+		return
+	}
+
+	_, err := v.bulk.Refresh("false").Do(context.Background())
+	if err != nil {
+		log.WithError(err).Error("Failed to flush bulk")
+		// Record the failure in prometheus.
+		elasticFailuresCollector.WithLabelValues(v.vizierID.String()).Add(1.0)
+	}
+}
+
+// FlushRoutine runs the routine that handles bulk API flushing.
+func (v *VizierIndexer) FlushRoutine() {
+	ticker := time.NewTicker(v.bulkFlushInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-v.quitCh:
+			return
+		case <-ticker.C:
+			v.flush()
+		}
+	}
 }
 
 // Start starts the indexer.
@@ -102,7 +129,7 @@ func (v *VizierIndexer) Start(topic string) error {
 		WithField("ClusterUID", v.k8sUID).
 		Info("Starting Indexer")
 
-	sub, err := v.st.PersistentSubscribe(topic, "indexer"+v.indexName, v.streamHandler)
+	sub, err := v.st.PersistentSubscribe(topic, v.indexName, v.streamHandler)
 	if err != nil {
 		return fmt.Errorf("Failed to subscribe to topic %s: %s", topic, err.Error())
 	}
@@ -118,6 +145,9 @@ func (v *VizierIndexer) Start(topic string) error {
 			}
 		}
 	}()
+
+	go v.FlushRoutine()
+
 	return nil
 }
 
@@ -279,12 +309,12 @@ ctx._source.state = params.state;
 func (v *VizierIndexer) streamHandler(msg msgbus.Msg) {
 	ru := metadatapb.ResourceUpdate{}
 	err := ru.Unmarshal(msg.Data())
-	if err != nil { // We received an invalid message through stan.
-		log.WithError(err).Error("Could not unmarshal message from stan")
+	if err != nil {
+		log.WithError(err).Error("Could not unmarshal message from JetStream")
 		v.errCh <- err
 		err = msg.Ack()
 		if err != nil {
-			log.WithError(err).Error("Failed to ack stan msg")
+			log.WithError(err).Error("Failed to ack JetStream msg")
 		}
 		return
 	}
@@ -295,7 +325,7 @@ func (v *VizierIndexer) streamHandler(msg msgbus.Msg) {
 		v.errCh <- err
 		err = msg.Ack()
 		if err != nil {
-			log.WithError(err).Error("Failed to ack stan msg")
+			log.WithError(err).Error("Failed to ack JetStream msg")
 		}
 
 		return
@@ -303,7 +333,7 @@ func (v *VizierIndexer) streamHandler(msg msgbus.Msg) {
 
 	err = msg.Ack()
 	if err != nil {
-		log.WithError(err).Error("Failed to ack stan msg")
+		log.WithError(err).Error("Failed to ack JetStream msg")
 	}
 }
 
@@ -325,24 +355,13 @@ func (v *VizierIndexer) HandleResourceUpdate(update *metadatapb.ResourceUpdate) 
 				Param("state", esEntity.State).
 				Lang("painless")).
 		Upsert(esEntity)
+	v.bulkMu.Lock()
 	v.bulk.Add(req)
+	numPending := v.bulk.NumberOfActions()
+	v.bulkMu.Unlock()
 
-	if v.bulk.NumberOfActions() >= v.maxActionsPerBatch || time.Since(v.lastFlushTime) > v.maxActionBatchFlushInterval {
-		bo := backoff.NewExponentialBackOff()
-		// We never want this to return for now and are hoping
-		// that elastic should start to respond after enough time.
-		bo.MaxElapsedTime = 0
-		bo.MaxInterval = maxElasticBackoffInterval
-
-		retryCount := 0.0
-		retryErr := backoff.Retry(func() error {
-			_, err := v.bulk.Refresh("wait_for").Do(context.Background())
-			elasticRetriesCollector.WithLabelValues(v.vizierID.String()).Set(retryCount)
-			retryCount++
-			return err
-		}, bo)
-		v.lastFlushTime = time.Now()
-		return retryErr
+	if numPending >= maxActionsPerBatch {
+		v.flush()
 	}
 
 	return nil

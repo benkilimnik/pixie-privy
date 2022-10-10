@@ -28,6 +28,7 @@
 
 #include "src/common/base/base.h"
 #include "src/common/fs/fs_wrapper.h"
+#include "src/common/perf/scoped_timer.h"
 #include "src/common/system/config.h"
 #include "src/stirling/bpf_tools/task_struct_resolver.h"
 #include "src/stirling/utils/linux_headers.h"
@@ -165,9 +166,13 @@ Status BCCWrapper::InitBPFProgram(std::string_view bpf_program, std::vector<std:
 
   PL_RETURN_IF_ERROR(MountDebugFS());
 
-  auto init_res = bpf_.init(std::string(bpf_program), cflags);
-  if (!init_res.ok()) {
-    return error::Internal("Unable to initialize BCC BPF program: $0", init_res.msg());
+  {
+    LOG(INFO) << "Initializing BPF program ...";
+    ScopedTimer timer("init_bpf_program");
+    auto init_res = bpf_.init(std::string(bpf_program), cflags);
+    if (!init_res.ok()) {
+      return error::Internal("Unable to initialize BCC BPF program: $0", init_res.msg());
+    }
   }
   return Status::OK();
 }
@@ -342,9 +347,9 @@ Status BCCWrapper::OpenPerfBuffer(const PerfBufferSpec& perf_buffer, void* cb_co
   // Perf buffers must be sized to a power of 2.
   num_pages = IntRoundUpToPow2(num_pages);
 
-  LOG(INFO) << absl::Substitute(
-      "Opening perf buffer: $0 [requested_size=$1 num_pages=$2 size=$3] (per cpu)",
-      perf_buffer.name, perf_buffer.size_bytes, num_pages, num_pages * kPageSizeBytes);
+  VLOG(1) << absl::Substitute(
+      "Opening perf buffer: [$0] [allocated_num_pages=$1 allocated_size_bytes=$2] (per cpu)",
+      perf_buffer.ToString(), num_pages, num_pages * kPageSizeBytes);
   PL_RETURN_IF_ERROR(bpf_.open_perf_buffer(std::string(perf_buffer.name),
                                            perf_buffer.probe_output_fn, perf_buffer.probe_loss_fn,
                                            cb_cookie, num_pages));

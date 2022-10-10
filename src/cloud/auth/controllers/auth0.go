@@ -32,14 +32,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-const (
-	googleIdentityProvider = "google-oauth2"
-	auth0IdentityProvider  = "auth0"
-)
-
 func init() {
 	pflag.String("auth0_host", "https://pixie-labs.auth0.com", "The auth0 hostname")
-	pflag.String("google_oauth_userinfo_url", "https://www.googleapis.com/oauth2/v2/userinfo", "Google OAuth2 URL for userinfo.")
 	pflag.String("auth0_client_id", "", "Auth0 client ID")
 	pflag.String("auth0_client_secret", "", "Auth0 client secret")
 }
@@ -51,47 +45,7 @@ func (a *Auth0Connector) retrieveHostedDomain(ident *auth0Identity) (string, err
 	if ident.Provider != googleIdentityProvider {
 		return "", nil
 	}
-	token := ident.AccessToken
-	client := &http.Client{}
-
-	req, err := http.NewRequest("GET", a.cfg.GoogleOAuth2UserInfoURL, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Authorization",
-		fmt.Sprintf("Bearer %s", token))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.New("bad response from google")
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	defer resp.Body.Close()
-
-	if err != nil {
-		return "", err
-	}
-
-	var userInfo struct {
-		// HostedDomain is the hosted G Suite domain of the user. Provided only if the user belongs to a hosted domain.
-		// see https://developers.google.com/identity/protocols/oauth2/openid-connect#an-id-tokens-payload for more info.
-		HostedDomain string `json:"hd,omitempty"`
-	}
-	if err = json.Unmarshal(body, &userInfo); err != nil {
-		return "", err
-	}
-	return userInfo.HostedDomain, nil
-}
-
-// auth0UserMetadata is a part of the Auth0 response.
-type auth0UserMetadata struct {
-	PLUserID string `json:"pl_user_id,omitempty"`
-	PLOrgID  string `json:"pl_org_id,omitempty"`
+	return retrieveGoogleHostedDomain(ident.AccessToken)
 }
 
 type auth0Identity struct {
@@ -101,16 +55,15 @@ type auth0Identity struct {
 
 // auth0UserInfo tracks the returned auth0 info.
 type auth0UserInfo struct {
-	Email         string                        `json:",omitempty"`
-	EmailVerified bool                          `json:"email_verified,omitempty"`
-	FirstName     string                        `json:"given_name,omitempty"`
-	LastName      string                        `json:"family_name,omitempty"`
-	UserID        string                        `json:"user_id,omitempty"`
-	Name          string                        `json:",omitempty"`
-	Picture       string                        `json:",omitempty"`
-	Sub           string                        `json:"sub,omitempty"`
-	AppMetadata   map[string]*auth0UserMetadata `json:"app_metadata,omitempty"`
-	Identities    []*auth0Identity              `json:"identities,omitempty"`
+	Email         string           `json:",omitempty"`
+	EmailVerified bool             `json:"email_verified,omitempty"`
+	FirstName     string           `json:"given_name,omitempty"`
+	LastName      string           `json:"family_name,omitempty"`
+	UserID        string           `json:"user_id,omitempty"`
+	Name          string           `json:",omitempty"`
+	Picture       string           `json:",omitempty"`
+	Sub           string           `json:"sub,omitempty"`
+	Identities    []*auth0Identity `json:"identities,omitempty"`
 }
 
 // Auth0Config is the config data required for Auth0.
@@ -121,7 +74,6 @@ type Auth0Config struct {
 	Auth0UserInfoEndpoint   string
 	Auth0ClientID           string
 	Auth0ClientSecret       string
-	GoogleOAuth2UserInfoURL string
 }
 
 // NewAuth0Config generates and Auth0Config based on env vars and flags.
@@ -134,7 +86,6 @@ func NewAuth0Config() Auth0Config {
 		Auth0UserInfoEndpoint:   auth0Host + "/userinfo",
 		Auth0ClientID:           viper.GetString("auth0_client_id"),
 		Auth0ClientSecret:       viper.GetString("auth0_client_secret"),
-		GoogleOAuth2UserInfoURL: viper.GetString("google_oauth_userinfo_url"),
 	}
 	return cfg
 }
@@ -319,53 +270,16 @@ func (a *Auth0Connector) GetUserInfo(userID string) (*UserInfo, error) {
 		AuthProviderID:   userInfo.UserID,
 		HostedDomain:     hostedDomain,
 	}
-	clientID := a.cfg.Auth0ClientID
-	if userInfo.AppMetadata != nil && userInfo.AppMetadata[clientID] != nil {
-		u.PLUserID = userInfo.AppMetadata[clientID].PLUserID
-		u.PLOrgID = userInfo.AppMetadata[clientID].PLOrgID
-	}
 	return u, nil
 }
 
-// SetPLMetadata sets the pixielabs related metadata in the auth0 client.
-func (a *Auth0Connector) SetPLMetadata(userID, plOrgID, plUserID string) error {
-	appMetadata := make(map[string]*auth0UserMetadata)
-	appMetadata[a.cfg.Auth0ClientID] = &auth0UserMetadata{
-		PLUserID: plUserID,
-		PLOrgID:  plOrgID,
-	}
-
-	userInfo := &auth0UserInfo{
-		AppMetadata: appMetadata,
-	}
-
-	jsonStr, err := json.Marshal(userInfo)
+// GetUserInfoFromAccessToken fetches and returns the UserInfo for the given access token.
+func (a *Auth0Connector) GetUserInfoFromAccessToken(accessToken string) (*UserInfo, error) {
+	userID, err := a.GetUserIDFromToken(accessToken)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	client := &http.Client{}
-	patchPath := fmt.Sprintf("%s/users/%s", a.cfg.Auth0MgmtAPI, userID)
-	req, err := http.NewRequest("PATCH", patchPath, bytes.NewBuffer(jsonStr))
-	if err != nil {
-		return err
-	}
-
-	managementToken, err := a.getManagementToken()
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", managementToken))
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad response from auth0: %d", resp.StatusCode)
-	}
-	return nil
+	return a.GetUserInfo(userID)
 }
 
 // CreateInviteLink implements the AuthProvider interface, but we don't support this functionatlity with Auth0 at the time.

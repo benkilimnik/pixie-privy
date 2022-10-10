@@ -18,6 +18,9 @@
 
 import * as React from 'react';
 
+import {
+  useHistory,
+} from 'react-router-dom';
 import { Observable } from 'rxjs';
 
 import {
@@ -66,6 +69,9 @@ export interface ScriptContextProps {
    */
   cancelExecution: () => void;
   manual: boolean;
+
+  /** Generates an export script from the current script and args. */
+  generateOTelExportScript: (script: string) => Promise<void>;
 }
 
 export const ScriptContext = React.createContext<ScriptContextProps>({
@@ -76,6 +82,7 @@ export const ScriptContext = React.createContext<ScriptContextProps>({
   setScriptAndArgsManually: () => {},
   execute: () => {},
   cancelExecution: () => {},
+  generateOTelExportScript: async () => {},
 });
 ScriptContext.displayName = 'ScriptContext';
 
@@ -124,6 +131,7 @@ export const ScriptContextProvider: React.FC<WithChildren> = React.memo(({ child
   const [numExecutionTries, setNumExecutionTries] = React.useState(0);
   const [hasMutation, setHasMutation] = React.useState(false);
   const [probeDeployed, setProbeDeployed] = React.useState(false);
+  const history = useHistory();
 
   // Timing: execute can be called before the API has finished returning all needed data, because VizierRoutingContext
   // does not depend on the API and can update (triggering ScriptLoader) before required data has loaded for execution.
@@ -350,6 +358,32 @@ export const ScriptContextProvider: React.FC<WithChildren> = React.memo(({ child
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serializedArgs, embedState, push, selectedClusterName]);
 
+  const generateOTelExportScript: (pxl: string) => Promise<void> = React.useCallback((pxl: string) => {
+    if (!apiClient) throw new Error('Tried to execute a script before PixieAPIClient was ready!');
+    if (!clusterConfig) {
+      throw new Error('Tried to execute before script, cluster connection, and/or args were ready!');
+    }
+
+    return apiClient.generateOTelExportScript(
+      clusterConfig,
+      pxl,
+    ).then((res: string | VizierQueryError) => {
+      if (typeof res !== 'string') {
+        const error = res as VizierQueryError;
+        if (error?.details === 'context deadline exceeded') {
+          error.details = 'Context deadline exceeded. ' +
+            'Generate OTel script is not supported on this cluster, please upgrade your installation';
+        }
+        // Then it's an error.
+        resultsContext.clearResults();
+        resultsContext.setResults({ error, tables: new Map() });
+        return;
+      }
+      // Navigate to the Plugin creation page.
+      history.push('/configure-data-export/create', { contents: res as string });
+    });
+  }, [apiClient, clusterConfig, resultsContext, history]);
+
   const context: ScriptContextProps = React.useMemo(() => ({
     script,
     args,
@@ -358,6 +392,7 @@ export const ScriptContextProvider: React.FC<WithChildren> = React.memo(({ child
     setScriptAndArgsManually,
     execute,
     cancelExecution: (cancelExecution ?? (() => {})),
+    generateOTelExportScript,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [script, execute, serializedArgs, selectedClusterName, setScriptAndArgs, setScriptAndArgsManually]);
 

@@ -180,6 +180,7 @@ func (s *Server) GetConfigForVizier(ctx context.Context,
 		SentryDSN:             getSentryDSN(in.VzSpec.Version),
 		ClockConverter:        in.VzSpec.ClockConverter,
 		DataAccess:            in.VzSpec.DataAccess,
+		Registry:              in.VzSpec.Registry,
 	}
 
 	if in.VzSpec.DataCollectorParams != nil && in.VzSpec.DataCollectorParams.DatastreamBufferSize != 0 {
@@ -299,4 +300,11 @@ func fetchVizierTemplates(ctx context.Context, authToken,
 	}
 
 	return yamlFiles, nil
+}
+
+// GetConfigForOperator provides the key for the operator that is used to send errors and stacktraces to Sentry
+func (s *Server) GetConfigForOperator(ctx context.Context, in *cpb.ConfigForOperatorRequest) (*cpb.ConfigForOperatorResponse, error) {
+	return &cpb.ConfigForOperatorResponse{
+		SentryOperatorDSN: viper.GetString("operator_sentry"),
+	}, nil
 }

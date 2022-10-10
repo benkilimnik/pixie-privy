@@ -21,10 +21,11 @@ package controllers
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -110,8 +111,9 @@ type VizierMonitor struct {
 	cancel      func()
 	cloudClient *grpc.ClientConn
 
-	namespace      string
-	namespacedName types.NamespacedName
+	namespace         string
+	namespacedName    types.NamespacedName
+	devCloudNamespace string
 
 	podStates *concurrentPodMap
 	nodeState *vizierState
@@ -123,7 +125,7 @@ type VizierMonitor struct {
 }
 
 // InitAndStartMonitor initializes and starts the status monitor for the Vizier.
-func (m *VizierMonitor) InitAndStartMonitor(cloudClient *grpc.ClientConn) error {
+func (m *VizierMonitor) InitAndStartMonitor(cloudClient *grpc.ClientConn) {
 	// Initialize current state.
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -162,8 +164,6 @@ func (m *VizierMonitor) InitAndStartMonitor(cloudClient *grpc.ClientConn) error 
 	// reconciling the Vizier status.
 	go m.statusAggregator(nodeStateCh, pvcStateCh)
 	go m.runReconciler()
-
-	return nil
 }
 
 func (m *VizierMonitor) onAddPod(obj interface{}) {
@@ -249,7 +249,12 @@ func getNATSState(client HTTPClient, pods *concurrentPodMap) *vizierState {
 		return &vizierState{Reason: status.NATSPodFailed}
 	}
 
-	resp, err := client.Get(fmt.Sprintf("http://%s:%d/", natsPod.pod.Status.PodIP, 8222))
+	u := url.URL{
+		Scheme: "http",
+		Host:   net.JoinHostPort(natsPod.pod.Status.PodIP, "8222"),
+	}
+
+	resp, err := client.Get(u.String())
 	if err != nil {
 		log.WithError(err).Error("Error making nats monitoring call")
 		return &vizierState{Reason: status.NATSPodFailed}
@@ -481,27 +486,6 @@ func (m *VizierMonitor) getVizierState(vz *pixiev1alpha1.Vizier) *vizierState {
 	return okState()
 }
 
-// translateReasonToPhase maps a specific VizierReason into a more general VizierPhase.
-// Empty reasons are considered healthy and unmatched reasons are by default unhealthy.
-func translateReasonToPhase(reason status.VizierReason) pixiev1alpha1.VizierPhase {
-	if reason == "" {
-		return pixiev1alpha1.VizierPhaseHealthy
-	}
-	if reason == status.CloudConnectorMissing {
-		return pixiev1alpha1.VizierPhaseDisconnected
-	}
-	if reason == status.PEMsSomeInsufficientMemory {
-		return pixiev1alpha1.VizierPhaseDegraded
-	}
-	if reason == status.KernelVersionsIncompatible {
-		return pixiev1alpha1.VizierPhaseDegraded
-	}
-	if reason == status.PEMsHighFailureRate {
-		return pixiev1alpha1.VizierPhaseDegraded
-	}
-	return pixiev1alpha1.VizierPhaseUnhealthy
-}
-
 func (m *VizierMonitor) statusAggregator(nodeStateCh, pvcStateCh <-chan *vizierState) {
 	for {
 		select {
@@ -525,20 +509,19 @@ func (m *VizierMonitor) statusAggregator(nodeStateCh, pvcStateCh <-chan *vizierS
 func (m *VizierMonitor) repairVizier(state *vizierState) error {
 	// Input validation: Return if state is good
 	if state.Reason == "" {
-		err := errors.New("Trying to repair when state is good")
-		log.WithError(err).Error()
-		return err
+		log.Warn("Vizier seems to have repaired itself")
+		return nil
 	}
 
 	// Delete pod if nats pod failed
 	if state.Reason == status.NATSPodFailed {
 		err := m.clientset.CoreV1().Pods(m.namespace).Delete(m.ctx, natsPodName, metav1.DeleteOptions{})
 		if err != nil {
-			log.WithError(err).Error("Failed to delete pod")
+			log.WithError(err).Error("Failed to delete NATS pod")
 			return err
 		}
 
-		log.Info("Pod was successfully deleted")
+		log.Info("NATS pod was successfully deleted")
 	} else if state.Reason == status.MetadataPVCMissing || state.Reason == status.MetadataPVCStorageClassUnavailable || state.Reason == status.MetadataPVCPendingBinding {
 		log.Info("Switching to etcd backed metadata store")
 
@@ -579,23 +562,17 @@ func (m *VizierMonitor) runReconciler() {
 			}
 
 			vizierState := m.getVizierState(vz)
-			vz.Status.VizierPhase = translateReasonToPhase(vizierState.Reason)
-			vz.Status.VizierReason = string(vizierState.Reason)
+			vz.SetStatus(vizierState.Reason)
 
-			vz.Status.Message = status.GetMessageFromReason(vizierState.Reason)
-			// Default to the VizierReason if the message is empty.
-			if vz.Status.Message == "" {
-				vz.Status.Message = vz.Status.VizierReason
-			}
 			err = m.vzUpdate(context.Background(), vz)
 			if err != nil {
 				log.WithError(err).Error("Failed to update vizier status")
 			}
 
-			if vizierState != okState() {
+			if !isOk(vizierState) {
 				err := m.repairVizier(vizierState)
 				if err != nil {
-					return
+					log.WithError(err).Info("Failed to autorepair vizier")
 				}
 			}
 		}
@@ -611,7 +588,12 @@ func queryPodStatusz(client HTTPClient, pod *v1.Pod) (bool, string) {
 		port = pod.Spec.Containers[0].Ports[0].ContainerPort
 	}
 
-	resp, err := client.Get(fmt.Sprintf("https://%s:%d/statusz", podIP, port))
+	u := url.URL{
+		Scheme: "https",
+		Host:   net.JoinHostPort(podIP, fmt.Sprintf("%d", port)),
+		Path:   "statusz",
+	}
+	resp, err := client.Get(u.String())
 	if err != nil {
 		log.WithError(err).Error("Error making statusz call")
 		return false, ""

@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff/v3"
+	"github.com/cenkalti/backoff/v4"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	appsv1 "k8s.io/api/apps/v1"
@@ -45,7 +45,9 @@ import (
 	"px.dev/pixie/src/api/proto/cloudpb"
 	"px.dev/pixie/src/api/proto/vizierconfigpb"
 	"px.dev/pixie/src/operator/apis/px.dev/v1alpha1"
+	version "px.dev/pixie/src/shared/goversion"
 	"px.dev/pixie/src/shared/services"
+	"px.dev/pixie/src/shared/status"
 	"px.dev/pixie/src/utils/shared/certs"
 	"px.dev/pixie/src/utils/shared/k8s"
 )
@@ -75,12 +77,14 @@ type VizierReconciler struct {
 
 	monitor      *VizierMonitor
 	lastChecksum []byte
+
+	sentryFlush func()
 }
 
 // +kubebuilder:rbac:groups=pixie.px.dev,resources=viziers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=pixie.px.dev,resources=viziers/status,verbs=get;update;patch
 
-func getCloudClientConnection(cloudAddr string, devCloudNS string) (*grpc.ClientConn, error) {
+func getCloudClientConnection(cloudAddr string, devCloudNS string, extraDialOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	isInternal := false
 
 	if devCloudNS != "" {
@@ -89,6 +93,7 @@ func getCloudClientConnection(cloudAddr string, devCloudNS string) (*grpc.Client
 	}
 
 	dialOpts, err := services.GetGRPCClientDialOptsServerSideTLS(isInternal)
+	dialOpts = append(dialOpts, extraDialOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +151,7 @@ func validateNumDefaultStorageClasses(clientset *kubernetes.Clientset) (bool, er
 
 // Reconcile updates the Vizier running in the cluster to match the expected state.
 func (r *VizierReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log.WithField("req", req).Info("Reconciling...")
+	log.WithField("req", req).Info("Reconciling Vizier...")
 
 	// Fetch vizier CRD to determine what operation should be performed.
 	var vizier v1alpha1.Vizier
@@ -164,6 +169,7 @@ func (r *VizierReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	// Check if vizier already exists, if not create a new vizier.
 	if vizier.Status.VizierPhase == v1alpha1.VizierPhaseNone && vizier.Status.ReconciliationPhase == v1alpha1.ReconciliationPhaseNone {
 		// We are creating a new vizier instance.
 		err := r.createVizier(ctx, req, &vizier)
@@ -179,27 +185,44 @@ func (r *VizierReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// Check if we are already monitoring this Vizier.
-	if r.monitor == nil || r.monitor.namespace != req.Namespace {
+	if r.monitor == nil || r.monitor.namespace != req.Namespace || r.monitor.devCloudNamespace != vizier.Spec.DevCloudNamespace {
 		if r.monitor != nil {
 			r.monitor.Quit()
 			r.monitor = nil
 		}
 
 		r.monitor = &VizierMonitor{
-			namespace:      req.Namespace,
-			namespacedName: req.NamespacedName,
-			vzUpdate:       r.Status().Update,
-			vzGet:          r.Get,
-			clientset:      r.Clientset,
-			vzSpecUpdate:   r.Update,
+			namespace:         req.Namespace,
+			namespacedName:    req.NamespacedName,
+			devCloudNamespace: vizier.Spec.DevCloudNamespace,
+			vzUpdate:          r.Status().Update,
+			vzGet:             r.Get,
+			clientset:         r.Clientset,
+			vzSpecUpdate:      r.Update,
 		}
-		cloudClient, err := getCloudClientConnection(vizier.Spec.CloudAddr, vizier.Spec.DevCloudNamespace)
+
+		cloudClient, err := getCloudClientConnection(vizier.Spec.CloudAddr, vizier.Spec.DevCloudNamespace, grpc.FailOnNonTempDialError(true), grpc.WithBlock())
 		if err != nil {
-			log.WithError(err).Fatal("Failed to initialize vizier monitor")
+			vizier.SetStatus(status.UnableToConnectToCloud)
+			err := r.Status().Update(ctx, &vizier)
+			if err != nil {
+				log.WithError(err).Error("Failed to update vizier status")
+			}
+			log.WithError(err).Error("Failed to connect to Pixie cloud")
+			return ctrl.Result{}, err
 		}
-		err = r.monitor.InitAndStartMonitor(cloudClient)
+
+		if r.sentryFlush == nil {
+			r.sentryFlush = setupSentry(ctx, cloudClient, r.Clientset)
+		}
+
+		r.monitor.InitAndStartMonitor(cloudClient)
+
+		// Update operator version
+		vizier.Status.OperatorVersion = version.GetVersion().ToString()
+		err = r.Status().Update(ctx, &vizier)
 		if err != nil {
-			log.WithError(err).Fatal("Failed to initialize vizier monitor")
+			log.WithError(err).Error("Failed to update vizier status")
 		}
 	}
 
@@ -207,9 +230,9 @@ func (r *VizierReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return ctrl.Result{}, err
 }
 
-// updateVizier updates the vizier instance according to the spec. As of the current moment, we only support updates to the Vizier version.
-// Other updates to the Vizier spec will be ignored.
+// updateVizier updates the vizier instance according to the spec.
 func (r *VizierReconciler) updateVizier(ctx context.Context, req ctrl.Request, vz *v1alpha1.Vizier) error {
+	log.Info("Updating Vizier...")
 	checksum, err := getSpecChecksum(vz)
 	if err != nil {
 		return err
@@ -255,7 +278,12 @@ func (r *VizierReconciler) createVizier(ctx context.Context, req ctrl.Request, v
 	log.Info("Creating a new vizier instance")
 	cloudClient, err := getCloudClientConnection(vz.Spec.CloudAddr, vz.Spec.DevCloudNamespace)
 	if err != nil {
-		log.WithError(err).Error("Failed to connect to cloud client")
+		vz.SetStatus(status.UnableToConnectToCloud)
+		err := r.Status().Update(ctx, vz)
+		if err != nil {
+			log.WithError(err).Error("Failed to update vizier status")
+		}
+		log.WithError(err).Error("Failed to connect to Pixie cloud")
 		return err
 	}
 
@@ -280,24 +308,21 @@ func (r *VizierReconciler) createVizier(ctx context.Context, req ctrl.Request, v
 	return r.deployVizier(ctx, req, vz, false)
 }
 
-// setReconciliationPhase sets the requested phase in the status and also sets the time to Now.
-func setReconciliationPhase(vz *v1alpha1.Vizier, rp v1alpha1.ReconciliationPhase) *v1alpha1.Vizier {
-	vz.Status.ReconciliationPhase = rp
-	timeNow := metav1.Now()
-	vz.Status.LastReconciliationPhaseTime = &timeNow
-	return vz
-}
-
 func (r *VizierReconciler) deployVizier(ctx context.Context, req ctrl.Request, vz *v1alpha1.Vizier, update bool) error {
 	log.Info("Starting a vizier deploy")
 	cloudClient, err := getCloudClientConnection(vz.Spec.CloudAddr, vz.Spec.DevCloudNamespace)
 	if err != nil {
-		log.WithError(err).Error("Failed to connect to cloud client")
+		vz.SetStatus(status.UnableToConnectToCloud)
+		err := r.Status().Update(ctx, vz)
+		if err != nil {
+			log.WithError(err).Error("Failed to update vizier status")
+		}
+		log.WithError(err).Error("Failed to connect to Pixie cloud")
 		return err
 	}
 
 	// Set the status of the Vizier.
-	vz = setReconciliationPhase(vz, v1alpha1.ReconciliationPhaseUpdating)
+	vz.SetReconciliationPhase(v1alpha1.ReconciliationPhaseUpdating)
 	err = r.Status().Update(ctx, vz)
 	if err != nil {
 		log.WithError(err).Error("Failed to update status in Vizier spec")
@@ -406,7 +431,7 @@ func (r *VizierReconciler) deployVizier(ctx context.Context, req ctrl.Request, v
 	}
 
 	vz.Status.Version = vz.Spec.Version
-	vz = setReconciliationPhase(vz, v1alpha1.ReconciliationPhaseReady)
+	vz.SetReconciliationPhase(v1alpha1.ReconciliationPhaseReady)
 
 	vz.Status.Checksum = checksum
 	r.lastChecksum = checksum
@@ -672,7 +697,8 @@ func generateVizierYAMLsConfig(ctx context.Context, ns string, vz *v1alpha1.Vizi
 				},
 				NodeSelector: vz.Spec.Pod.NodeSelector,
 			},
-			Patches: vz.Spec.Patches,
+			Patches:  vz.Spec.Patches,
+			Registry: vz.Spec.Registry,
 		},
 	}
 
@@ -889,8 +915,9 @@ func (r *VizierReconciler) watchForFailedVizierUpdates() {
 			if time.Since(vz.Status.LastReconciliationPhaseTime.Time) < updatingFailedTimeout {
 				continue
 			}
-			log.WithField("namespace", vz.Namespace).WithField("vizier", vz.Name).Error("Marking vizier as failed")
-			err := r.Status().Update(ctx, setReconciliationPhase(&vz, v1alpha1.ReconciliationPhaseFailed))
+			log.WithField("namespace", vz.Namespace).WithField("vizier", vz.Name).Info("Marking vizier as failed")
+			vz.SetReconciliationPhase(v1alpha1.ReconciliationPhaseFailed)
+			err := r.Status().Update(ctx, &vz)
 			if err != nil {
 				log.WithError(err).Error("Unable to update vizier status")
 			}
@@ -904,6 +931,52 @@ func (r *VizierReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Vizier{}).
 		Complete(r)
+}
+
+// Stop performs any necessary cleanup before shutdown.
+func (r *VizierReconciler) Stop() {
+	if r.sentryFlush != nil {
+		r.sentryFlush()
+	}
+}
+
+// setupSentry sets up the error logging.
+func setupSentry(ctx context.Context, conn *grpc.ClientConn, clientset *kubernetes.Clientset) func() {
+	// Use k8s UID instead of cluserID because newly deployed clusters may take some time to register and receive a clusterID
+	clusterUID, err := getClusterUID(clientset)
+	if err != nil {
+		log.WithError(err).Error("Failed to get Cluster UID")
+		return nil
+	}
+
+	config, err := getConfigForOperator(ctx, conn)
+	if err != nil {
+		log.WithError(err).Error("Failed to get Operator config")
+		return nil
+	}
+
+	flush := services.InitSentryWithDSN(clusterUID, config.SentryOperatorDSN)
+	return flush
+}
+
+// GetClusterUID gets UID for the cluster, represented by the kube-system namespace UID.
+func getClusterUID(clientset *kubernetes.Clientset) (string, error) {
+	ksNS, err := clientset.CoreV1().Namespaces().Get(context.Background(), "kube-system", metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	return string(ksNS.UID), nil
+}
+
+// getConfigForOperator is responsible retrieving the Operator config from from Pixie Cloud.
+func getConfigForOperator(ctx context.Context, conn *grpc.ClientConn) (*cloudpb.ConfigForOperatorResponse, error) {
+	client := cloudpb.NewConfigServiceClient(conn)
+	req := &cloudpb.ConfigForOperatorRequest{}
+	resp, err := client.GetConfigForOperator(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func retryDeploy(clientset *kubernetes.Clientset, config *rest.Config, namespace string, resources []*k8s.Resource, allowUpdate bool) error {

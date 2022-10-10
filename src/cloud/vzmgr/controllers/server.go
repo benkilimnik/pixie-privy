@@ -253,6 +253,7 @@ type VizierInfo struct {
 	ClusterUID                    *string       `db:"cluster_uid"`
 	ClusterName                   *string       `db:"cluster_name"`
 	ClusterVersion                *string       `db:"cluster_version"`
+	OperatorVersion               *string       `db:"operator_version"`
 	VizierVersion                 *string       `db:"vizier_version"`
 	StatusMessage                 *string       `db:"status_message"`
 	ControlPlanePodStatuses       PodStatuses   `db:"control_plane_pod_statuses"`
@@ -268,6 +269,7 @@ func vizierInfoToProto(vzInfo VizierInfo) *cvmsgspb.VizierInfo {
 	clusterUID := ""
 	clusterName := ""
 	clusterVersion := ""
+	operatorVersion := ""
 	vizierVersion := ""
 	statusMessage := ""
 	var prevStatusTime *types.Timestamp
@@ -286,6 +288,9 @@ func vizierInfoToProto(vzInfo VizierInfo) *cvmsgspb.VizierInfo {
 	}
 	if vzInfo.ClusterVersion != nil {
 		clusterVersion = *vzInfo.ClusterVersion
+	}
+	if vzInfo.OperatorVersion != nil {
+		operatorVersion = *vzInfo.OperatorVersion
 	}
 	if vzInfo.VizierVersion != nil {
 		vizierVersion = *vzInfo.VizierVersion
@@ -308,6 +313,7 @@ func vizierInfoToProto(vzInfo VizierInfo) *cvmsgspb.VizierInfo {
 		ClusterUID:                    clusterUID,
 		ClusterName:                   clusterName,
 		ClusterVersion:                clusterVersion,
+		OperatorVersion:               operatorVersion,
 		VizierVersion:                 vizierVersion,
 		StatusMessage:                 statusMessage,
 		ControlPlanePodStatuses:       vzInfo.ControlPlanePodStatuses,
@@ -336,8 +342,8 @@ func (s *Server) GetVizierInfos(ctx context.Context, req *vzmgrpb.GetVizierInfos
 		ids[i] = utils.UUIDFromProtoOrNil(id)
 	}
 
-	strQuery := `SELECT i.vizier_cluster_id, c.cluster_uid, c.cluster_name, i.cluster_version, i.vizier_version, c.org_id,
-			  i.status, (EXTRACT(EPOCH FROM age(now(), i.last_heartbeat))*1E9)::bigint as last_heartbeat,
+	strQuery := `SELECT i.vizier_cluster_id, c.cluster_uid, c.cluster_name, i.cluster_version, i.operator_version, i.vizier_version,
+			  c.org_id, i.status, (EXTRACT(EPOCH FROM age(now(), i.last_heartbeat))*1E9)::bigint as last_heartbeat,
               i.control_plane_pod_statuses, i.unhealthy_data_plane_pod_statuses,
 							i.num_nodes, i.num_instrumented_nodes, i.status_message, i.prev_status, i.prev_status_time
               FROM vizier_cluster_info as i, vizier_cluster as c
@@ -389,7 +395,7 @@ func (s *Server) GetVizierInfo(ctx context.Context, req *uuidpb.UUID) (*cvmsgspb
 		return nil, err
 	}
 
-	query := `SELECT i.vizier_cluster_id, c.cluster_uid, c.cluster_name, i.cluster_version, i.vizier_version,
+	query := `SELECT i.vizier_cluster_id, c.cluster_uid, c.cluster_name, i.cluster_version, i.operator_version, i.vizier_version,
 			  i.status, (EXTRACT(EPOCH FROM age(now(), i.last_heartbeat))*1E9)::bigint as last_heartbeat,
               i.control_plane_pod_statuses, i.unhealthy_data_plane_pod_statuses,
 							i.num_nodes, i.num_instrumented_nodes, i.status_message, i.prev_status, i.prev_status_time
@@ -623,7 +629,7 @@ func (s *Server) HandleVizierHeartbeat(v2cMsg *cvmsgspb.V2CMessage) {
 		UPDATE vizier_cluster_info x
 		SET last_heartbeat = $1, status = $2, control_plane_pod_statuses = CASE WHEN $11 THEN $3::json ELSE y.control_plane_pod_statuses END,
 			num_nodes = $4, num_instrumented_nodes = $5, auto_update_enabled = $6,
-			unhealthy_data_plane_pod_statuses = $7, cluster_version = $8, status_message = $9
+			unhealthy_data_plane_pod_statuses = $7, cluster_version = $8, status_message = $9, operator_version = $12
 		FROM (SELECT * FROM vizier_cluster_info WHERE vizier_cluster_id = $10) y
 		WHERE x.vizier_cluster_id = y.vizier_cluster_id
 		RETURNING (x.status != y.status
@@ -631,6 +637,7 @@ func (s *Server) HandleVizierHeartbeat(v2cMsg *cvmsgspb.V2CMessage) {
 		  OR ((x.num_instrumented_nodes is not NULL) AND (x.num_instrumented_nodes != y.num_instrumented_nodes))
 		  OR ((x.auto_update_enabled IS NOT NULL) AND (x.auto_update_enabled != y.auto_update_enabled))
 		  OR ((x.cluster_version IS NOT NULL) AND (x.cluster_version != y.cluster_version))
+		  OR ((x.operator_version IS NOT NULL) AND (x.operator_version != y.operator_version))
 		  OR ((x.status_message is not NULL) AND (x.status_message != y.status_message))) as changed, x.vizier_version`
 
 	var info struct {
@@ -640,7 +647,7 @@ func (s *Server) HandleVizierHeartbeat(v2cMsg *cvmsgspb.V2CMessage) {
 
 	rows, err := s.db.Queryx(query, time.Now(), vizierStatus(req.Status), PodStatuses(req.PodStatuses), req.NumNodes,
 		req.NumInstrumentedNodes, !req.DisableAutoUpdate, PodStatuses(req.UnhealthyDataPlanePodStatuses),
-		req.K8sClusterVersion, req.StatusMessage, vizierID, req.PodStatuses != nil)
+		req.K8sClusterVersion, req.StatusMessage, vizierID, req.PodStatuses != nil, req.OperatorVersion)
 	if err != nil {
 		log.WithError(err).Error("Could not update vizier heartbeat")
 		return
@@ -671,6 +678,7 @@ func (s *Server) HandleVizierHeartbeat(v2cMsg *cvmsgspb.V2CMessage) {
 				Set("num_instrumented_nodes", req.NumInstrumentedNodes).
 				Set("k8s_version", req.K8sClusterVersion).
 				Set("vizier_version", info.Version).
+				Set("operator_version", req.OperatorVersion).
 				Set("auto_update_enabled", !req.DisableAutoUpdate).
 				Set("status_message", req.StatusMessage),
 		})

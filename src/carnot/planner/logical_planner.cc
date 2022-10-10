@@ -21,6 +21,9 @@
 #include <utility>
 
 #include "src/carnot/planner/compiler_state/compiler_state.h"
+#include "src/carnot/planner/ir/ast_utils.h"
+#include "src/carnot/planner/otel_generator/otel_generator.h"
+#include "src/carnot/planner/parser/parser.h"
 #include "src/shared/scriptspb/scripts.pb.h"
 
 namespace px {
@@ -155,6 +158,20 @@ StatusOr<std::unique_ptr<compiler::MutationsIR>> LogicalPlanner::CompileTrace(
                                                    mutations_req.exec_funcs().end());
 
   return compiler_.CompileTrace(mutations_req.query_str(), compiler_state.get(), exec_funcs);
+}
+
+StatusOr<std::unique_ptr<plannerpb::GenerateOTelScriptResponse>> LogicalPlanner::GenerateOTelScript(
+    const plannerpb::GenerateOTelScriptRequest& generate_req) {
+  PL_ASSIGN_OR_RETURN(std::unique_ptr<CompilerState> compiler_state,
+                      CreateCompilerState(generate_req.logical_planner_state(),
+                                          registry_info_.get(), /* max_output_rows */ 0));
+
+  PL_ASSIGN_OR_RETURN(auto out_script,
+                      OTelGenerator::GenerateOTelScript(&compiler_, compiler_state.get(),
+                                                        generate_req.pxl_script()));
+  auto generate_resp = std::make_unique<plannerpb::GenerateOTelScriptResponse>();
+  generate_resp->set_otel_script(out_script);
+  return generate_resp;
 }
 
 }  // namespace planner

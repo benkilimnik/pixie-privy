@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <map>
+#include <tuple>
 
 #include "src/common/base/base.h"
 #include "src/common/base/utils.h"
@@ -37,12 +38,14 @@
 #include "src/stirling/obj_tools/dwarf_reader.h"
 #include "src/stirling/obj_tools/go_syms.h"
 #include "src/stirling/source_connectors/socket_tracer/bcc_bpf_intf/symaddrs.h"
+#include "src/stirling/utils/linux_headers.h"
 #include "src/stirling/utils/proc_path_tools.h"
 
 DEFINE_bool(stirling_rescan_for_dlopen, false,
             "If enabled, Stirling will use mmap tracing information to rescan binaries for delay "
             "loaded libraries like OpenSSL");
-DEFINE_bool(stirling_enable_grpc_c_tracing, false,
+DEFINE_bool(stirling_enable_grpc_c_tracing,
+            gflags::BoolFromEnv("STIRLING_ENABLE_GRPC_C_TRACING", false),
             "If true, enable gRPC tracing for C dynamic libraries used for python");
 DEFINE_double(stirling_rescan_exp_backoff_factor, 2.0,
               "Exponential backoff factor used in decided how often to rescan binaries for "
@@ -53,6 +56,9 @@ namespace stirling {
 
 using ::px::stirling::obj_tools::DwarfReader;
 using ::px::stirling::obj_tools::ElfReader;
+using ::px::stirling::utils::GetKernelVersion;
+using ::px::stirling::utils::KernelVersion;
+using ::px::stirling::utils::KernelVersionOrder;
 
 UProbeManager::UProbeManager(bpf_tools::BCCWrapper* bcc) : bcc_(bcc) {
   proc_parser_ = std::make_unique<system::ProcParser>(system::Config::GetInstance());
@@ -73,8 +79,8 @@ void UProbeManager::Init(bool enable_http2_tracing, bool disable_self_probing) {
   node_tlswrap_symaddrs_map_ =
       UserSpaceManagedBPFMap<uint32_t, struct node_tlswrap_symaddrs_t>::Create(
           bcc_, "node_tlswrap_symaddrs_map");
-  go_goid_map_ = UserSpaceManagedBPFMap<uint32_t, int, ebpf::BPFMapInMapTable<uint32_t>>::Create(
-      bcc_, "tgid_goid_map");
+  grpc_c_versions_map_ =
+      UserSpaceManagedBPFMap<uint32_t, uint64_t>::Create(bcc_, "grpc_c_versions");
 }
 
 void UProbeManager::NotifyMMapEvent(upid_t upid) {
@@ -277,53 +283,82 @@ StatusOr<std::vector<std::filesystem::path>> FindHostPathForPIDLibs(
                                 HostPathForPIDPathSearchType::kSearchTypeEndsWith);
 }
 
+// SSLLibMatcher allows customizing the search of shared object files
+// that need to be traced with the SSL_write and SSL_read uprobes.
+// In dynamically linked cases, it's likely that there are two
+// shared libraries (libssl and libcrypto). In constrast, statically
+// linked cases are contained within the same binary.
+struct SSLLibMatcher {
+  std::string_view libssl;
+  std::string_view libcrypto;
+  HostPathForPIDPathSearchType search_type;
+};
+
+static constexpr const auto kLibSSLMatchers = MakeArray<SSLLibMatcher>({
+    SSLLibMatcher{
+        .libssl = "libssl.so.1.1",
+        .libcrypto = "libcrypto.so.1.1",
+        .search_type = HostPathForPIDPathSearchType::kSearchTypeEndsWith,
+    },
+    SSLLibMatcher{
+        .libssl = kLibNettyTcnativePrefix,
+        .libcrypto = kLibNettyTcnativePrefix,
+        .search_type = HostPathForPIDPathSearchType::kSearchTypeContains,
+    },
+});
+
 // Return error if something unexpected occurs.
 // Return 0 if nothing unexpected, but there is nothing to deploy (e.g. no OpenSSL detected).
 StatusOr<int> UProbeManager::AttachOpenSSLUProbesOnDynamicLib(uint32_t pid) {
-  constexpr std::string_view kLibSSL = "libssl.so.1.1";
-  constexpr std::string_view kLibCrypto = "libcrypto.so.1.1";
-  const std::vector<std::string_view> lib_names = {kLibSSL, kLibCrypto};
-
   const system::Config& sysconfig = system::Config::GetInstance();
 
-  // Find paths to libssl.so and libcrypto.so for the pid, if they are in use (i.e. mapped).
-  PL_ASSIGN_OR_RETURN(const std::vector<std::filesystem::path> container_lib_paths,
-                      FindHostPathForPIDLibs(lib_names, pid, proc_parser_.get(), &fp_resolver_));
+  for (auto ssl_library_match : kLibSSLMatchers) {
+    const auto libssl = ssl_library_match.libssl;
+    const auto libcrypto = ssl_library_match.libcrypto;
 
-  std::filesystem::path container_libssl = container_lib_paths[0];
-  std::filesystem::path container_libcrypto = container_lib_paths[1];
+    const std::vector<std::string_view> lib_names = {libssl, libcrypto};
+    const auto search_type = ssl_library_match.search_type;
 
-  if (container_libssl.empty() || container_libcrypto.empty()) {
-    // Looks like this process doesn't have dynamic OpenSSL library installed, because it did not
-    // map both of libssl.so.x.x & libcrypto.so.x.x.
-    // Return "0" to indicate zero probes were attached. This is not an error.
-    return 0;
-  }
+    // Find paths to libssl.so and libcrypto.so for the pid, if they are in use (i.e. mapped).
+    PL_ASSIGN_OR_RETURN(
+        const std::vector<std::filesystem::path> container_lib_paths,
+        FindHostPathForPIDLibs(lib_names, pid, proc_parser_.get(), &fp_resolver_, search_type));
 
-  // Convert to host path, in case we're running inside a container ourselves.
-  container_libssl = sysconfig.ToHostPath(container_libssl);
-  container_libcrypto = sysconfig.ToHostPath(container_libcrypto);
+    std::filesystem::path container_libssl = container_lib_paths[0];
+    std::filesystem::path container_libcrypto = container_lib_paths[1];
 
-  if (!fs::Exists(container_libssl)) {
-    return error::Internal("libssl not found [path = $0]", container_libssl.string());
-  }
-  if (!fs::Exists(container_libcrypto)) {
-    return error::Internal("libcrypto not found [path = $0]", container_libcrypto.string());
-  }
+    if ((container_libssl.empty() || container_libcrypto.empty())) {
+      // Looks like this process doesn't have dynamic OpenSSL library installed, because it did not
+      // map both of libssl.so.x.x & libcrypto.so.x.x or another compatible library.
+      // Move on to the next possible SSL library. This is not an error.
+      continue;
+    }
 
-  auto fptr_manager = std::make_unique<obj_tools::RawFptrManager>(container_libcrypto);
+    // Convert to host path, in case we're running inside a container ourselves.
+    container_libssl = sysconfig.ToHostPath(container_libssl);
+    container_libcrypto = sysconfig.ToHostPath(container_libcrypto);
 
-  PL_RETURN_IF_ERROR(UpdateOpenSSLSymAddrs(fptr_manager.get(), container_libcrypto, pid));
+    if (!fs::Exists(container_libssl)) {
+      return error::Internal("libssl not found [path = $0]", container_libssl.string());
+    }
+    if (!fs::Exists(container_libcrypto)) {
+      return error::Internal("libcrypto not found [path = $0]", container_libcrypto.string());
+    }
 
-  // Only try probing .so files that we haven't already set probes on.
-  auto result = openssl_probed_binaries_.insert(container_libssl);
-  if (!result.second) {
-    return 0;
-  }
+    auto fptr_manager = std::make_unique<obj_tools::RawFptrManager>(container_libcrypto);
 
-  for (auto spec : kOpenSSLUProbes) {
-    spec.binary_path = container_libssl.string();
-    PL_RETURN_IF_ERROR(LogAndAttachUProbe(spec));
+    PL_RETURN_IF_ERROR(UpdateOpenSSLSymAddrs(fptr_manager.get(), container_libcrypto, pid));
+
+    // Only try probing .so files that we haven't already set probes on.
+    auto result = openssl_probed_binaries_.insert(container_libssl);
+    if (!result.second) {
+      return 0;
+    }
+
+    for (auto spec : kOpenSSLUProbes) {
+      spec.binary_path = container_libssl.string();
+      PL_RETURN_IF_ERROR(LogAndAttachUProbe(spec));
+    }
   }
   return kOpenSSLUProbes.size();
 }
@@ -404,42 +439,6 @@ StatusOr<int> UProbeManager::AttachNodeJsOpenSSLUprobes(uint32_t pid) {
   return kOpenSSLUProbes.size() + count;
 }
 
-void UProbeManager::SetupGOIDMaps(const std::string& binary, const std::vector<int32_t>& pids) {
-  for (const auto& pid : pids) {
-    std::string map_name = absl::StrCat("goid_map_", std::to_string(pid));
-    // The map interface must match pid_goid_map as defined in go_runtime_trace.c.
-    // The key type, the value type and the capacity must all match.
-    int map_fd = bcc_create_map(BPF_MAP_TYPE_HASH, map_name.c_str(), sizeof(uint32_t),
-                                sizeof(int64_t), /* max_entries */ 1024, /* flags */ 0);
-    if (map_fd > 0) {
-      go_goid_map_->UpdateValue(pid, map_fd);
-
-      // Now the outer map owns a reference to the fd,
-      // close the fd so we don't have to clean it up later.
-      close(map_fd);
-    } else {
-      LOG(ERROR) << absl::Substitute("Failed to create BPF map for binary=$0 pid=$1 fd=$2 errno=$3",
-                                     binary, pid, map_fd, errno);
-    }
-  }
-}
-
-StatusOr<int> UProbeManager::AttachGoRuntimeUProbes(const std::string& binary,
-                                                    obj_tools::ElfReader* elf_reader,
-                                                    obj_tools::DwarfReader* /* dwarf_reader */,
-                                                    const std::vector<int32_t>& /* pids */) {
-  // Step 1: Update BPF symbols_map on all new PIDs.
-  // TODO(oazizi): Implement this piece.
-
-  // Step 2: Deploy uprobes on all new binaries.
-  auto result = go_probed_binaries_.insert(binary);
-  if (!result.second) {
-    // This is not a new binary, so nothing more to do.
-    return 0;
-  }
-  return AttachUProbeTmpl(kGoRuntimeUProbeTmpls, binary, elf_reader);
-}
-
 StatusOr<int> UProbeManager::AttachGoTLSUProbes(const std::string& binary,
                                                 obj_tools::ElfReader* elf_reader,
                                                 obj_tools::DwarfReader* dwarf_reader,
@@ -462,14 +461,10 @@ StatusOr<int> UProbeManager::AttachGoTLSUProbes(const std::string& binary,
   return AttachUProbeTmpl(kGoTLSUProbeTmpls, binary, elf_reader);
 }
 
-// TODO(oazizi/yzhao): Should HTTP uprobes use a different set of perf buffers than the kprobes?
-// That allows the BPF code and companion user-space code for uprobe & kprobe be separated
-// cleanly. For example, right now, enabling uprobe & kprobe simultaneously can crash Stirling,
-// because of the mixed & duplicate data events from these 2 sources.
-StatusOr<int> UProbeManager::AttachGoHTTP2Probes(const std::string& binary,
-                                                 obj_tools::ElfReader* elf_reader,
-                                                 obj_tools::DwarfReader* dwarf_reader,
-                                                 const std::vector<int32_t>& pids) {
+StatusOr<int> UProbeManager::AttachGoHTTP2UProbes(const std::string& binary,
+                                                  obj_tools::ElfReader* elf_reader,
+                                                  obj_tools::DwarfReader* dwarf_reader,
+                                                  const std::vector<int32_t>& pids) {
   // Step 1: Update BPF symaddrs for this binary.
   Status s = UpdateGoHTTP2SymAddrs(elf_reader, dwarf_reader, pids);
   if (!s.ok()) {
@@ -539,7 +534,6 @@ void UProbeManager::CleanupPIDMaps(const absl::flat_hash_set<md::UPID>& deleted_
     go_tls_symaddrs_map_->RemoveValue(pid.pid());
     go_http2_symaddrs_map_->RemoveValue(pid.pid());
     node_tlswrap_symaddrs_map_->RemoveValue(pid.pid());
-    go_goid_map_->RemoveValue(pid.pid());
   }
 }
 
@@ -654,7 +648,8 @@ StatusOr<int> UProbeManager::AttachGrpcCUProbesOnDynamicPythonLib(uint32_t pid) 
   // Convert to host path, in case we're running inside a container ourselves.
   container_libgrpcc = sysconfig.ToHostPath(container_libgrpcc);
   if (!fs::Exists(container_libgrpcc)) {
-    return error::Internal("grpc-c library not found [path = $0]", container_libgrpcc.string());
+    return error::Internal("grpc-c library not found [path=$0 pid=$1]", container_libgrpcc.string(),
+                           pid);
   }
 
   // Only try probing .so files that we haven't already set probes on.
@@ -666,25 +661,20 @@ StatusOr<int> UProbeManager::AttachGrpcCUProbesOnDynamicPythonLib(uint32_t pid) 
   // Calculate MD5 hash of the grpc-c library to know which version it is.
   // For further explanation see the definition of kGrpcCMD5HashToVersion.
   PL_ASSIGN_OR_RETURN(const std::string hash_str, MD5onFile(container_libgrpcc.string()));
-  VLOG(1) << absl::Substitute("Found MD5 hash $0 of library $1", hash_str,
-                              container_libgrpcc.string());
+  VLOG(1) << absl::Substitute("Found MD5 hash $0 of library $1 for pid=$2", hash_str,
+                              container_libgrpcc.string(), pid);
 
   // Find the version of the library by its MD5 hash.
   auto iter = kGrpcCMD5HashToVersion.find(hash_str);
   if (iter == kGrpcCMD5HashToVersion.end()) {
-    return error::Unimplemented("Unknown MD5 hash $0 of library $1 and pid $2.", hash_str,
+    return error::Unimplemented("Unknown MD5 hash $0 of library $1 and pid=$2.", hash_str,
                                 container_libgrpcc.string(), pid);
   }
   const enum grpc_c_version_t version = iter->second;
-  std::unique_ptr<ebpf::BPFHashTable<uint32_t, uint64_t>> grpc_c_versions_map = nullptr;
-  static constexpr char kGrpcCVersionsName[] = "grpc_c_versions";
-  grpc_c_versions_map = std::make_unique<ebpf::BPFHashTable<uint32_t, uint64_t>>(
-      bcc_->GetHashTable<uint32_t, uint64_t>(kGrpcCVersionsName));
-  VLOG(1) << absl::Substitute("Updating gRPC-C version of pid $0 to $1", pid, (uint32_t)version);
-  if (!grpc_c_versions_map->update_value(pid, version).ok()) {
-    return error::Internal("Failed to set version of library of pid $0 to $1.", pid,
-                           (uint32_t)version);
-  }
+  VLOG(1) << absl::Substitute("Updating gRPC-C version of pid $0 to $1", pid,
+                              magic_enum::enum_name(version));
+
+  grpc_c_versions_map_->UpdateValue(pid, version);
 
   // Attach the needed probes.
   // This currently works only for non-stripped versions of the shared object.
@@ -709,7 +699,7 @@ StatusOr<int> UProbeManager::AttachGrpcCUProbesOnDynamicPythonLib(uint32_t pid) 
     }
   }
   if (!attached_data_parser_parse_probe) {
-    return error::Internal("Failed to attach a data parser parse probe.");
+    return error::Internal("Failed to attach a data parser parse probe, pid=$0.", pid);
   }
 
   VLOG(1) << absl::Substitute("Successfully attached $0 gRPC-C probes to pid $1",
@@ -789,29 +779,11 @@ int UProbeManager::DeployGoUProbes(const absl::flat_hash_set<md::UPID>& pids) {
       continue;
     }
     std::unique_ptr<DwarfReader> dwarf_reader = dwarf_reader_status.ConsumeValueOrDie();
-
     Status s = UpdateGoCommonSymAddrs(elf_reader.get(), dwarf_reader.get(), pid_vec);
     if (!s.ok()) {
       VLOG(1) << absl::Substitute(
           "Golang binary $0 does not have the mandatory symbols (e.g. TCPConn).", binary);
       continue;
-    }
-
-    // Setup thread to GOID mapping.
-    SetupGOIDMaps(binary, pid_vec);
-
-    // Go Runtime Probes.
-    {
-      StatusOr<int> attach_status =
-          AttachGoRuntimeUProbes(binary, elf_reader.get(), dwarf_reader.get(), pid_vec);
-      if (!attach_status.ok()) {
-        monitor_.AppendSourceStatusRecord("socket_tracer", attach_status.status(),
-                                          "AttachGoRuntimeUProbes");
-        LOG_FIRST_N(WARNING, 10) << absl::Substitute(
-            "Failed to attach Go Runtime Uprobes to $0: $1", binary, attach_status.ToString());
-      } else {
-        uprobe_count += attach_status.ValueOrDie();
-      }
     }
 
     // GoTLS Probes.
@@ -831,10 +803,10 @@ int UProbeManager::DeployGoUProbes(const absl::flat_hash_set<md::UPID>& pids) {
     // Go HTTP2 Probes.
     if (cfg_enable_http2_tracing_) {
       StatusOr<int> attach_status =
-          AttachGoHTTP2Probes(binary, elf_reader.get(), dwarf_reader.get(), pid_vec);
+          AttachGoHTTP2UProbes(binary, elf_reader.get(), dwarf_reader.get(), pid_vec);
       if (!attach_status.ok()) {
         monitor_.AppendSourceStatusRecord("socket_tracer", attach_status.status(),
-                                          "AttachGoHTTP2Probes");
+                                          "AttachGoHTTP2UProbes");
         LOG_FIRST_N(WARNING, 10) << absl::Substitute("Failed to attach HTTP2 Uprobes to $0: $1",
                                                      binary, attach_status.ToString());
       } else {
@@ -892,6 +864,17 @@ absl::flat_hash_set<md::UPID> UProbeManager::PIDsToRescanForUProbes() {
   return upids_to_rescan;
 }
 
+bool KernelVersionAllowsGRPCCTracing() {
+  constexpr KernelVersion kKernelVersion5_3 = {5, 3, 0};
+  auto kernel_version_or = GetKernelVersion();
+  if (kernel_version_or.ok()) {
+    auto kernel_version = kernel_version_or.ValueOrDie();
+    auto order = CompareKernelVersions(kernel_version, kKernelVersion5_3);
+    return order == KernelVersionOrder::kSame || order == KernelVersionOrder::kNewer;
+  }
+  return false;
+}
+
 void UProbeManager::DeployUProbes(const absl::flat_hash_set<md::UPID>& pids) {
   const std::lock_guard<std::mutex> lock(deploy_uprobes_mutex_);
 
@@ -906,14 +889,15 @@ void UProbeManager::DeployUProbes(const absl::flat_hash_set<md::UPID>& pids) {
   int uprobe_count = 0;
 
   uprobe_count += DeployOpenSSLUProbes(proc_tracker_.new_upids());
-  if (FLAGS_stirling_enable_grpc_c_tracing) {
+
+  if (FLAGS_stirling_enable_grpc_c_tracing && KernelVersionAllowsGRPCCTracing()) {
     uprobe_count += DeployGrpcCUProbes(proc_tracker_.new_upids());
   }
 
   if (FLAGS_stirling_rescan_for_dlopen) {
     auto pids_to_rescan_for_uprobes = PIDsToRescanForUProbes();
     uprobe_count += DeployOpenSSLUProbes(pids_to_rescan_for_uprobes);
-    if (FLAGS_stirling_enable_grpc_c_tracing) {
+    if (FLAGS_stirling_enable_grpc_c_tracing && KernelVersionAllowsGRPCCTracing()) {
       uprobe_count += DeployGrpcCUProbes(pids_to_rescan_for_uprobes);
     }
   }

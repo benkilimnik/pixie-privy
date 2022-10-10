@@ -121,7 +121,7 @@ def _cc_deps():
     _bazel_repo("com_google_protobuf", patches = ["//bazel/external:protobuf.patch", "//bazel/external:protobuf_gogo_hack.patch", "//bazel/external:protobuf_text_format.patch", "//bazel/external:protobuf_warning.patch"], patch_args = ["-p1"])
     _bazel_repo("com_github_grpc_grpc", patches = ["//bazel/external:grpc.patch", "//bazel/external:grpc_mirror.patch", "//bazel/external:grpc_go_toolchain.patch", "//bazel/external:grpc_test_visibility.patch", "//bazel/external:grpc_warnings.patch"], patch_args = ["-p1"])
 
-    _bazel_repo("com_google_benchmark", patches = ["//bazel/external:benchmark_unused_variable.patch"], patch_args = ["-p1"])
+    _bazel_repo("com_google_benchmark")
     _bazel_repo("com_google_googletest")
     _bazel_repo("com_github_gflags_gflags")
     _bazel_repo("com_github_google_glog")
@@ -176,7 +176,7 @@ def _cc_deps():
     # Dependencies used in foreign cc rules (e.g. cmake-based builds)
     _include_all_repo("com_github_gperftools_gperftools")
     _include_all_repo("com_github_openssl_openssl")
-    _include_all_repo("com_github_nats_io_natsc", patches = ["//bazel/external:natsc.patch"], patch_args = ["-p1"])
+    _include_all_repo("com_github_nats_io_natsc")
     _include_all_repo("com_github_libuv_libuv", patches = ["//bazel/external:libuv.patch"], patch_args = ["-p1"])
     _include_all_repo("com_github_libarchive_libarchive", patches = ["//bazel/external:libarchive.patch"], patch_args = ["-p1"])
 
@@ -208,7 +208,7 @@ def _list_pl_deps(name):
 def _pl_deps():
     _bazel_repo("bazel_skylib")
     _bazel_repo("bazel_gazelle")
-    _bazel_repo("io_bazel_rules_go", patches = ["//bazel/external:rules_go_cross.patch"], patch_args = ["-p1"])
+    _bazel_repo("io_bazel_rules_go")
     _bazel_repo("io_bazel_rules_scala")
     _bazel_repo("rules_jvm_external")
     _bazel_repo("rules_foreign_cc")

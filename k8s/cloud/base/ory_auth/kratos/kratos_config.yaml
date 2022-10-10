@@ -70,16 +70,6 @@ data:
                   "via": "email"
                 }
               }
-            },
-            "plUserID": {
-              "type": "string",
-              "title": "Pixie User ID",
-              "minLength": 1
-            },
-            "plOrgID": {
-              "type": "string",
-              "title": "Pixie Org ID",
-              "minLength": 1
             }
           },
           "required": [

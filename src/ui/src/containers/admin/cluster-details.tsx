@@ -512,6 +512,7 @@ const ClusterSummaryTable = ({ cluster }: {
   'numNodes' |
   'numInstrumentedNodes' |
   'vizierVersion' |
+  'operatorVersion' |
   'clusterVersion' |
   'lastHeartbeatMs'
   >
@@ -547,6 +548,10 @@ const ClusterSummaryTable = ({ cluster }: {
     {
       key: 'Vizier Version',
       value: (<VizierVersionCell version={cluster.vizierVersion} />),
+    },
+    {
+      key: 'Operator Version',
+      value: (<VizierVersionCell version={cluster.operatorVersion} />),
     },
     {
       key: 'Kubernetes Version',
@@ -643,6 +648,7 @@ const ClusterDetailsTabs: React.FC<{ clusterName: string }> = ({ clusterName }) 
     'id' |
     'clusterName' |
     'clusterVersion' |
+    'operatorVersion' |
     'vizierVersion' |
     'prettyClusterName' |
     'clusterUID' |
@@ -664,6 +670,7 @@ const ClusterDetailsTabs: React.FC<{ clusterName: string }> = ({ clusterName }) 
           status
           statusMessage
           clusterVersion
+          operatorVersion
           vizierVersion
           lastHeartbeatMs
           numNodes

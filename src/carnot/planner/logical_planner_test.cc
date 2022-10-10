@@ -769,6 +769,39 @@ attributes {
 })proto"));
 }
 
+TEST_F(LogicalPlannerTest, GenerateOTelScript) {
+  auto planner = LogicalPlanner::Create(info_).ConsumeValueOrDie();
+  auto state = testutils::CreateTwoPEMsOneKelvinPlannerState(testutils::kHttpEventsSchema);
+  plannerpb::GenerateOTelScriptRequest req;
+  *req.mutable_logical_planner_state() = state;
+  req.set_pxl_script(R"pxl(import px
+df = px.DataFrame('http_events', start_time='-5m')
+df.service = df.ctx['service']
+df = df[['time_', 'service', 'resp_latency_ns']]
+px.display(df, 'http_graph'))pxl");
+  ASSERT_OK_AND_ASSIGN(auto resp, planner->GenerateOTelScript(req));
+  EXPECT_EQ(resp->otel_script(), R"otel(import px
+df = px.DataFrame('http_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+df.service = df.ctx['service']
+df = df[['time_', 'service', 'resp_latency_ns']]
+px.display(df, 'http_graph')
+
+otel_df = df
+px.export(otel_df, px.otel.Data(
+  resource={
+    'http_graph.service': otel_df.service,
+    'service.name': otel_df.service
+  },
+  data=[
+    px.otel.metric.Gauge(
+      name='http_graph.resp_latency_ns',
+      description='',
+      value=otel_df.resp_latency_ns,
+    )
+  ]
+)))otel");
+}
+
 }  // namespace planner
 }  // namespace carnot
 }  // namespace px

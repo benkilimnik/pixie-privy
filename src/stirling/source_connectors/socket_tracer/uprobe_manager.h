@@ -43,6 +43,7 @@
 #include "src/stirling/utils/proc_tracker.h"
 
 DECLARE_bool(stirling_rescan_for_dlopen);
+DECLARE_bool(stirling_enable_grpc_c_tracing);
 DECLARE_double(stirling_rescan_exp_backoff_factor);
 
 namespace px {
@@ -140,16 +141,6 @@ class UProbeManager {
   bool ThreadsRunning() { return num_deploy_uprobes_threads_ != 0; }
 
  private:
-  // Probes on Golang crypto/tls library.
-  inline static const auto kGoRuntimeUProbeTmpls = MakeArray<UProbeTmpl>({
-      UProbeTmpl{
-          .symbol = "runtime.casgstatus",
-          .match_type = obj_tools::SymbolMatchType::kSuffix,
-          .probe_fn = "probe_runtime_casgstatus",
-          .attach_type = bpf_tools::BPFProbeAttachType::kEntry,
-      },
-  });
-
   inline static constexpr auto kHTTP2ProbeTmpls = MakeArray<UProbeTmpl>({
       // Probes on Golang net/http2 library.
       UProbeTmpl{
@@ -498,23 +489,7 @@ class UProbeManager {
   void SetupGOIDMaps(const std::string& binary, const std::vector<int32_t>& pids);
 
   /**
-   * Attaches the required probes for general Go tracing to the specified binary, if it is a
-   * compatible Go binary.
-   *
-   * @param binary The path to the binary on which to deploy Go probes.
-   * @param elf_reader ELF reader for the binary.
-   * @param dwarf_reader DWARF reader for the binary.
-   * @param pids The list of PIDs that are new instances of the binary. Used to populate symbol
-   *             addresses.
-   * @return The number of uprobes deployed, or error. It is not an error if the binary
-   *         is not a Go binary; instead the return value will be zero.
-   */
-  StatusOr<int> AttachGoRuntimeUProbes(const std::string& binary, obj_tools::ElfReader* elf_reader,
-                                       obj_tools::DwarfReader* dwarf_reader,
-                                       const std::vector<int32_t>& new_pids);
-
-  /**
-   * Attaches the required probes for Go HTTP2 tracing to the specified binary, if it is a
+   * Attaches the required uprobes for Go HTTP2 tracing to the specified binary, if it is a
    * compatible Go binary.
    *
    * @param binary The path to the binary on which to deploy Go HTTP2 probes.
@@ -526,9 +501,9 @@ class UProbeManager {
    *         is not a Go binary or doesn't use a Go HTTP2 library; instead the return value will be
    *         zero.
    */
-  StatusOr<int> AttachGoHTTP2Probes(const std::string& binary, obj_tools::ElfReader* elf_reader,
-                                    obj_tools::DwarfReader* dwarf_reader,
-                                    const std::vector<int32_t>& pids);
+  StatusOr<int> AttachGoHTTP2UProbes(const std::string& binary, obj_tools::ElfReader* elf_reader,
+                                     obj_tools::DwarfReader* dwarf_reader,
+                                     const std::vector<int32_t>& pids);
 
   /**
    * Attaches the required probes for GoTLS tracing to the specified binary, if it is a compatible
@@ -654,8 +629,8 @@ class UProbeManager {
   std::unique_ptr<UserSpaceManagedBPFMap<uint32_t, struct go_tls_symaddrs_t>> go_tls_symaddrs_map_;
   std::unique_ptr<UserSpaceManagedBPFMap<uint32_t, struct node_tlswrap_symaddrs_t>>
       node_tlswrap_symaddrs_map_;
-  std::unique_ptr<UserSpaceManagedBPFMap<uint32_t, int, ebpf::BPFMapInMapTable<uint32_t>>>
-      go_goid_map_;
+  // Key is python gRPC module's md5 hash, value is the corresponding version enum's numeric value.
+  std::unique_ptr<UserSpaceManagedBPFMap<uint32_t, uint64_t>> grpc_c_versions_map_;
 
   StirlingMonitor& monitor_ = *StirlingMonitor::GetInstance();
 };

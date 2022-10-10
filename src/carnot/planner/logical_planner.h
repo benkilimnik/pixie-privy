@@ -25,7 +25,7 @@
 #include "src/carnot/planner/compiler_state/compiler_state.h"
 #include "src/carnot/planner/distributed/distributed_plan/distributed_plan.h"
 #include "src/carnot/planner/distributed/distributed_planner.h"
-#include "src/carnot/planner/plannerpb/func_args.pb.h"
+#include "src/carnot/planner/plannerpb/planner.pb.h"
 #include "src/carnot/planner/probes/probes.h"
 #include "src/shared/scriptspb/scripts.pb.h"
 
@@ -61,6 +61,9 @@ class LogicalPlanner : public NotCopyable {
   StatusOr<std::unique_ptr<compiler::MutationsIR>> CompileTrace(
       const distributedpb::LogicalPlannerState& logical_state,
       const plannerpb::CompileMutationsRequest& mutations_req);
+
+  StatusOr<std::unique_ptr<plannerpb::GenerateOTelScriptResponse>> GenerateOTelScript(
+      const plannerpb::GenerateOTelScriptRequest& generate_req);
 
   Status Init(std::unique_ptr<planner::RegistryInfo> registry_info);
   Status Init(const udfspb::UDFInfo& udf_info);

@@ -105,46 +105,17 @@ func (mr *MockAuthProviderMockRecorder) CreateInviteLink(authProviderID interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateInviteLink", reflect.TypeOf((*MockAuthProvider)(nil).CreateInviteLink), authProviderID)
 }
 
-// GetUserIDFromToken mocks base method.
-func (m *MockAuthProvider) GetUserIDFromToken(token string) (string, error) {
+// GetUserInfoFromAccessToken mocks base method.
+func (m *MockAuthProvider) GetUserInfoFromAccessToken(accessToken string) (*controllers.UserInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserIDFromToken", token)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUserIDFromToken indicates an expected call of GetUserIDFromToken.
-func (mr *MockAuthProviderMockRecorder) GetUserIDFromToken(token interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserIDFromToken", reflect.TypeOf((*MockAuthProvider)(nil).GetUserIDFromToken), token)
-}
-
-// GetUserInfo mocks base method.
-func (m *MockAuthProvider) GetUserInfo(userID string) (*controllers.UserInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserInfo", userID)
+	ret := m.ctrl.Call(m, "GetUserInfoFromAccessToken", accessToken)
 	ret0, _ := ret[0].(*controllers.UserInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetUserInfo indicates an expected call of GetUserInfo.
-func (mr *MockAuthProviderMockRecorder) GetUserInfo(userID interface{}) *gomock.Call {
+// GetUserInfoFromAccessToken indicates an expected call of GetUserInfoFromAccessToken.
+func (mr *MockAuthProviderMockRecorder) GetUserInfoFromAccessToken(accessToken interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserInfo", reflect.TypeOf((*MockAuthProvider)(nil).GetUserInfo), userID)
-}
-
-// SetPLMetadata mocks base method.
-func (m *MockAuthProvider) SetPLMetadata(userID, plOrgID, plUserID string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetPLMetadata", userID, plOrgID, plUserID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetPLMetadata indicates an expected call of SetPLMetadata.
-func (mr *MockAuthProviderMockRecorder) SetPLMetadata(userID, plOrgID, plUserID interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPLMetadata", reflect.TypeOf((*MockAuthProvider)(nil).SetPLMetadata), userID, plOrgID, plUserID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserInfoFromAccessToken", reflect.TypeOf((*MockAuthProvider)(nil).GetUserInfoFromAccessToken), accessToken)
 }

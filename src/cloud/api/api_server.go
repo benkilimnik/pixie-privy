@@ -41,13 +41,13 @@ import (
 	"px.dev/pixie/src/cloud/shared/esutils"
 	"px.dev/pixie/src/cloud/shared/idprovider"
 	"px.dev/pixie/src/cloud/shared/vzshard"
-	"px.dev/pixie/src/pixie_cli/pkg/script"
 	"px.dev/pixie/src/shared/services"
 	svcEnv "px.dev/pixie/src/shared/services/env"
 	"px.dev/pixie/src/shared/services/handler"
 	"px.dev/pixie/src/shared/services/healthz"
 	"px.dev/pixie/src/shared/services/msgbus"
 	"px.dev/pixie/src/shared/services/server"
+	"px.dev/pixie/src/utils/script"
 )
 
 const defaultBundleFile = "https://storage.googleapis.com/pixie-prod-artifacts/script-bundles/bundle-core.json"
@@ -176,12 +176,13 @@ func main() {
 			return controllers.GetAugmentedTokenGRPC(ctx, apiEnv)
 		},
 		DisableAuth: map[string]bool{
-			"/px.cloudapi.ArtifactTracker/GetArtifactList":  true,
-			"/px.cloudapi.ArtifactTracker/GetDownloadLink":  true,
-			"/pl.cloudapi.ArtifactTracker/GetArtifactList":  true,
-			"/pl.cloudapi.ArtifactTracker/GetDownloadLink":  true,
-			"/px.cloudapi.ConfigService/GetConfigForVizier": true,
-			"/px.cloudapi.AuthService/Login":                true,
+			"/px.cloudapi.ArtifactTracker/GetArtifactList":    true,
+			"/px.cloudapi.ArtifactTracker/GetDownloadLink":    true,
+			"/pl.cloudapi.ArtifactTracker/GetArtifactList":    true,
+			"/pl.cloudapi.ArtifactTracker/GetDownloadLink":    true,
+			"/px.cloudapi.ConfigService/GetConfigForVizier":   true,
+			"/px.cloudapi.ConfigService/GetConfigForOperator": true,
+			"/px.cloudapi.AuthService/Login":                  true,
 		},
 	}
 

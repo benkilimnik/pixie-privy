@@ -16,21 +16,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as _ from 'lodash';
+import * as jspb from 'google-protobuf';
 
 import {
   Column, Relation, RowBatchData,
 } from 'app/types/generated/vizierapi_pb';
 
 import { formatUInt128Protobuf } from './format-data';
+import { u8aToStr } from './result-data-parsers';
 import { nanoToMilliSeconds } from './time';
 
 export function ResultsToCsv(results: string): string {
   const jsonResults = JSON.parse(results);
   let csvStr = '';
 
-  csvStr += `${_.map(jsonResults.relation.columns, 'columnName').join()}\n`;
-  _.each(jsonResults.rowBatches, (rowBatch) => {
+  const colNames = jsonResults.relation.columns.map((column) => (column.columnName));
+  csvStr += `${colNames.join()}\n`;
+  for (const rowBatch of jsonResults.rowBatches) {
     const numRows = parseInt(rowBatch.numRows, 10);
     const numCols = rowBatch.cols.length;
     for (let i = 0; i < numRows; i++) {
@@ -49,7 +51,7 @@ export function ResultsToCsv(results: string): string {
       }
       csvStr += `${rowData.join()}\n`;
     }
-  });
+  }
 
   return csvStr;
 }
@@ -64,7 +66,9 @@ export function columnFromProto(column: Column): (number | boolean | string)[] {
   } if (column.hasFloat64Data()) {
     return column.getFloat64Data().getDataList();
   } if (column.hasStringData()) {
-    return column.getStringData().getDataList();
+    // getDataList() returns a {!Array<string>|!Array<!Uint8Array>} but we want to coerce into a single
+    // type {!Array<Uint8Array?>} so we wrap it in bytesListAsU8 before parsing into string.
+    return jspb.Message.bytesListAsU8(column.getStringData().getDataList()).map((u8a) => u8aToStr(u8a));
   } if (column.hasTime64nsData()) {
     const data = column.getTime64nsData().getDataList();
     return data.map(nanoToMilliSeconds);
