@@ -74,7 +74,6 @@ class SchemaHooks:
                         name, enum, schema, type_, case.query, ParamType.QUERY
                     )
                 # todo @benkilimnik: generate cookies, headers
-                # todo @benkilimnik: loop arbitrarily deep into schema. Currently only checking first level
                 # todo @benkilimnik: parse multi-component schemas that have property params for each component
                 return case
 
@@ -117,17 +116,18 @@ class SchemaHooks:
                               type_: Optional[Union[str, bool]], case_attr: dict, parameter_type: ParamType):
             """assign a provider to a given parameter_name in the case_attr"""
             # Check for enum
-            # ! but enums won't be labelled...
-            # if self.check_for_enum(name, enum, schema, case_attr):
-            #     return case_attr[name]
+            # todo @benkilimnik: check for PII enum
+            if self.check_for_enum(name, enum, schema, case_attr):
+                return case_attr[name]
             # Check for pii keywords
             if self.check_for_pii_keywords(
                 name, schema, type_, case_attr, parameter_type
             ):
                 return case_attr[name]
             # Check schema for pattern keyword and use provided regex if present
-            # if self.check_for_regex_pattern(name, schema, case_attr):
-            #     return case_attr[name]
+            # todo @benkilimnik: check for PII in regex
+            if self.check_for_regex_pattern(name, schema, case_attr):
+                return case_attr[name]
             # Check for non-pii keywords
             if self.check_for_nonpii_keywords(name, schema, type_, case_attr):
                 return case_attr[name]

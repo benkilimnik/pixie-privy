@@ -107,7 +107,7 @@ xdg==5.1.1
 writer-cm==1.1.1
 backports.cached-property==1.0.1
 atomicwrites==1.4.0
-privy-presidio-utils==0.0.11
+privy-presidio-utils==0.0.51
 haikunator==2.1.0
 python-dotenv==0.20.0
 xmltodict==0.13.0
