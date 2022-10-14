@@ -22,9 +22,13 @@ const utils = require('./webpack-utils');
 
 const OAUTH_DEFAULTS = {
   PL_OAUTH_PROVIDER: 'hydra',
-  PL_AUTH_URI: 'oauth/hydra/oauth2/auth',
+  PL_AUTH_URI: '/oauth/hydra',
   PL_AUTH_CLIENT_ID: 'auth-code-client',
   PL_AUTH_EMAIL_PASSWORD_CONN: '',
+  PL_OIDC_HOST: '',
+  PL_OIDC_METADATA_URL: '',
+  PL_OIDC_CLIENT_ID: '',
+  PL_OIDC_ADDITIONAL_SCOPES: '',
 };
 
 const LD_DEFAULTS = {

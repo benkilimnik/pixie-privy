@@ -24,22 +24,14 @@ import { FormStructure } from 'app/components';
 import { Auth0Buttons } from 'app/containers/auth/auth0-buttons';
 import { AUTH_CLIENT_ID, AUTH_EMAIL_PASSWORD_CONN, AUTH_URI } from 'app/containers/constants';
 
-import { OAuthProviderClient, Token } from './oauth-provider';
+import { getSignupArgs, CallbackArgs, getLoginArgs } from './callback-url';
 
-export class Auth0Client extends OAuthProviderClient {
-  getRedirectURL: (boolean) => string;
-
-  constructor(getRedirectURL: (boolean) => string) {
-    super();
-    this.getRedirectURL = getRedirectURL;
-  }
-
-  // eslint-disable-next-line class-methods-use-this
-  makeAuth0OIDCClient(redirectURI: string, extraQueryParams?: Record<string, any>): UserManager {
+export const Auth0Client = {
+  makeAuth0OIDCClient(extraQueryParams?: Record<string, any>): UserManager {
     return new UserManager({
       authority: `https://${AUTH_URI}`,
       client_id: AUTH_CLIENT_ID,
-      redirect_uri: redirectURI,
+      redirect_uri: `${window.location.origin}/auth/callback`,
       extraQueryParams,
       prompt: 'login',
       scope: 'openid profile email',
@@ -48,42 +40,48 @@ export class Auth0Client extends OAuthProviderClient {
       // complaining about a mismatch between repsonse claims and ID token claims.
       response_type: 'token id_token',
     });
-  }
+  },
 
   redirectToGoogleLogin(): void {
     this.makeAuth0OIDCClient(
-      this.getRedirectURL(/* isSignup */ false),
       {
         connection: 'google-oauth2',
       },
-    ).signinRedirect();
-  }
+    ).signinRedirect({
+      state: {
+        redirectArgs: getLoginArgs(),
+      },
+    });
+  },
 
   redirectToGoogleSignup(): void {
     this.makeAuth0OIDCClient(
-      this.getRedirectURL(/* isSignup */ true),
       {
         connection: 'google-oauth2',
       },
-    ).signinRedirect();
-  }
+    ).signinRedirect({
+      state: {
+        redirectArgs: getSignupArgs(),
+      },
+    });
+  },
 
   redirectToEmailLogin(): void {
     this.makeAuth0OIDCClient(
-      this.getRedirectURL(/* isSignup */ false),
       {
         connection: AUTH_EMAIL_PASSWORD_CONN,
         // Manually configured in Classic Universal Login settings.
         mode: 'login',
       },
-    ).signinRedirect();
-  }
+    ).signinRedirect({
+      state: {
+        redirectArgs: getLoginArgs(),
+      },
+    });
+  },
 
   redirectToEmailSignup(): void {
     this.makeAuth0OIDCClient(
-      // Even though we are in a signup flow, the callback shouldn't "sign up" the
-      // user until verification is complete.
-      this.getRedirectURL(/* isSignup */ false),
       {
         connection: AUTH_EMAIL_PASSWORD_CONN,
         // Manually configured in Classic Universal Login settings.
@@ -91,8 +89,16 @@ export class Auth0Client extends OAuthProviderClient {
         // Used by New Universal Login https://auth0.com/docs/login/universal-login/new-experience#signup
         screen_hint: 'signup',
       },
-    ).signinRedirect();
-  }
+    ).signinRedirect(
+      // Even though we are in a signup flow, the callback shouldn't "sign up" the
+      // user until verification is complete.
+      {
+        state: {
+          redirectArgs: getLoginArgs(),
+        },
+      },
+    );
+  },
 
   refetchToken(): void {
     // Omitting the prompt parameter with the New Universal Login will cause this to fetch the token
@@ -100,17 +106,20 @@ export class Auth0Client extends OAuthProviderClient {
     const client = new UserManager({
       authority: `https://${AUTH_URI}`,
       client_id: AUTH_CLIENT_ID,
-      redirect_uri: this.getRedirectURL(/* isSignup */ false),
+      redirect_uri: `${window.location.origin}/auth/callback`,
       extraQueryParams: { connection: AUTH_EMAIL_PASSWORD_CONN },
       scope: 'openid profile email',
       response_type: 'token id_token',
     });
-    client.signinRedirect();
-  }
+    client.signinRedirect({
+      state: {
+        redirectArgs: getLoginArgs(),
+      },
+    });
+  },
 
-  // eslint-disable-next-line class-methods-use-this
-  handleToken(): Promise<Token> {
-    return new Promise<Token>((resolve, reject) => {
+  handleToken(): Promise<CallbackArgs> {
+    return new Promise<CallbackArgs>((resolve, reject) => {
       // The callback doesn't require any settings to be created.
       // That means this implementation is agnostic to the OIDC that we connected to.
       new UserManager({}).signinRedirectCallback()
@@ -119,22 +128,23 @@ export class Auth0Client extends OAuthProviderClient {
             reject(new Error('user is undefined, please try logging in again'));
           }
           resolve({
-            accessToken: user.access_token,
-            idToken: user.id_token,
+            redirectArgs: user.state.redirectArgs,
+            token: {
+              accessToken: user.access_token,
+              idToken: user.id_token,
+            },
           });
         }).catch(reject);
     });
-  }
+  },
 
-  // eslint-disable-next-line class-methods-use-this
   async getPasswordLoginFlow(): Promise<FormStructure> {
     throw new Error('Password flow not available for OIDC. Use the proper OIDC flow.');
-  }
+  },
 
-  // eslint-disable-next-line class-methods-use-this
   async getResetPasswordFlow(): Promise<FormStructure> {
     throw new Error('Reset Password flow not available for OIDC. Use the proper OIDC flow.');
-  }
+  },
 
   getLoginButtons(): React.ReactElement {
     return Auth0Buttons({
@@ -144,7 +154,7 @@ export class Auth0Client extends OAuthProviderClient {
       emailPasswordButtonText: 'Login with Email',
       onEmailPasswordButtonClick: () => this.redirectToEmailLogin(),
     });
-  }
+  },
 
   getSignupButtons(): React.ReactElement {
     return Auth0Buttons({
@@ -154,20 +164,17 @@ export class Auth0Client extends OAuthProviderClient {
       emailPasswordButtonText: 'Sign-up with Email',
       onEmailPasswordButtonClick: () => this.redirectToEmailSignup(),
     });
-  }
+  },
 
-  // eslint-disable-next-line class-methods-use-this
   async getError(): Promise<FormStructure> {
     throw new Error('error flow not supported for Auth0');
-  }
+  },
 
-  // eslint-disable-next-line class-methods-use-this
   isInvitationEnabled(): boolean {
     return false;
-  }
+  },
 
-  // eslint-disable-next-line class-methods-use-this
   getInvitationComponent(): React.FC {
     return undefined;
-  }
-}
+  },
+};
