@@ -1086,7 +1086,9 @@ int numPerfEvals = (params.NUM_EVAL_RUNS != null) ? Integer.parseInt(params.NUM_
 int warmupMinutes = (params.WARMUP_MINUTES != null) ? Integer.parseInt(params.WARMUP_MINUTES) : 30
 int evalMinutes = (params.EVAL_MINUTES != null) ? Integer.parseInt(params.EVAL_MINUTES) : 60
 int profilerMinutes = (params.PROFILER_MINUTES != null) ? Integer.parseInt(params.PROFILER_MINUTES) : 5
+int cleanupClusters = (params.CLEANUP_CLUSTERS != null) ? Integer.parseInt(params.CLEANUP_CLUSTERS) : 1
 String groupName = (params.GROUP_NAME != null) ? params.GROUP_NAME : 'none'
+String machineType = (params.MACHINE_TYPE != null) ? params.MACHINE_TYPE : 'n2-standard-4'
 String experimentTag = (params.EXPERIMENT_TAG != null) ? params.EXPERIMENT_TAG : 'none'
 String gitHashForPerfEval = (params.GIT_HASH_FOR_PERF_EVAL != null) ? params.GIT_HASH_FOR_PERF_EVAL : 'HEAD'
 String imageTagForPerfEval = 'none'
@@ -1140,7 +1142,7 @@ createCluster = { String clusterName ->
     // Uniquify the cluster name based on the retryIdx because retry attempts
     // may fail based on the pre-existing cluster name.
     retryUniqueClusterName = clusterName  + '-' + String.format('%d', retryIdx)
-    sh "${createClusterScript} -S -f -n 1 -c ${retryUniqueClusterName}"
+    sh "${createClusterScript} -S -f -n 1 -c ${retryUniqueClusterName} -m ${machineType}"
     ++retryIdx
   }
 }
@@ -1148,7 +1150,12 @@ createCluster = { String clusterName ->
 pxDeployForStirlingPerfEval = {
   withCredentials([
     string(
-      credentialsId: 'px-staging-user-api-key',
+      // There are two credentials for perf-evals:
+      // 1. px-staging-user-api-key: staging cloud as pixie org. member.
+      // 2. px-stirling-perf-eval-user-api-key: staging cloud, as "perf-eval" (a different) org.
+      // Currently using (2) above because that isolates the perf evals from updates made to staging
+      // cloud by the cloud team, e.g. plugin scripts running (or not running).
+      credentialsId: 'px-stirling-perf-eval-user-api-key',
       variable: 'THE_PIXIE_CLI_API_KEY'
     )
   ]) {
@@ -1170,7 +1177,7 @@ pxDeployForStirlingPerfEval = {
       // Ensure skaffold is configured with the dev. image registry.
       sh 'skaffold config set default-repo gcr.io/pl-dev-infra'
       // Regenerate the json list of artifacts targeting the images built for this eval.
-      sh "skaffold build -t ${imageTagForPerfEval} --dry-run -q -f skaffold/skaffold_vizier.yaml > artifacts.json"
+      sh "skaffold build -p opt -t ${imageTagForPerfEval} --dry-run -q -f skaffold/skaffold_vizier.yaml > artifacts.json"
       // Useful for local debug, or to verify the image tags.
       sh 'cat artifacts.json'
       // Skaffold deploy using perf-eval images generated in the build & push step.
@@ -1289,12 +1296,23 @@ oneEval = { int evalIdx, String clusterName, boolean newClusterNeeded ->
           // Earlier, we had created a new cluster for this perf eval.
           // Here, we clean up.
           stage("Delete cluster.") {
-            deleteCluster(getCurrentClusterName(clusterName))
+            if(cleanupClusters) {
+              deleteCluster(getCurrentClusterName(clusterName))
+            } else {
+              sh "echo skipping cluster cleanup."
+            }
           }
         }
       }
     }
   }
+}
+
+def savePodResourceUsagePxlScript() {
+  pod_resource_usage_path = "src/pxl_scripts/private/b7ca1b62-6c9f-4a3f-a45d-a5bdffbcae6a/pod_resource_usage"
+  assert fileExists(pod_resource_usage_path)
+  sh 'mkdir -p logs/pod_resource_usage'
+  sh "cp ${pod_resource_usage_path}/* logs/pod_resource_usage"
 }
 
 def saveRepoInfo() {
@@ -1355,6 +1373,43 @@ def checkIfRequiredImagesExist() {
   return allRequiredImagesExist
 }
 
+def checkoutTargetRepo(String gitHashForPerfEval) {
+  // Log out initial repo state.
+  sh 'echo "Starting repo state:" && git rev-parse HEAD'
+
+  if (params.DIFF_ID != "") {
+    sshagent(['build-bot-ro']) {
+      // DIFF_ID branch.
+      // Specifying DIFF_ID (from Phab) enables a perf eval on an unmerged branch that resides in phab.
+      // To eval this repo state, we fetch the specific tag from the staging repo & merge.
+      def diffId = Integer.parseInt(params.DIFF_ID)
+      sh 'mkdir -p ~/.ssh'
+      sh 'ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts'
+      sh 'git config remote.staging.url ssh://git@github.com/pixie-labs/pixielabs-staging.git'
+      sh "git fetch --tags --force -q -- ssh://git@github.com/pixie-labs/pixielabs-staging.git refs/tags/phabricator/diff/${diffId}"
+      gitHashForPerfEval = sh(script: "git rev-parse HEAD", returnStdout: true, returnStatus: false).trim()
+      def targetHash = sh(script: "git rev-parse refs/tags/phabricator/diff/${diffId}^{commit}", returnStdout: true, returnStatus: false).trim()
+      echo "Merging based on DIFF_ID: ${diffId}, found targetHash: ${targetHash}."
+      sh "git merge --ff ${targetHash}"
+      imageTagForPerfEval = 'perf-eval-' + gitHashForPerfEval + "-B${diffId}"
+    }
+  } else {
+    // GIT_HASH_FOR_PERF_EVAL branch.
+    // Here, we evaluate some commit that is merged into main.
+    // Alternately (to a SHA), the user can specify a string like "HEAD~3" or "some-branch".
+    // Build arg. GIT_HASH_FOR_PERF_EVAL is converted into sha,
+    // and used to construct the resulting image tag.
+    sh "echo 'Target repo state:' && git rev-parse ${gitHashForPerfEval}"
+    gitHashForPerfEval = sh(script: "git rev-parse ${gitHashForPerfEval}", returnStdout: true, returnStatus: false).trim()
+    sh "git checkout ${gitHashForPerfEval}"
+    imageTagForPerfEval = 'perf-eval-' + gitHashForPerfEval
+  }
+
+  echo "Image tag for perf eval: ${imageTagForPerfEval}"
+  sh 'echo "Repo state:" && git rev-parse HEAD'
+  return imageTagForPerfEval
+}
+
 buildAndPushPemImagesForPerfEval = {
   WithSourceCodeK8s('pem-build-push') {
     container('pxbuild') {
@@ -1364,17 +1419,11 @@ buildAndPushPemImagesForPerfEval = {
       // Ensure repo is configured for use.
       sh 'git config --global --add safe.directory $(pwd)'
 
-      // Log out beginning, target, and final repo state.
-      sh 'echo "Starting repo state:" && git rev-parse HEAD'
-      sh "echo 'Target repo state:' && git rev-parse ${gitHashForPerfEval}"
+      // Copy the pod resource utilization script into the logs directory,
+      // so that it is stashed along with repo info.
+      savePodResourceUsagePxlScript()
 
-      // The user can give a hash like "HEAD~3" or "some-branch".
-      // Here, we turn that into a sha and then construct the resulting image tag.
-      gitHashForPerfEval = sh(script: "git rev-parse ${gitHashForPerfEval}", returnStdout: true, returnStatus: false).trim()
-      imageTagForPerfEval = 'perf-eval-' + gitHashForPerfEval
-      sh "echo Image tag for perf eval: ${imageTagForPerfEval}"
-      sh "git checkout ${gitHashForPerfEval}"
-      sh 'echo "Repo state:" && git rev-parse HEAD'
+      imageTagForPerfEval = checkoutTargetRepo(gitHashForPerfEval)
       saveRepoInfo()
 
       // Ensure skaffold is configured for dev. image registry.
@@ -1386,13 +1435,13 @@ buildAndPushPemImagesForPerfEval = {
 
       // Save the image names & tags into artiacts.json, and log out the same info.
       // Useful if one wants to cross check vs. the artifacts that we deploy later.
-      sh "skaffold build -t ${imageTagForPerfEval} -f skaffold/skaffold_vizier.yaml -q --dry-run | tee artifacts.json"
+      sh "skaffold build -p opt -t ${imageTagForPerfEval} -f skaffold/skaffold_vizier.yaml -q --dry-run | tee artifacts.json"
 
       allRequiredImagesExist = checkIfRequiredImagesExist()
 
       if (!allRequiredImagesExist) {
         echo "Building all images."
-        sh "skaffold build -t ${imageTagForPerfEval} -f skaffold/skaffold_vizier.yaml"
+        sh "skaffold build -p opt -t ${imageTagForPerfEval} -f skaffold/skaffold_vizier.yaml"
       }
     }
   }
