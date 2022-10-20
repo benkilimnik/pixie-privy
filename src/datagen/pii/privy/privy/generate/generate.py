@@ -90,7 +90,15 @@ def parse_args():
         "-a",
         required=False,
         default=Path(__file__).parent,
-        help="Absolute path to folder download openapi specs into. Privy checks if this folder already exists.",
+        help="Absolute path to folder to download openapi specs into. Privy checks if this folder already exists.",
+    )
+
+    parser.add_argument(
+        "--fake_persons_file_path",
+        "-fp",
+        required=False,
+        default="",
+        help="Absolute path to file containing fake person data downloaded from fakenamegenerator.com.",
     )
 
     parser.add_argument(
@@ -218,7 +226,7 @@ def main(args):
     args.region = {
         "english_us": English_US,
         "german_de": German_DE,
-    }.get(args.region)(pii_types=args.pii_types)
+    }.get(args.region)(pii_types=args.pii_types, fake_persons_file_path=args.fake_persons_file_path)
 
     # ------ Initialize File Handles --------
     out_files = {}
