@@ -102,7 +102,6 @@ kiwisolver==1.4.4
 matplotlib==3.5.2
 pillow==9.2.0
 json2html==1.3.0
-hypothesis-faker==0.1.13
 xdg==5.1.1
 writer-cm==1.1.1
 backports.cached-property==1.0.1

@@ -62,7 +62,6 @@ py_library(
         requirement("h5py"),
         requirement("tensorflow-estimator"),
         requirement("json2html"),
-        requirement("hypothesis-faker"),
         requirement("privy-presidio-utils"),
         requirement("haikunator"),
         requirement("python-dotenv"),
