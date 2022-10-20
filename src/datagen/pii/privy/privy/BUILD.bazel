@@ -73,7 +73,6 @@ py_library(
         requirement("setuptools"),
         requirement("spacy"),
         requirement("regex"),
-        # spacy
         requirement("blis"),
         requirement("catalogue"),
         requirement("cymem"),
