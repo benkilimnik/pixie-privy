@@ -221,9 +221,9 @@ class Religion(BaseProvider):
 
 
 class RaceEthnicity(BaseProvider):
-    def race_ethnicity(self) -> str:
+    def race(self) -> str:
         """Return a random race / ethnicity."""
         url = "https://raw.githubusercontent.com/benkilimnik/pii-data/main/race_ethnicity.csv"
         download = requests.get(url).content
-        race_and_ethnities = io.StringIO(download.decode('utf-8'))
+        race_and_ethnities = io.StringIO(download.decode('utf-8')).readlines()
         return random.choice(race_and_ethnities)
