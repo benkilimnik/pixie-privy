@@ -45,21 +45,22 @@ class SQLQueryBuilder:
         conditions = []
         for label in pii_labels:
             table_col = getattr(self.table, label)
+            # this is also broken!
             options = [
                 table_col == self.payload[label],
                 table_col,
                 table_col != self.payload[label],
-                (table_col == self.payload[label]) | (table_col == self.providers.get_faker("word")()),
+                (table_col == self.payload[label]) | (
+                    table_col == self.providers.get_faker("word")()),
             ]
-            # todo: remove useful try except? What does the first cast to int do?
-            try:
-                int(self.payload[label])
-                options.append(table_col > random.randint(0, 1000))
-                options.append(table_col < random.randint(0, 1000))
-                options.append(table_col <= random.randint(0, 1000))
-                options.append(table_col >= random.randint(0, 1000))
-            except Exception:
-                pass
+            # if payload is an integer, add additional numeric conditions
+            # lookup in pypika docs how to properly make a where condition,
+            # this produces a bool result that pypika can't handle
+            # if self.payload[label].isdigit():
+            #     options.append(table_col > random.randint(0, 1000))
+            #     options.append(table_col < random.randint(0, 1000))
+            #     options.append(table_col <= random.randint(0, 1000))
+            #     options.append(table_col >= random.randint(0, 1000))
             conditions.append(self.get_random_val(options))
         conditions = Criterion.all(conditions)
         query = query(conditions)
@@ -74,19 +75,19 @@ class SQLQueryBuilder:
                 table_col == self.payload[label],
                 table_col,
                 table_col != self.payload[label],
-                (table_col == self.payload[label]) | (table_col == self.providers.get_faker("word")()),
+                (table_col == self.payload[label]) | (
+                    table_col == self.providers.get_faker("word")()),
             ]
-            try:
-                int(self.payload[label])
+            # if payload is an integer, add additional numeric conditions
+            if self.payload[label].isdigit():
                 options.append(table_col > random.randint(0, 1000))
                 options.append(table_col < random.randint(0, 1000))
                 options.append(table_col <= random.randint(0, 1000))
                 options.append(table_col >= random.randint(0, 1000))
                 case = case.when(self.get_random_val(options), random.randint(0, 1000))
                 continue
-            except Exception:
-                pass
-            case = case.when(self.get_random_val(options), self.providers.get_faker("word")())
+            case = case.when(self.get_random_val(options),
+                             self.providers.get_faker("word")())
         return query.select(table_col, case)
 
     def _having(self, pii_label, query):
@@ -157,7 +158,8 @@ class SQLQueryBuilder:
         """construct insert query"""
         subtypes = self.get_random_sample(0, self.query_types["insert"])
         if subtypes:  # with columns
-            query = query.into(self.table).columns(pii_labels_str).insert(pii_vals_str)
+            query = query.into(self.table).columns(
+                pii_labels_str).insert(pii_vals_str)
         else:  # no columns shown
             query = query.into(self.table).insert(pii_vals_str)
         return query

@@ -68,8 +68,8 @@ class PayloadRoute:
                     self.analyzer.update_pii_counters(pii_types)
                 self.analyzer.update_payload_counts()
                 payload_spans.append(payload_span)
-            logging.getLogger("privy").debug(
-                f"Generated span: {payload_span.spans}")
+                logging.getLogger("privy").debug(
+                    f"Generated span: {payload_span.spans}")
             for writer in privy_writers:
                 if writer.file_type == PrivyFileType.PAYLOADS:
                     row = [payload_span.fake, has_pii_str, pii_types_str]
@@ -80,7 +80,7 @@ class PayloadRoute:
                     writer.open_file.write(f"{converted_payload_template}\n")
                 if writer.file_type == PrivyFileType.SPANS:
                     for span in payload_spans:
-                        writer.open_file.write(f"{span.to_json()}\n")
+                        writer.open_file.write(f"{span.toJSON()}\n")
 
 
 class PayloadFuzzer:

@@ -15,16 +15,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import yaml
 import dataclasses
 import random
 import string
 from abc import ABC
 from typing import Union, Optional, Type, Callable, Set
 from decimal import Decimal
+import pandas as pd
+from pathlib import Path
 import baluhn
 from faker.providers import BaseProvider
 from faker.providers.lorem.en_US import Provider as LoremProvider
-from privy.providers.spans import PayloadSpans
+from presidio_evaluator.data_generator.faker_extensions.data_objects import FakerSpansResult
 
 
 @dataclasses.dataclass()
@@ -34,7 +37,6 @@ class Provider:
 
     template_name: str
     aliases: Set[str]
-    generator: Callable
     type_: Union[Type[str], Type[int], Type[float],
                  Type[Decimal], Type[bool]] = str
 
@@ -59,8 +61,6 @@ class GenericProvider(ABC):
             label.replace(" ", "-"),
             label.replace(" ", "_"),
             label.replace(" ", "__"),
-            label.replace(" ", "."),
-            label.replace(" ", ":"),
             label.replace(" ", ""),
         ]
         return label_delimited
@@ -105,26 +105,29 @@ class GenericProvider(ABC):
             pii_types = self.get_pii_types()
 
     def get_faker(self, faker_provider: str):
-        faker_generator = getattr(self.f, faker_provider)
+        faker_generator = getattr(self.f.faker, faker_provider)
         return faker_generator
 
-    def parse(self, template: str, template_id: int) -> PayloadSpans:
+    # def add_provider_alias(self, provider: Callable, alias: str) -> None:
+    #     """Add copy of an existing provider, but under a different name"""
+    #     logging.getLogger("privy").debug(
+    #         f"Adding alias {alias} for provider {provider}")
+    #     new_provider = BaseProvider(self.f)
+    #     setattr(new_provider, alias, provider)
+    #     self.f.add_provider(new_provider)
+
+    # def set_provider_aliases(self):
+    #     """Set faker generator aliases for all providers to reduce mismatch between template_names and generators"""
+    #     for pii in self.pii_providers:
+    #         add_provider_alias(
+    #             provider=getattr(self.f, pii.template_name), alias=pii.template_name)
+    #     for nonpii in self.nonpii_providers:
+    #         self.add_provider_alias(
+    #             provider=nonpii.generator, alias=nonpii.template_name)
+
+    def parse(self, template: str, template_id: int) -> FakerSpansResult:
         """Parse payload template into a span, using data providers that match the template_names e.g. {{full_name}}"""
         return self.f.parse(template=template, template_id=template_id)
-
-    def add_provider_alias(self, provider: Callable, alias: str) -> None:
-        """Add copy of an existing provider, but under a different name"""
-        logging.getLogger("privy").debug(f"Adding alias {alias} for provider {provider}")
-        new_provider = BaseProvider(self.f)
-        setattr(new_provider, alias, provider)
-        self.f.add_provider(new_provider)
-
-    def set_provider_aliases(self):
-        """Set faker generator aliases for all providers to reduce mismatch between template_names and generators"""
-        for pii in self.pii_providers:
-            self.add_provider_alias(provider=pii.generator, alias=pii.template_name)
-        for nonpii in self.nonpii_providers:
-            self.add_provider_alias(provider=nonpii.generator, alias=nonpii.template_name)
 
 
 class MacAddress(BaseProvider):
@@ -159,9 +162,23 @@ class Passport(BaseProvider):
 
 
 class DriversLicense(BaseProvider):
-    def drivers_license(self) -> str:
-        # US driver's licenses consist of 9 digits (patterns vary by state)
-        return self.numerify(text="### ### ###")
+    def __init__(self, generator):
+        super().__init__(generator=generator)
+        self.us_driver_license_formats = Path(
+            Path(__file__).parent, "us_driver_license_format.yaml"
+        ).resolve()
+        with open(self.us_driver_license_formats, "r") as stream:
+            try:
+                formats = yaml.safe_load(stream)
+                self.formats = formats['en']['faker']['driving_license']['usa']
+            except yaml.YAMLError as exc:
+                logging.getLogger("privy").warning(exc)
+
+    def driver_license(self) -> str:
+        # US driver's licenses patterns vary by state. Here we sample a random state and format
+        us_state = random.choice(list(self.formats))
+        us_state_format = random.choice(self.formats[us_state])
+        return self.bothify(text=us_state_format)
 
 
 class Alphanum(BaseProvider):
@@ -173,6 +190,13 @@ class Alphanum(BaseProvider):
         return self.bothify(text=alphanumeric_string)
 
 
+class ITIN(BaseProvider):
+    def itin(self) -> str:
+        # US Individual Taxpayer Identification Number (ITIN).
+        # Nine digits that start with a "9" and contain a "7" or "8" as the 4 digit.
+        return f"9{self.numerify(text='##')}{random.choice(['7', '8'])}{self.numerify(text='#####')}"
+
+
 class String(LoremProvider):
     def string(self) -> str:
         """generate a random string of characters, words, and numbers"""
@@ -182,8 +206,145 @@ class String(LoremProvider):
             return space.join(random.sample(text, random.randint(low, high)))
 
         characters = sample(string.ascii_letters, 1, 10)
-        numbers = sample(string.digits, 1, 10)
         characters_and_numbers = sample(
             string.ascii_letters + string.digits, 1, 10)
-        combined = [characters, numbers, characters_and_numbers]
-        return sample(combined, 0, 3, True)
+        combined = [characters, characters, characters_and_numbers]
+        return sample(combined, 0, 3, space=True)
+
+
+class OrganizationProvider(BaseProvider):
+    def __init__(self, generator):
+        super().__init__(generator=generator)
+        # company names assembled from stock exchange listings (aex, bse, cnq, ger, lse, nasdaq, nse, nyse, par, tyo),
+        # US government websites like https://www.sec.gov/rules/other/4-460list.htm, and other sources
+        self.orgs_and_companies_file = Path(
+            Path(__file__).parent, "companies_and_organizations.csv"
+        ).resolve()
+        self.orgs_and_companies = self.load_organizations()
+
+    def load_organizations(self):
+        return pd.read_csv(self.orgs_and_companies_file)
+
+    def company(self):
+        return self.organization()
+
+    def organization(self):
+        return self.random_element(self.orgs_and_companies.companyName.tolist())
+
+
+class Religion(BaseProvider):
+    def religion(self) -> str:
+        """Return a random (major) religion."""
+        return random.choice([
+            'Atheism',
+            'Atheist',
+            'Christianity',
+            'Christian',
+            'Islam',
+            'Islamic',
+            'Hinduism',
+            'Hindu',
+            'Buddhism',
+            'Buddhist',
+            'Sikhism',
+            'Sikh',
+            'Judaism',
+            'Jewish',
+            'Bahaism',
+            'Baha',
+            'Confucianism',
+            'Confucian',
+            'Jainism',
+            'Jain',
+            'Shintoism',
+            'Shinto',
+        ])
+
+
+class Race(BaseProvider):
+    def race(self) -> str:
+        """Return a random race."""
+        return random.choice([
+            'Alien/Unknown',
+            'Aboriginal/Australian, South Pacific',
+            'Aborigine',
+            'African',
+            'African/African-American/Black',
+            'African-American',
+            'African-American/Black',
+            'American',
+            'American Indian',
+            'Arabian',
+            'Arabic',
+            'Arab/Middle Eastern',
+            'Asian',
+            'Asian/-American',
+            'Asian/Indian',
+            'Asian/Oriental',
+            'Asian/Other than American',
+            'Asian/Mongoloid',
+            'Asian/Subcontinent',
+            'Asian/Pacific',
+            'Bi/multiracial',
+            'Black',
+            'Black/African',
+            'Black/African descent',
+            'Black/African-American',
+            'Black/American',
+            'Black/Central-Southern African',
+            'Black/Other than American',
+            'Brown/Hispanic',
+            'Caucasion',
+            'Caucasion/White',
+            'Chinese',
+            'Combination',
+            'Eastern Indian',
+            'Eskimo',
+            'Eskimo/Aleutian',
+            'European',
+            'Filipino',
+            'Hispanic',
+            'Hispanic/American',
+            'Hispanic/Latin',
+            'Hispanic/Latino',
+            'Hispanic/Other than American',
+            'Human',
+            'Indian',
+            'Indian/Middle Asian',
+            'Indian/Native American or otherwise',
+            'Indian/Pakistani',
+            'Islander',
+            'Japanese',
+            'Jewish',
+            'Korean',
+            'Latina',
+            'Latino',
+            'Latino/a',
+            'Latino/Hispanic',
+            'Mestiza/Mixed',
+            'Mexican',
+            'Middle Eastern',
+            'Middle Eastern/American',
+            'Middle Eastern/Arabic',
+            'Middle Eastern/Other than American',
+            'Mixed',
+            'Mixes',
+            'Mix of some',
+            'Native American',
+            'Native American/Aborigine',
+            'Native American/Indian',
+            'Native American/Indigenous People',
+            'Oriental',
+            'Pacific Islander',
+            'Pacific Islander/East Asian',
+            'Polynesian/Pacific Islander',
+            'South American/Latin American descent',
+            'Vietnamese',
+            'White',
+            'White/American',
+            'White/Caucasian',
+            'White/European',
+            'White/Northern European',
+            'White/Other than American',
+            'Yellow/Asian/Pacific Islander/Native American',
+        ])
