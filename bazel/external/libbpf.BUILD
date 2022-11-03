@@ -14,33 +14,33 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel:pl_build_system.bzl", "pl_cc_library", "pl_cc_test")
+load("@rules_foreign_cc//foreign_cc:defs.bzl", "make")
 
-package(default_visibility = ["//src:__subpackages__"])
-
-pl_cc_library(
-    name = "cc_library",
-    srcs = glob(
-        [
-            "*.cc",
-            "*.h",
-        ],
-        exclude = [
-            "**/*_test.cc",
-            "**/*_test_utils.h",
-        ],
-    ),
-    hdrs = ["metadata_handler.h"],
-    deps = [
-        "//src/carnot/planner/ir:cc_library",
-        "//src/shared/metadatapb:metadata_pl_cc_proto",
-    ],
+filegroup(
+    name = "libbpf_source",
+    srcs = glob(["**"]),
 )
 
-pl_cc_test(
-    name = "metadata_handler_test",
-    srcs = ["metadata_handler_test.cc"],
-    deps = [
-        ":cc_library",
+make(
+    name = "libbpf",
+    args = [
+        "-C src",
+        "-j $(nproc)",
     ],
+    env = dict(
+        BUILD_STATIC_ONLY = "y",
+        NO_PKG_CONFIG = "1",
+    ),
+    lib_source = ":libbpf_source",
+    # libelf is a dependency of libbpf.
+    linkopts = [
+        # ELF binary parsing.
+        "-lelf",
+    ],
+    out_lib_dir = "lib64",
+    targets = [
+        "install",
+        "install_uapi_headers",
+    ],
+    visibility = ["//visibility:public"],
 )

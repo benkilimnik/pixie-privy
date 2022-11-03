@@ -45,12 +45,10 @@ metadata:
 rules:
 - apiGroups:
   - ""
-  - px.dev
   resources:
   - services
   - events
   - pods/log
-  - viziers
   verbs:
   - "get"
   - "watch"
@@ -63,10 +61,12 @@ rules:
   - "*"
 - apiGroups:
   - ""
+  - px.dev
   resources:
   - secrets
   - endpoints
   - pods
+  - viziers
   verbs:
   - "*"
 ---

@@ -313,6 +313,13 @@ REPOSITORY_LOCATIONS = dict(
             "https://github.com/googleapis/googleapis/archive/2f9af297c84c55c8b871ba4495e01ade42476c92.tar.gz",
         ],
     ),
+    com_github_libbpf_libbpf = dict(
+        sha256 = "3d6afde67682c909e341bf194678a8969f17628705af25f900d5f68bd299cb03",
+        strip_prefix = "libbpf-1.0.1",
+        urls = [
+            "https://github.com/libbpf/libbpf/archive/refs/tags/v1.0.1.tar.gz",
+        ],
+    ),
 )
 
 # To modify one of the forked repos below:
@@ -326,13 +333,13 @@ REPOSITORY_LOCATIONS = dict(
 GIT_REPOSITORY_LOCATIONS = dict(
     com_github_iovisor_bcc = dict(
         remote = "https://github.com/pixie-io/bcc.git",
-        commit = "665ef026d27e0e066d0cd1816ebd1ab63ce8c1ef",
-        shallow_since = "1656825375 -0700",
+        commit = "b9cc317740d943173a493f2941f716679c560fa8",
+        shallow_since = "1666139145 -0700",
     ),
     com_github_iovisor_bpftrace = dict(
         remote = "https://github.com/pixie-io/bpftrace.git",
-        commit = "9dd8045d2b7a6971634b877686298135e2004e86",
-        shallow_since = "1655490642 -0700",
+        commit = "ad53050229186cb71021bf4d6617e8765c666a3c",
+        shallow_since = "1666153746 -0700",
     ),
     com_github_apangin_jattach = dict(
         remote = "https://github.com/pixie-io/jattach.git",

@@ -25,7 +25,6 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -96,32 +95,16 @@ const HydraLoginStateKey string = "hydra_login_state"
 type hydraAdminClientService interface {
 	AcceptConsentRequest(params *hydraAdmin.AcceptConsentRequestParams) (*hydraAdmin.AcceptConsentRequestOK, error)
 	AcceptLoginRequest(params *hydraAdmin.AcceptLoginRequestParams) (*hydraAdmin.AcceptLoginRequestOK, error)
-	AcceptLogoutRequest(params *hydraAdmin.AcceptLogoutRequestParams) (*hydraAdmin.AcceptLogoutRequestOK, error)
 	GetConsentRequest(params *hydraAdmin.GetConsentRequestParams) (*hydraAdmin.GetConsentRequestOK, error)
-	GetLoginRequest(params *hydraAdmin.GetLoginRequestParams) (*hydraAdmin.GetLoginRequestOK, error)
-	GetLogoutRequest(params *hydraAdmin.GetLogoutRequestParams) (*hydraAdmin.GetLogoutRequestOK, error)
 	IntrospectOAuth2Token(params *hydraAdmin.IntrospectOAuth2TokenParams) (*hydraAdmin.IntrospectOAuth2TokenOK, error)
 }
+
 type kratosPublicClientService interface {
-	CompleteSelfServiceBrowserSettingsOIDCSettingsFlow(params *kratosPublic.CompleteSelfServiceBrowserSettingsOIDCSettingsFlowParams) error
-	CompleteSelfServiceLoginFlowWithPasswordMethod(params *kratosPublic.CompleteSelfServiceLoginFlowWithPasswordMethodParams) (*kratosPublic.CompleteSelfServiceLoginFlowWithPasswordMethodOK, error)
-	CompleteSelfServiceRegistrationFlowWithPasswordMethod(params *kratosPublic.CompleteSelfServiceRegistrationFlowWithPasswordMethodParams) (*kratosPublic.CompleteSelfServiceRegistrationFlowWithPasswordMethodOK, error)
-
-	GetSelfServiceLoginFlow(params *kratosPublic.GetSelfServiceLoginFlowParams) (*kratosPublic.GetSelfServiceLoginFlowOK, error)
-	GetSelfServiceRecoveryFlow(params *kratosPublic.GetSelfServiceRecoveryFlowParams) (*kratosPublic.GetSelfServiceRecoveryFlowOK, error)
-	GetSelfServiceRegistrationFlow(params *kratosPublic.GetSelfServiceRegistrationFlowParams) (*kratosPublic.GetSelfServiceRegistrationFlowOK, error)
-	GetSelfServiceSettingsFlow(params *kratosPublic.GetSelfServiceSettingsFlowParams, authInfo runtime.ClientAuthInfoWriter) (*kratosPublic.GetSelfServiceSettingsFlowOK, error)
-
-	InitializeSelfServiceBrowserLogoutFlow(params *kratosPublic.InitializeSelfServiceBrowserLogoutFlowParams) error
-
-	InitializeSelfServiceLoginViaBrowserFlow(params *kratosPublic.InitializeSelfServiceLoginViaBrowserFlowParams) error
-	InitializeSelfServiceRecoveryViaBrowserFlow(params *kratosPublic.InitializeSelfServiceRecoveryViaBrowserFlowParams) error
-	InitializeSelfServiceRegistrationViaBrowserFlow(params *kratosPublic.InitializeSelfServiceRegistrationViaBrowserFlowParams) error
 	Whoami(params *kratosPublic.WhoamiParams, authInfo runtime.ClientAuthInfoWriter) (*kratosPublic.WhoamiOK, error)
 }
+
 type kratosAdminClientService interface {
 	GetIdentity(params *kratosAdmin.GetIdentityParams) (*kratosAdmin.GetIdentityOK, error)
-	UpdateIdentity(params *kratosAdmin.UpdateIdentityParams) (*kratosAdmin.UpdateIdentityOK, error)
 	CreateIdentity(params *kratosAdmin.CreateIdentityParams) (*kratosAdmin.CreateIdentityCreated, error)
 	CreateRecoveryLink(params *kratosAdmin.CreateRecoveryLinkParams) (*kratosAdmin.CreateRecoveryLinkOK, error)
 }
@@ -335,62 +318,6 @@ func (c *HydraKratosClient) Whoami(ctx context.Context, r *http.Request) (*Whoam
 		return nil, err
 	}
 	return &Whoami{kratosSession: resp.GetPayload()}, nil
-}
-
-// PasswordRegistrationFlow describes what information is necessary to register using a password.
-type PasswordRegistrationFlow struct {
-	flow *kratosModels.RegistrationFlowMethod
-}
-
-// PasswordLoginFlow describes what informasetion is necessary to login with a password.
-type PasswordLoginFlow struct {
-	flow *kratosModels.LoginFlowMethod
-}
-
-// GetPasswordRegistrationFlow returns the registration flow for the oss auth. Used to render the form to register a user.
-func (c *HydraKratosClient) GetPasswordRegistrationFlow(ctx context.Context, flowID string) (*PasswordRegistrationFlow, error) {
-	params := &kratosPublic.GetSelfServiceRegistrationFlowParams{
-		ID:      flowID,
-		Context: ctx,
-	}
-	resp, err := c.kratosPublicClient.GetSelfServiceRegistrationFlow(params)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.GetPayload() == nil {
-		return nil, errors.New("no message received from kratos self-service registration flow endpoint")
-	}
-
-	flow, ok := resp.GetPayload().Methods["password"]
-	if !ok {
-		return nil, errors.New("Does not have password method")
-	}
-	return &PasswordRegistrationFlow{&flow}, nil
-}
-
-// GetPasswordLoginFlow returns the login flow for the oss auth. Used to render the form to login a user.
-func (c *HydraKratosClient) GetPasswordLoginFlow(ctx context.Context, flowID string) (*PasswordLoginFlow, error) {
-	params := &kratosPublic.GetSelfServiceLoginFlowParams{
-		ID:      flowID,
-		Context: ctx,
-	}
-	// Auth is nil because we pass auth through the cookie.
-	resp, err := c.kratosPublicClient.GetSelfServiceLoginFlow(params)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.GetPayload() == nil {
-		return nil, errors.New("no message received from kratos self-service login flow endpoint")
-	}
-
-	flow, ok := resp.GetPayload().Methods["password"]
-	if !ok {
-		return nil, errors.New("Does not have password method")
-	}
-
-	return &PasswordLoginFlow{&flow}, nil
 }
 
 // Store the hydraLoginState as a cookie.
@@ -658,23 +585,6 @@ func convertIdentityToKratosUserInfo(identity *kratosModels.Identity) (*KratosUs
 	k.KratosID = strfmt.UUID4(identity.ID).String()
 
 	return k, nil
-}
-
-// UpdateUserInfo sets the userInfo for the user. Note that it doesn't patch, but fully updates so you likely need to GetUserInfo first.
-func (c *HydraKratosClient) UpdateUserInfo(ctx context.Context, userID string, kratosInfo *KratosUserInfo) (*KratosUserInfo, error) {
-	params := &kratosAdmin.UpdateIdentityParams{
-		ID: userID,
-		Body: &kratosModels.UpdateIdentity{
-			Traits: kratosInfo,
-		},
-		Context: ctx,
-	}
-	resp, err := c.kratosAdminClient.UpdateIdentity(params)
-	if err != nil {
-		return nil, err
-	}
-
-	return convertIdentityToKratosUserInfo(resp.Payload)
 }
 
 // CreateIdentityResponse contains relevant information about the Identity that was created.

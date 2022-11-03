@@ -34,8 +34,8 @@ import { ClusterContext } from 'app/common/cluster-context';
 import { LiveRouteContext } from 'app/containers/App/live-routing';
 import { Relation } from 'app/types/generated/vizierapi_pb';
 import { Arguments } from 'app/utils/args-utils';
-import { buildClass } from 'app/utils/build-class';
 
+import { GraphBase } from './graph-base';
 import {
   getColorForErrorRate,
   getColorForLatency,
@@ -53,34 +53,8 @@ interface RequestGraphProps {
 }
 
 const useStyles = makeStyles((theme: Theme) => createStyles({
-  root: {
-    width: '100%',
-    flex: 1,
-    minHeight: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-  },
-  container: {
-    width: '100%',
-    height: '100%',
-    minHeight: 0,
-    border: '1px solid transparent',
-    // https://cssinjs.org/jss-plugin-nested/#use-rulename-to-reference-a-local-rule-within-the-same-style-sheet
-    '&$focus': { borderColor: theme.palette.foreground.grey2 },
-    '& > .vis-active': {
-      boxShadow: 'none',
-    },
-  },
-  focus: {/* Blank entry so the rule above has something to reference */},
   enabled: {
     color: theme.palette.text.secondary,
-  },
-  buttonContainer: {
-    '& > .MuiIconButton-root': {
-      marginRight: theme.spacing(2),
-      padding: theme.spacing(0.375), // 3px
-    },
   },
 }), { name: 'RequestGraphWidget' });
 
@@ -99,7 +73,6 @@ export const RequestGraphWidget = React.memo<RequestGraphProps>(({
   const [clusteredMode, setClusteredMode] = React.useState<boolean>(true);
   const [hierarchyEnabled, setHierarchyEnabled] = React.useState<boolean>(false);
   const [colorByLatency, setColorByLatency] = React.useState<boolean>(false);
-  const [focused, setFocused] = React.useState<boolean>(false);
 
   const theme = useTheme();
   /**
@@ -131,11 +104,6 @@ export const RequestGraphWidget = React.memo<RequestGraphProps>(({
     }
     return latencyColor;
   }), [graphMgr, getEdgeColoringFn]);
-
-  /**
-   * Toggle whether the graph is in focus.
-   */
-  const toggleFocus = React.useCallback(() => setFocused((enabled) => !enabled), []);
 
   /**
    * Load data when the data or display changes.
@@ -181,6 +149,7 @@ export const RequestGraphWidget = React.memo<RequestGraphProps>(({
     n.on('stabilizationIterationsDone', () => {
       n.setOptions({ physics: false });
     });
+
     setNetwork(n);
   }, [graphMgr, clusteredMode, hierarchyEnabled, defaultGraphOpts]);
 
@@ -208,38 +177,35 @@ export const RequestGraphWidget = React.memo<RequestGraphProps>(({
 
   const classes = useStyles();
   return (
-    <div className={classes.root} onFocus={toggleFocus} onBlur={toggleFocus}>
-      <div className={buildClass(classes.container, focused && classes.focus)} ref={ref} />
-      <div className={classes.buttonContainer}>
-        <Tooltip title={colorByLatency ? 'Colored by latency' : 'Colored by Error Rate'}>
-          <IconButton
-            size='small'
-            onClick={toggleColor}
-            className={classes.enabled}
-          >
-            {colorByLatency ? <SpeedIcon /> : <ErrorOutlineIcon />}
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={hierarchyEnabled ? 'Hierarchy enabled' : 'Hierarchy disabled'}>
-          <IconButton
-            size='small'
-            onClick={toggleHierarchy}
-            className={hierarchyEnabled ? classes.enabled : ''}
-          >
-            <AccountTreeIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={clusteredMode ? 'Clustered by service' : 'Clustering disabled'}>
-          <IconButton
-            size='small'
-            onClick={toggleMode}
-            className={clusteredMode ? classes.enabled : ''}
-          >
-            <WorkspacesIcon />
-          </IconButton>
-        </Tooltip>
-      </div>
-    </div>
+    <GraphBase network={network} visRootRef={ref} showZoomButtons={true}>
+      <Tooltip title={colorByLatency ? 'Colored by latency' : 'Colored by Error Rate'}>
+        <IconButton
+          size='small'
+          onClick={toggleColor}
+          className={classes.enabled}
+        >
+          {colorByLatency ? <SpeedIcon /> : <ErrorOutlineIcon />}
+        </IconButton>
+      </Tooltip>
+      <Tooltip title={hierarchyEnabled ? 'Hierarchy enabled' : 'Hierarchy disabled'}>
+        <IconButton
+          size='small'
+          onClick={toggleHierarchy}
+          className={hierarchyEnabled ? classes.enabled : ''}
+        >
+          <AccountTreeIcon />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title={clusteredMode ? 'Clustered by service' : 'Clustering disabled'}>
+        <IconButton
+          size='small'
+          onClick={toggleMode}
+          className={clusteredMode ? classes.enabled : ''}
+        >
+          <WorkspacesIcon />
+        </IconButton>
+      </Tooltip>
+    </GraphBase>
   );
 });
 RequestGraphWidget.displayName = 'RequestGraphWidget';
