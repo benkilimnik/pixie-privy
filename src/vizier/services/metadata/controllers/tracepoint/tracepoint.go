@@ -34,6 +34,7 @@ import (
 	"px.dev/pixie/src/utils"
 	"px.dev/pixie/src/vizier/messages/messagespb"
 	"px.dev/pixie/src/vizier/services/metadata/storepb"
+	"px.dev/pixie/src/vizier/services/shared/agentpb"
 )
 
 var (
@@ -295,26 +296,116 @@ func (m *Manager) UpdateAgentTracepointStatus(tracepointID *uuidpb.UUID, agentID
 	return m.ts.UpdateTracepointState(tracepointState)
 }
 
+func (m *Manager) FilterAgentsBySelector(agents []*agentpb.Agent, selector *logicalpb.TracepointSelector) []*agentpb.Agent {
+	var filteredAgents []*agentpb.Agent
+	switch selector.SelectorType {
+	case logicalpb.MIN_KERNEL:
+		filteredAgents = m.filterByMinKernel(agents, selector.Value)
+	case logicalpb.MAX_KERNEL:
+		filteredAgents = m.filterByMaxKernel(agents, selector.Value)
+	// Other selector types can be added here in the future.
+	default:
+		// If NO_CONDITION or unknown condition, return all agents
+		filteredAgents = agents
+	}
+	return filteredAgents
+}
+
+func (m *Manager) filterByMinKernel(agents []*agentpb.Agent, version string) []*agentpb.Agent {
+	var minor, major, patch int32
+	if _, err := fmt.Sscanf(version, "%d.%d.%d", &major, &minor, &patch); err != nil {
+		// Handle the error appropriately. Perhaps return an error or a nil slice.
+		return nil
+	}
+
+	filteredAgents := make([]*agentpb.Agent, 0)
+	for _, agent := range agents {
+		kv := agent.Info.HostInfo.Kernel
+		if kv.Major > major || (kv.Major == major && kv.Minor > minor) || (kv.Major == major && kv.Minor == minor && kv.Patch >= patch) {
+			filteredAgents = append(filteredAgents, agent)
+		}
+	}
+	return filteredAgents
+}
+
+func (m *Manager) filterByMaxKernel(agents []*agentpb.Agent, version string) []*agentpb.Agent {
+	var minor, major, patch int32
+	if _, err := fmt.Sscanf(version, "%d.%d.%d", &major, &minor, &patch); err != nil {
+		// Handle the error appropriately. Perhaps return an error or a nil slice.
+		return nil
+	}
+
+	filteredAgents := make([]*agentpb.Agent, 0)
+	for _, agent := range agents {
+		kv := agent.Info.HostInfo.Kernel
+		if kv.Major < major || (kv.Major == major && kv.Minor < minor) || (kv.Major == major && kv.Minor == minor && kv.Patch <= patch) {
+			filteredAgents = append(filteredAgents, agent)
+		}
+	}
+	return filteredAgents
+}
+
 // RegisterTracepoint sends requests to the given agents to register the specified tracepoint.
-func (m *Manager) RegisterTracepoint(agentIDs []uuid.UUID, tracepointID uuid.UUID, tracepointDeployment *logicalpb.TracepointDeployment) error {
-	tracepointReq := messagespb.VizierMessage{
-		Msg: &messagespb.VizierMessage_TracepointMessage{
-			TracepointMessage: &messagespb.TracepointMessage{
-				Msg: &messagespb.TracepointMessage_RegisterTracepointRequest{
-					RegisterTracepointRequest: &messagespb.RegisterTracepointRequest{
-						TracepointDeployment: tracepointDeployment,
-						ID:                   utils.ProtoFromUUID(tracepointID),
+// For each tracepoint program in this deployment, we look at the selectors and pick a list of agents
+// that match those selectors. For that list of agents, we send out tracepoint request with
+// a new tracepointDeployment that just has a single program.
+// TODO(benkilimnik): Optimization: could have multiple programs with same list of allowed agents,
+// best to collapse into one tracepoint deployment send all in one request.
+func (m *Manager) RegisterTracepoint(agents []*agentpb.Agent, tracepointID uuid.UUID, tracepointDeployment *logicalpb.TracepointDeployment) error {
+	// A map where each program is associated with a list of agents that match its selectors.
+	progToAgents := make(map[*logicalpb.TracepointDeployment_TracepointProgram][]*agentpb.Agent)
+
+	for _, prgm := range tracepointDeployment.Programs {
+		validAgents := agents // Start with all agents as potential targets.
+
+		for _, selector := range prgm.Selectors {
+			// Filter validAgents based on the current selector.
+			validAgents = m.FilterAgentsBySelector(validAgents, selector)
+		}
+
+		progToAgents[prgm] = validAgents
+	}
+
+	for program, validAgentsForProgram := range progToAgents {
+		// Build a new TracepointDeployment with just one program.
+		newDeployment := &logicalpb.TracepointDeployment{
+			Name:           tracepointDeployment.Name,
+			TTL:            tracepointDeployment.TTL,
+			DeploymentSpec: tracepointDeployment.DeploymentSpec,
+			Programs:       []*logicalpb.TracepointDeployment_TracepointProgram{program},
+		}
+
+		// Send a RegisterTracepointRequest to each agent that supports this program.
+		tracepointReq := messagespb.VizierMessage{
+			Msg: &messagespb.VizierMessage_TracepointMessage{
+				TracepointMessage: &messagespb.TracepointMessage{
+					Msg: &messagespb.TracepointMessage_RegisterTracepointRequest{
+						RegisterTracepointRequest: &messagespb.RegisterTracepointRequest{
+							TracepointDeployment: newDeployment,
+							ID:                   utils.ProtoFromUUID(tracepointID),
+						},
 					},
 				},
 			},
-		},
-	}
-	msg, err := tracepointReq.Marshal()
-	if err != nil {
-		return err
+		}
+		msg, err := tracepointReq.Marshal()
+		if err != nil {
+			return err
+		}
+
+		agentIDs := make([]uuid.UUID, len(validAgentsForProgram))
+		for i, agt := range validAgentsForProgram {
+			// convert list to agentIDs that are not protos?
+			agentIDs[i] = utils.UUIDFromProtoOrNil(agt.Info.AgentID)
+		}
+
+		err = m.agtMgr.MessageAgents(agentIDs, msg)
+		if err != nil {
+			return err
+		}
 	}
 
-	return m.agtMgr.MessageAgents(agentIDs, msg)
+	return nil
 }
 
 // GetTracepointInfo gets the status for the tracepoint with the given ID.

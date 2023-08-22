@@ -20,7 +20,7 @@ import pxtrace
 import px
 
 # Adapted from https://github.com/iovisor/bpftrace/blob/master/tools/tcpdrop.bt
-program = """
+pre_519_program = pxtrace.TraceProgram("""
 // tcpdrop.bt   Trace TCP kernel-dropped packets/segments.
 //              For Linux, uses bpftrace and eBPF.
 //
@@ -83,15 +83,29 @@ kprobe:tcp_drop
       $statestr);
   }
 }
-"""
+""",
+min_kernel=0.0,
+max_kernel=5.18
+)
+
+after_519_program = pxtrace.TraceProgram(
+  """
+  new program
+  """,
+  # TODO(benkilimnik): default arguments None
+  # ? restrictions={"min_kernel":5.19...}
+  min_kernel=5.19,
+  max_kernel=None,
+)
 
 
 def tcp_drops_func():
     table_name = 'tcp_drop_table'
     pxtrace.UpsertTracepoint('tcp_drop_tracer',
                              table_name,
-                             program,
-                             pxtrace.kprobe(),
+                             [pre_519_program, after_519_program],
+                             # could also be a single trace_program, or a string as before
+                             pxtrace.kprobe(), # ? why do we pass tracepoints as kprobes?
                              "10m")
 
     df = px.DataFrame(table=table_name)

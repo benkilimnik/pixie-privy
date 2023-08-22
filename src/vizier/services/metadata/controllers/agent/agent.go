@@ -106,6 +106,9 @@ type Manager interface {
 	// GetActiveAgents gets all of the current active agents.
 	GetActiveAgents() ([]*agentpb.Agent, error)
 
+	// GetAgentByUUID gets the agent with the given UUID.
+	GetAgentByUUID(uuid.UUID) (*agentpb.Agent, error)
+
 	MessageAgents(agentIDs []uuid.UUID, msg []byte) error
 	MessageActiveAgents(msg []byte) error
 
@@ -528,6 +531,11 @@ func (m *ManagerImpl) GetActiveAgents() ([]*agentpb.Agent, error) {
 	}
 
 	return agentPbs, nil
+}
+
+// GetAgentByUUID gets the agent with the given UUID.
+func (m *ManagerImpl) GetAgentByUUID(agentID uuid.UUID) (*agentpb.Agent, error) {
+	return m.agtStore.GetAgent(agentID)
 }
 
 // MessageAgents sends the message to the given agentIDs.

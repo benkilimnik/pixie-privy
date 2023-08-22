@@ -23,6 +23,18 @@ filegroup(
     srcs = glob(include = ["proc/**/*"]),
 )
 
+filegroup(
+    name = "kernel_version",
+    srcs = [
+        "config",
+        "config.gz",
+    ] + glob([
+        "test_header_packages/**/*",
+        "sample_host_ubuntu/**/*",
+        "sample_host_debian/**/*",
+    ]),
+)
+
 # For scoped_namespace_test: Generate a container with a dummy file inside,
 # so we can check for mount namespaces.
 genrule(

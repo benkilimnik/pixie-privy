@@ -81,6 +81,37 @@ class ProbeObject : public QLObject {
   std::shared_ptr<TracepointIR> probe_;
 };
 
+class TraceProgram : public QLObject {
+ public:
+  static constexpr TypeDescriptor TracePointProgramType = {
+      /* name */ "TraceProgram",
+      /* type */ QLObjectType::kTraceProgram,
+  };
+  static StatusOr<std::shared_ptr<TraceProgram>> Create(const pypa::AstPtr& ast,
+                                                        ASTVisitor* visitor,
+                                                        const std::string& program,
+                                                        const std::string& min_kernel,
+                                                        const std::string& max_kernel);
+  static bool IsTraceProgram(const QLObjectPtr& ptr) {
+    return ptr->type() == TracePointProgramType.type();
+  }
+  const std::string& program() const { return program_; }
+  const std::string& min_kernel() const { return min_kernel_; }
+  const std::string& max_kernel() const { return max_kernel_; }
+
+ private:
+  TraceProgram(const pypa::AstPtr& ast, ASTVisitor* visitor, const std::string& program,
+               const std::string& min_kernel, const std::string& max_kernel)
+      : QLObject(TracePointProgramType, ast, visitor),
+        program_(std::move(program)),
+        min_kernel_(std::move(min_kernel)),
+        max_kernel_(std::move(max_kernel)) {}
+
+  std::string program_;
+  std::string min_kernel_;
+  std::string max_kernel_;
+};
+
 class TraceModule : public QLObject {
  public:
   static constexpr TypeDescriptor TraceModuleType = {
@@ -171,6 +202,22 @@ class TraceModule : public QLObject {
       to trace as specified by unique Vizier PID.
     ttl (px.Duration): The length of time that a tracepoint will stay alive, after
       which it will be removed.
+  )doc";
+
+  inline static constexpr char kTraceProgramID[] = "TraceProgram";
+  inline static constexpr char kTraceProgramDocstring[] = R"doc(
+  Creates a trace program.
+
+  :topic: pixie_state_management
+
+  Args:
+    program (str): The BPFtrace program string.
+    min_kernel (str): The minimum kernel version that this program can run on.
+    max_kernel (str): The maximum kernel version that this program can run on.
+
+  Returns:
+    TraceProgram: A pointer to the TraceProgram that can be passed as a probe_fn
+    to UpsertTracepoint.
   )doc";
 
   inline static constexpr char kDeleteTracepointID[] = "DeleteTracepoint";

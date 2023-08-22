@@ -49,6 +49,13 @@ class UpsertHandler {
                                     const ParsedArgs& args, ASTVisitor* visitor);
 };
 
+// this handler's Eval, will create the new QL object (TraceProgram QL object)
+class TraceProgramHandler {
+ public:
+  static StatusOr<QLObjectPtr> Eval(const pypa::AstPtr& ast, const ParsedArgs& args,
+                                    ASTVisitor* visitor);
+};
+
 class SharedObjectHandler {
  public:
   static StatusOr<QLObjectPtr> Eval(const pypa::AstPtr& ast, const ParsedArgs& args,
@@ -152,6 +159,18 @@ Status TraceModule::Init() {
                          ast_visitor()));
   PX_RETURN_IF_ERROR(upsert_fn->SetDocString(kUpsertTracepointDocstring));
   AddMethod(kUpsertTraceID, upsert_fn);
+
+  // Add pxtrace.TraceProgram object (FuncObject)
+  PX_ASSIGN_OR_RETURN(
+      std::shared_ptr<FuncObject> program_fn,
+      FuncObject::Create(kTraceProgramID, {"program", "min_kernel", "max_kernel"}, {},
+                         /* has_variable_len_args */ false,
+                         /* has_variable_len_kwargs */ false,
+                         std::bind(TraceProgramHandler::Eval, std::placeholders::_1,
+                                   std::placeholders::_2, std::placeholders::_3),
+                         ast_visitor()));
+  // add method to the pxtrace module, pxtrace.TraceProgram
+  AddMethod(kTraceProgramID, program_fn);
 
   PX_ASSIGN_OR_RETURN(std::shared_ptr<FuncObject> shared_object_fn,
                       FuncObject::Create(kSharedObjectID, {"name", "upid"}, {},
@@ -341,6 +360,20 @@ StatusOr<QLObjectPtr> ReturnHandler::Eval(MutationsIR* mutations_ir, const pypa:
       std::make_shared<TracingVariableObject>(ast, visitor, id));
 }
 
+// construct a TraceProgram by giving me a bpftrace string, a min kernel version optionally
+//  and a max kernel version optionally. Then in TracingModule we add a new function that will
+// construct one of these new objects whenever it's called
+// create new handler with an Eval for TraceProgram
+StatusOr<QLObjectPtr> TraceProgramHandler::Eval(const pypa::AstPtr& ast, const ParsedArgs& args,
+                                                ASTVisitor* visitor) {
+  // Could add arg for mutations_ir and add method to mutations_ir CreateTracepointSelectors
+  PX_ASSIGN_OR_RETURN(auto program_ir, GetArgAs<StringIR>(ast, args, "program"));
+  PX_ASSIGN_OR_RETURN(auto kernel_min_ir, GetArgAs<StringIR>(ast, args, "kernel_min"));
+  PX_ASSIGN_OR_RETURN(auto kernel_max_ir, GetArgAs<StringIR>(ast, args, "kernel_max"));
+  return ProcessTarget::Create(ast, visitor, program_ir->str(), kernel_min_ir->str(),
+                               kernel_max_ir->str());
+}
+
 StatusOr<QLObjectPtr> UpsertHandler::Eval(MutationsIR* mutations_ir, const pypa::AstPtr& ast,
                                           const ParsedArgs& args, ASTVisitor* visitor) {
   DCHECK(mutations_ir);
@@ -360,41 +393,41 @@ StatusOr<QLObjectPtr> UpsertHandler::Eval(MutationsIR* mutations_ir, const pypa:
   // const auto& pod_name = pod_name_ir->str();
   // const auto& container_name = pod_name_ir->str();
   // const auto& binary_name = binary_name_ir->str();
-  TracepointDeployment* trace_program;
+  TracepointDeployment* trace_deployment;
   auto target = args.GetArg("target");
   if (SharedObjectTarget::IsSharedObject(target)) {
     auto shared_object = std::static_pointer_cast<SharedObjectTarget>(target);
-    auto trace_program_or_s = mutations_ir->CreateTracepointDeployment(
+    auto trace_deployment_or_s = mutations_ir->CreateTracepointDeployment(
         tp_deployment_name, shared_object->shared_object(), ttl_ns);
-    PX_RETURN_IF_ERROR(WrapAstError(ast, trace_program_or_s.status()));
-    trace_program = trace_program_or_s.ConsumeValueOrDie();
+    PX_RETURN_IF_ERROR(WrapAstError(ast, trace_deployment_or_s.status()));
+    trace_deployment = trace_deployment_or_s.ConsumeValueOrDie();
   } else if (KProbeTarget::IsKProbeTarget(target)) {
-    auto trace_program_or_s =
+    auto trace_deployment_or_s =
         mutations_ir->CreateKProbeTracepointDeployment(tp_deployment_name, ttl_ns);
-    PX_RETURN_IF_ERROR(WrapAstError(ast, trace_program_or_s.status()));
-    trace_program = trace_program_or_s.ConsumeValueOrDie();
+    PX_RETURN_IF_ERROR(WrapAstError(ast, trace_deployment_or_s.status()));
+    trace_deployment = trace_deployment_or_s.ConsumeValueOrDie();
   } else if (ProcessTarget::IsProcessTarget(target)) {
     auto process_target = std::static_pointer_cast<ProcessTarget>(target);
-    auto trace_program_or_s = mutations_ir->CreateTracepointDeploymentOnProcessSpec(
+    auto trace_deployment_or_s = mutations_ir->CreateTracepointDeploymentOnProcessSpec(
         tp_deployment_name, process_target->target(), ttl_ns);
-    PX_RETURN_IF_ERROR(WrapAstError(ast, trace_program_or_s.status()));
-    trace_program = trace_program_or_s.ConsumeValueOrDie();
+    PX_RETURN_IF_ERROR(WrapAstError(ast, trace_deployment_or_s.status()));
+    trace_deployment = trace_deployment_or_s.ConsumeValueOrDie();
   } else if (LabelSelectorTarget::IsLabelSelectorTarget(target)) {
     auto label_selector_target = std::static_pointer_cast<LabelSelectorTarget>(target);
-    auto trace_program_or_s = mutations_ir->CreateTracepointDeploymentOnLabelSelectorSpec(
+    auto trace_deployment_or_s = mutations_ir->CreateTracepointDeploymentOnLabelSelectorSpec(
         tp_deployment_name, label_selector_target->target(), ttl_ns);
-    PX_RETURN_IF_ERROR(WrapAstError(ast, trace_program_or_s.status()));
-    trace_program = trace_program_or_s.ConsumeValueOrDie();
+    PX_RETURN_IF_ERROR(WrapAstError(ast, trace_deployment_or_s.status()));
+    trace_deployment = trace_deployment_or_s.ConsumeValueOrDie();
   } else if (ExprObject::IsExprObject(target)) {
     auto expr_object = std::static_pointer_cast<ExprObject>(target);
     if (Match(expr_object->expr(), UInt128Value())) {
       PX_ASSIGN_OR_RETURN(UInt128IR * upid_ir, GetArgAs<UInt128IR>(ast, args, "target"));
       md::UPID upid(upid_ir->val());
 
-      auto trace_program_or_s =
+      auto trace_deployment_or_s =
           mutations_ir->CreateTracepointDeployment(tp_deployment_name, upid, ttl_ns);
-      PX_RETURN_IF_ERROR(WrapAstError(ast, trace_program_or_s.status()));
-      trace_program = trace_program_or_s.ConsumeValueOrDie();
+      PX_RETURN_IF_ERROR(WrapAstError(ast, trace_deployment_or_s.status()));
+      trace_deployment = trace_deployment_or_s.ConsumeValueOrDie();
     } else {
       return CreateAstError(ast, "Unexpected type '$0' for arg '$1'",
                             expr_object->expr()->type_string(), "target");
@@ -404,18 +437,51 @@ StatusOr<QLObjectPtr> UpsertHandler::Eval(MutationsIR* mutations_ir, const pypa:
                           QLObjectTypeString(target->type()), "target");
   }
 
+  // looking at probe_fn arg of the UpsertTracepoint function and check what kind of object it is
+  // (Checking for FuncObject is a legacy thing, usually it's a bpftrace program as a string)
   if (FuncObject::IsFuncObject(args.GetArg("probe_fn"))) {
     PX_ASSIGN_OR_RETURN(auto probe_fn, GetCallMethod(ast, args.GetArg("probe_fn")));
     PX_ASSIGN_OR_RETURN(auto probe, probe_fn->Call({}, ast));
     CHECK(ProbeObject::IsProbe(probe));
     auto probe_ir = std::static_pointer_cast<ProbeObject>(probe)->probe();
     PX_RETURN_IF_ERROR(WrapAstError(
-        ast, trace_program->AddTracepoint(probe_ir.get(), tp_deployment_name, output_name)));
+        ast, trace_deployment->AddTracepoint(probe_ir.get(), tp_deployment_name, output_name)));
+    // if we're passing UpsertTracepoint a TraceProgram object or a list of TraceProgram objects,
+    // then we add the bpftrace script (the string in the object) AND we create the selectors from
+    // the arguments on the TraceProgram object and populate TracepointDeployment.selectors
+  } else if (CollectionObject::IsCollection(args.GetArg("probe_fn"))) {
+    // The probe_fn (QL object) is a list of TraceProgram objects.
+    // for each of the TraceProgram objects in the list, add the bpftrace script and selectors
+    for (const auto& item :
+         static_cast<CollectionObject*>(args.GetArg("probe_fn").get())->items()) {
+      if (!TraceProgram::IsTraceProgram(item)) {
+        return item->CreateError("Expected TraceProgram, got $0", item->name());
+      }
+      // TODO(benkilimnik): Construct selectors from args on the TraceProgram object generically
+      // (e.g. construct selectors from dict). Currently hard coded for min_kernel and max_kernel
+      auto trace_program = static_cast<TraceProgram*>(item.get());
+      auto bpftrace_str = trace_program->program();
+      auto min_kernel = trace_program->min_kernel();
+      auto max_kernel = trace_program->max_kernel();
+      PX_RETURN_IF_ERROR(WrapAstError(
+          ast, trace_deployment->AddBPFTrace(bpftrace_str, output_name, min_kernel, max_kernel)));
+    }
+  } else if (TraceProgram::IsTraceProgram(args.GetArg("probe_fn"))) {
+    // The probe_fn (QL object) is a single TraceProgram object.
+    // TODO(benkilimnik): Construct selectors from args on the TraceProgram object generically (e.g.
+    // construct selectors from dict). Currently hard coded for min_kernel and max_kernel
+    auto trace_program = static_cast<TraceProgram*>(args.GetArg("probe_fn").get());
+    auto bpftrace_str = trace_program->program();
+    auto min_kernel = trace_program->min_kernel();
+    auto max_kernel = trace_program->max_kernel();
+    PX_RETURN_IF_ERROR(WrapAstError(
+        ast, trace_deployment->AddBPFTrace(bpftrace_str, output_name, min_kernel, max_kernel)));
+
   } else {
     // The probe_fn is a string.
     PX_ASSIGN_OR_RETURN(auto program_str_ir, GetArgAs<StringIR>(ast, args, "probe_fn"));
-    PX_RETURN_IF_ERROR(
-        WrapAstError(ast, trace_program->AddBPFTrace(program_str_ir->str(), output_name)));
+    PX_RETURN_IF_ERROR(WrapAstError(
+        ast, trace_deployment->AddBPFTrace(program_str_ir->str(), output_name, "", "")));
   }
 
   return std::static_pointer_cast<QLObject>(std::make_shared<NoneObject>(ast, visitor));
@@ -431,6 +497,7 @@ StatusOr<QLObjectPtr> SharedObjectHandler::Eval(const pypa::AstPtr& ast, const P
   return SharedObjectTarget::Create(ast, visitor, shared_object_name, shared_object_upid);
 }
 
+// Creates a new QL object called a KProbeTarget
 StatusOr<QLObjectPtr> KProbeTargetHandler::Eval(const pypa::AstPtr& ast, const ParsedArgs&,
                                                 ASTVisitor* visitor) {
   return KProbeTarget::Create(ast, visitor);

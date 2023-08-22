@@ -26,6 +26,7 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -37,6 +38,7 @@ import (
 	"px.dev/pixie/src/vizier/services/metadata/controllers/tracepoint"
 	mock_tracepoint "px.dev/pixie/src/vizier/services/metadata/controllers/tracepoint/mock"
 	"px.dev/pixie/src/vizier/services/metadata/storepb"
+	"px.dev/pixie/src/vizier/services/shared/agentpb"
 )
 
 func TestCreateTracepoint(t *testing.T) {
@@ -445,7 +447,17 @@ func TestRegisterTracepoint(t *testing.T) {
 		MessageAgents([]uuid.UUID{agentUUID}, msg).
 		Return(nil)
 
-	err = tracepointMgr.RegisterTracepoint([]uuid.UUID{agentUUID}, tracepointID, program)
+	// use GetAgentByUUID to get the agent
+	agentObj, err := mockAgtMgr.GetAgentByUUID(agentUUID)
+	if err != nil {
+		log.WithError(err).Error("Failed to get agent object")
+		return
+	}
+
+	// Create a slice of *agentpb.Agent containing the agentObj.
+	agentObjs := []*agentpb.Agent{agentObj}
+
+	err = tracepointMgr.RegisterTracepoint(agentObjs, tracepointID, program)
 	require.NoError(t, err)
 }
 

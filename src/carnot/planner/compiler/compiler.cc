@@ -127,6 +127,8 @@ StatusOr<std::unique_ptr<MutationsIR>> Compiler::CompileTrace(const std::string&
                                              func_based_exec, reserved_names));
 
   PX_RETURN_IF_ERROR(ast_walker->ProcessModuleNode(ast));
+  // Modify compiler to pull out multiple bpftrace programs instead of one program
+  // and then the output of this function `MutationsIR` needs to modified (its proto representation)
   if (func_based_exec) {
     PX_RETURN_IF_ERROR(ast_walker->ProcessExecFuncs(exec_funcs));
   }

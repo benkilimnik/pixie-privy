@@ -197,12 +197,36 @@ StatusOr<TracepointDeployment*> MutationsIR::CreateKProbeTracepointDeployment(
   return raw;
 }
 
+// This is what sets the TracepointProgram in the TracepointDeployment proto message.
 Status TracepointDeployment::AddBPFTrace(const std::string& bpftrace,
-                                         const std::string& output_name) {
+                                         const std::string& output_name,
+                                         const std::string& min_kernel,
+                                         const std::string& max_kernel) {
   carnot::planner::dynamic_tracing::ir::logical::TracepointDeployment::TracepointProgram
       tracepoint_pb;
   tracepoint_pb.mutable_bpftrace()->set_program(bpftrace);
+  // set the output table to write program results to
   tracepoint_pb.set_table_name(output_name);
+
+  // TODO(benkilimnik): construct the repeated tracepoint selectors generically
+  // instead of hardcoding the min/max kernel selectors
+
+  // Create selectors from args of the TraceProgram object
+  // (`repeated TracepointSelector selectors`)
+  carnot::planner::dynamic_tracing::ir::logical::TracepointSelector tracepoint_selector1;
+  tracepoint_selector1.set_selector_type(
+      carnot::planner::dynamic_tracing::ir::logical::SelectorType::MIN_KERNEL);
+  tracepoint_selector1.set_value(min_kernel);
+
+  carnot::planner::dynamic_tracing::ir::logical::TracepointSelector tracepoint_selector2;
+  tracepoint_selector2.set_selector_type(
+      carnot::planner::dynamic_tracing::ir::logical::SelectorType::MAX_KERNEL);
+  tracepoint_selector2.set_value(max_kernel);
+
+  // Add selectors to the TracepointProgram object
+  *tracepoint_pb.add_selectors() = tracepoint_selector1;
+  *tracepoint_pb.add_selectors() = tracepoint_selector2;
+
   tracepoints_.push_back(tracepoint_pb);
   return Status::OK();
 }

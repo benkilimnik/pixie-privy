@@ -22,6 +22,7 @@
 #include <string>
 #include <utility>
 
+#include "src/common/system/kernel_version.h"
 #include "src/vizier/services/agent/shared/manager/manager.h"
 
 namespace px {
@@ -43,9 +44,12 @@ class KelvinManager : public Manager {
   KelvinManager() = delete;
   KelvinManager(sole::uuid agent_id, std::string_view pod_name, std::string_view host_ip,
                 std::string_view addr, int grpc_server_port, std::string_view nats_url,
-                std::string_view mds_url)
+                std::string_view mds_url, px::system::KernelVersion kernel_version)
+      // TODO(@benkilimnik): Could pass an empty string for kernel_version bc we don't rly care
+      // about in kelvin it's just a subclass of Manager to which we added the kernel version field
+      // (just like the PEMManager is)
       : Manager(agent_id, pod_name, host_ip, grpc_server_port, KelvinManager::Capabilities(),
-                KelvinManager::Parameters(), nats_url, mds_url) {
+                KelvinManager::Parameters(), nats_url, mds_url, kernel_version) {
     info()->address = std::string(addr);
   }
 

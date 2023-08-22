@@ -93,6 +93,7 @@ message AgentInfoResponse {
   repeated AgentMetadata info = 1;
 }
 
+// When agent registers, gives you this info
 message AgentMetadata {
   px.vizier.services.shared.agent.Agent agent = 1;
   px.vizier.services.shared.agent.AgentStatus status = 2;
@@ -163,6 +164,7 @@ message WithPrefixKeyResponse {
 }
 
 // The request to register tracepoints on all PEMs.
+// This request comes from the querybroker
 message RegisterTracepointRequest {
   message TracepointRequest {
     px.carnot.planner.dynamic_tracing.ir.logical.TracepointDeployment tracepoint_deployment = 1;

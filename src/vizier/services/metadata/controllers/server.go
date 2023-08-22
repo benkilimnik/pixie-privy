@@ -438,13 +438,12 @@ func (s *Server) RegisterTracepoint(ctx context.Context, req *metadatapb.Registe
 		if err != nil {
 			return nil, err
 		}
-		agentIDs := make([]uuid.UUID, len(agents))
-		for i, agt := range agents {
-			agentIDs[i] = utils.UUIDFromProtoOrNil(agt.Info.AgentID)
-		}
 
-		// Register tracepoint on all agents.
-		err = s.tpMgr.RegisterTracepoint(agentIDs, *tracepointID, tp.TracepointDeployment)
+		// TODO(benkilimnik): if script with just one kernel version (i.e. one kernel version in TracepointRequest)
+		// then send out request to all agents (old behavior)
+		// we want to lookup the metadata service using the agent definition `agent`
+		// which now includes the kernel version
+		err = s.tpMgr.RegisterTracepoint(agents, *tracepointID, tp.TracepointDeployment)
 		if err != nil {
 			return nil, err
 		}

@@ -32,6 +32,7 @@ pl_cc_library(
     hdrs = glob(["*.h"]),
     deps = [
         "//src/carnot/planner/dynamic_tracing/ir/logicalpb:logical_pl_cc_proto",
+        "//src/common/testing/event:cc_library",
         "//src/integrations/grpc_clocksync:cc_library",
         "//src/shared/tracepoint_translation:cc_library",
         "//src/stirling:cc_library",
@@ -58,6 +59,7 @@ pl_cc_binary(
     deps = [
         ":cc_library",
         "//src/common/signal:cc_library",
+        "//src/common/system:cc_library",
         "//src/shared/version:cc_library",
         "//src/shared/version:version_linkstamp",
         "//src/vizier/services/agent/shared/base:cc_library",

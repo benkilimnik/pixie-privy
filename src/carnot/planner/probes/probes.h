@@ -194,7 +194,8 @@ class TracepointDeployment {
    * @param output_name the output table to write program results.
    * @return Status
    */
-  Status AddBPFTrace(const std::string& bpftrace_program, const std::string& output_name);
+  Status AddBPFTrace(const std::string& bpftrace_program, const std::string& output_name,
+                     const std::string& min_kernel, const std::string& max_kernel);
 
   std::string name() const { return name_; }
 

@@ -422,11 +422,21 @@ func (ah *AgentHandler) onAgentRegisterRequest(m *messagespb.RegisterAgentReques
 			return
 		}
 
-		agentIDs := []uuid.UUID{agentID}
+		agentObj, err := ah.agtMgr.GetAgentByUUID(agentID)
+		if err != nil {
+			log.WithError(err).Error("Failed to get agent object")
+			return
+		}
+
+		// Create a slice of *agentpb.Agent containing the agentObj.
+		agentObjs := []*agentpb.Agent{agentObj}
+
+		// old
+		// agentIDs := []uuid.UUID{agentID}
 
 		for _, tp := range tracepoints {
 			if tp.ExpectedState != statuspb.TERMINATED_STATE {
-				err = ah.tpMgr.RegisterTracepoint(agentIDs, utils.UUIDFromProtoOrNil(tp.ID), tp.Tracepoint)
+				err = ah.tpMgr.RegisterTracepoint(agentObjs, utils.UUIDFromProtoOrNil(tp.ID), tp.Tracepoint)
 				if err != nil {
 					log.WithError(err).Error("Failed to send RegisterTracepoint request")
 				}
