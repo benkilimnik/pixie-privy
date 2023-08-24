@@ -161,14 +161,13 @@ Status TraceModule::Init() {
   AddMethod(kUpsertTraceID, upsert_fn);
 
   // Add pxtrace.TraceProgram object (FuncObject)
-  PX_ASSIGN_OR_RETURN(
-      std::shared_ptr<FuncObject> program_fn,
-      FuncObject::Create(kTraceProgramID, {"program", "min_kernel", "max_kernel"}, {},
-                         /* has_variable_len_args */ false,
-                         /* has_variable_len_kwargs */ false,
-                         std::bind(TraceProgramHandler::Eval, std::placeholders::_1,
-                                   std::placeholders::_2, std::placeholders::_3),
-                         ast_visitor()));
+  PX_ASSIGN_OR_RETURN(std::shared_ptr<FuncObject> program_fn,
+                      FuncObject::Create(kTraceProgramID, {"program"}, {},
+                                         /* has_variable_len_args */ false,
+                                         /* has_variable_len_kwargs */ true,
+                                         std::bind(TraceProgramHandler::Eval, std::placeholders::_1,
+                                                   std::placeholders::_2, std::placeholders::_3),
+                                         ast_visitor()));
   // add method to the pxtrace module, pxtrace.TraceProgram
   AddMethod(kTraceProgramID, program_fn);
 
@@ -360,18 +359,33 @@ StatusOr<QLObjectPtr> ReturnHandler::Eval(MutationsIR* mutations_ir, const pypa:
       std::make_shared<TracingVariableObject>(ast, visitor, id));
 }
 
-// construct a TraceProgram by giving me a bpftrace string, a min kernel version optionally
-//  and a max kernel version optionally. Then in TracingModule we add a new function that will
-// construct one of these new objects whenever it's called
-// create new handler with an Eval for TraceProgram
+// Construct a TraceProgram object
 StatusOr<QLObjectPtr> TraceProgramHandler::Eval(const pypa::AstPtr& ast, const ParsedArgs& args,
                                                 ASTVisitor* visitor) {
-  // Could add arg for mutations_ir and add method to mutations_ir CreateTracepointSelectors
+  std::vector<TracepointSelector> selectors;
+  // Check if supported selectors are passed in kwargs
+  const std::vector<NameToNode>& kwargs = args.kwargs();
+  const google::protobuf::EnumDescriptor* selector_type_descriptor =
+      carnot::planner::dynamic_tracing::ir::logical::SelectorType_descriptor();
+  for (const auto& [name, node] : kwargs) {
+    const google::protobuf::EnumValueDescriptor* selector_value =
+        selector_type_descriptor->FindValueByName(name);
+    if (selector_value) {
+      // Selector type found
+      carnot::planner::dynamic_tracing::ir::logical::TracepointSelector tracepoint_selector;
+      tracepoint_selector.set_selector_type(
+          static_cast<carnot::planner::dynamic_tracing::ir::logical::SelectorType>(
+              selector_value->number()));
+      // Set user provided restriction
+      PX_ASSIGN_OR_RETURN(auto selector_value_ir, GetArgAs<StringIR>(ast, args, name));
+      tracepoint_selector.set_value(selector_value_ir->str());
+      selectors.push_back(tracepoint_selector);
+    }
+  }
+  // extract BPFTrace program string
   PX_ASSIGN_OR_RETURN(auto program_ir, GetArgAs<StringIR>(ast, args, "program"));
-  PX_ASSIGN_OR_RETURN(auto kernel_min_ir, GetArgAs<StringIR>(ast, args, "kernel_min"));
-  PX_ASSIGN_OR_RETURN(auto kernel_max_ir, GetArgAs<StringIR>(ast, args, "kernel_max"));
-  return ProcessTarget::Create(ast, visitor, program_ir->str(), kernel_min_ir->str(),
-                               kernel_max_ir->str());
+  return std::static_pointer_cast<QLObject>(
+      std::make_shared<TraceProgramObject>(ast, visitor, program_ir->str(), selectors));
 }
 
 StatusOr<QLObjectPtr> UpsertHandler::Eval(MutationsIR* mutations_ir, const pypa::AstPtr& ast,
@@ -446,42 +460,34 @@ StatusOr<QLObjectPtr> UpsertHandler::Eval(MutationsIR* mutations_ir, const pypa:
     auto probe_ir = std::static_pointer_cast<ProbeObject>(probe)->probe();
     PX_RETURN_IF_ERROR(WrapAstError(
         ast, trace_deployment->AddTracepoint(probe_ir.get(), tp_deployment_name, output_name)));
-    // if we're passing UpsertTracepoint a TraceProgram object or a list of TraceProgram objects,
-    // then we add the bpftrace script (the string in the object) AND we create the selectors from
-    // the arguments on the TraceProgram object and populate TracepointDeployment.selectors
+    // If passing UpsertTracepoint a TraceProgram object or a list of TraceProgram objects,
+    // then we add the bpftrace script string and we create selectors from
+    // the arguments on the TraceProgram object, populating TracepointDeployment.selectors
   } else if (CollectionObject::IsCollection(args.GetArg("probe_fn"))) {
     // The probe_fn (QL object) is a list of TraceProgram objects.
     // for each of the TraceProgram objects in the list, add the bpftrace script and selectors
     for (const auto& item :
          static_cast<CollectionObject*>(args.GetArg("probe_fn").get())->items()) {
-      if (!TraceProgram::IsTraceProgram(item)) {
+      if (!TraceProgramObject::IsTraceProgram(item)) {
         return item->CreateError("Expected TraceProgram, got $0", item->name());
       }
-      // TODO(benkilimnik): Construct selectors from args on the TraceProgram object generically
-      // (e.g. construct selectors from dict). Currently hard coded for min_kernel and max_kernel
-      auto trace_program = static_cast<TraceProgram*>(item.get());
-      auto bpftrace_str = trace_program->program();
-      auto min_kernel = trace_program->min_kernel();
-      auto max_kernel = trace_program->max_kernel();
-      PX_RETURN_IF_ERROR(WrapAstError(
-          ast, trace_deployment->AddBPFTrace(bpftrace_str, output_name, min_kernel, max_kernel)));
+      auto trace_program = static_cast<TraceProgramObject*>(item.get());
+      PX_RETURN_IF_ERROR(
+          WrapAstError(ast, trace_deployment->AddBPFTrace(trace_program->program(), output_name,
+                                                          trace_program->selectors())));
     }
-  } else if (TraceProgram::IsTraceProgram(args.GetArg("probe_fn"))) {
+  } else if (TraceProgramObject::IsTraceProgram(args.GetArg("probe_fn"))) {
     // The probe_fn (QL object) is a single TraceProgram object.
-    // TODO(benkilimnik): Construct selectors from args on the TraceProgram object generically (e.g.
-    // construct selectors from dict). Currently hard coded for min_kernel and max_kernel
-    auto trace_program = static_cast<TraceProgram*>(args.GetArg("probe_fn").get());
-    auto bpftrace_str = trace_program->program();
-    auto min_kernel = trace_program->min_kernel();
-    auto max_kernel = trace_program->max_kernel();
-    PX_RETURN_IF_ERROR(WrapAstError(
-        ast, trace_deployment->AddBPFTrace(bpftrace_str, output_name, min_kernel, max_kernel)));
-
+    auto trace_program = static_cast<TraceProgramObject*>(args.GetArg("probe_fn").get());
+    PX_RETURN_IF_ERROR(
+        WrapAstError(ast, trace_deployment->AddBPFTrace(trace_program->program(), output_name,
+                                                        trace_program->selectors())));
   } else {
     // The probe_fn is a string.
     PX_ASSIGN_OR_RETURN(auto program_str_ir, GetArgAs<StringIR>(ast, args, "probe_fn"));
+    std::vector<TracepointSelector> empty_selectors;
     PX_RETURN_IF_ERROR(WrapAstError(
-        ast, trace_deployment->AddBPFTrace(program_str_ir->str(), output_name, "", "")));
+        ast, trace_deployment->AddBPFTrace(program_str_ir->str(), output_name, empty_selectors)));
   }
 
   return std::static_pointer_cast<QLObject>(std::make_shared<NoneObject>(ast, visitor));

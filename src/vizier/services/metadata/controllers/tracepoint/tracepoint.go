@@ -314,7 +314,6 @@ func (m *Manager) FilterAgentsBySelector(agents []*agentpb.Agent, selector *logi
 func (m *Manager) filterByMinKernel(agents []*agentpb.Agent, version string) []*agentpb.Agent {
 	var minor, major, patch int32
 	if _, err := fmt.Sscanf(version, "%d.%d.%d", &major, &minor, &patch); err != nil {
-		// Handle the error appropriately. Perhaps return an error or a nil slice.
 		return nil
 	}
 
@@ -331,7 +330,6 @@ func (m *Manager) filterByMinKernel(agents []*agentpb.Agent, version string) []*
 func (m *Manager) filterByMaxKernel(agents []*agentpb.Agent, version string) []*agentpb.Agent {
 	var minor, major, patch int32
 	if _, err := fmt.Sscanf(version, "%d.%d.%d", &major, &minor, &patch); err != nil {
-		// Handle the error appropriately. Perhaps return an error or a nil slice.
 		return nil
 	}
 
@@ -347,32 +345,40 @@ func (m *Manager) filterByMaxKernel(agents []*agentpb.Agent, version string) []*
 
 // RegisterTracepoint sends requests to the given agents to register the specified tracepoint.
 // For each tracepoint program in this deployment, we look at the selectors and pick a list of agents
-// that match those selectors. For that list of agents, we send out tracepoint request with
-// a new tracepointDeployment that just has a single program.
-// TODO(benkilimnik): Optimization: could have multiple programs with same list of allowed agents,
-// best to collapse into one tracepoint deployment send all in one request.
+// that match those selectors. For that list of agents, we send out a tracepoint request with
+// a new tracepointDeployment. If multiple programs may have the same list of allowed agents,
+// we collapse them into one tracepoint deployment and send those in one request.
 func (m *Manager) RegisterTracepoint(agents []*agentpb.Agent, tracepointID uuid.UUID, tracepointDeployment *logicalpb.TracepointDeployment) error {
-	// A map where each program is associated with a list of agents that match its selectors.
-	progToAgents := make(map[*logicalpb.TracepointDeployment_TracepointProgram][]*agentpb.Agent)
+    // Map where key is the hash of agent IDs and value is the list of programs for those agents.
+    agentsHashToPrograms := make(map[string][]*logicalpb.TracepointDeployment_TracepointProgram)
+    // Map where key is the hash of agent IDs and value is the list of agents.
+    agentsHashToAgents := make(map[string][]*agentpb.Agent)
 
-	for _, prgm := range tracepointDeployment.Programs {
-		validAgents := agents // Start with all agents as potential targets.
+    for _, prgm := range tracepointDeployment.Programs {
+        validAgents := agents // Start with all agents as potential targets.
 
-		for _, selector := range prgm.Selectors {
-			// Filter validAgents based on the current selector.
-			validAgents = m.FilterAgentsBySelector(validAgents, selector)
-		}
+        for _, selector := range prgm.Selectors {
+            validAgents = m.FilterAgentsBySelector(validAgents, selector)
+        }
 
-		progToAgents[prgm] = validAgents
-	}
+        // Generate a hash for the list of valid agents.
+        agentIDs := make([]uuid.UUID, len(validAgents))
+        for i, agt := range validAgents {
+            agentIDs[i] = utils.UUIDFromProtoOrNil(agt.Info.AgentID)
+        }
+        hash := utils.HashUUIDs(agentIDs) // You need to implement this function.
 
-	for program, validAgentsForProgram := range progToAgents {
-		// Build a new TracepointDeployment with just one program.
+        agentsHashToPrograms[hash] = append(agentsHashToPrograms[hash], prgm)
+        agentsHashToAgents[hash] = validAgents
+    }
+
+	for hash, validAgentsForProgram := range agentsHashToAgents {
+		// Build a new TracepointDeployment with the group of programs.
 		newDeployment := &logicalpb.TracepointDeployment{
 			Name:           tracepointDeployment.Name,
 			TTL:            tracepointDeployment.TTL,
 			DeploymentSpec: tracepointDeployment.DeploymentSpec,
-			Programs:       []*logicalpb.TracepointDeployment_TracepointProgram{program},
+			Programs:       agentsHashToPrograms[hash],
 		}
 
 		// Send a RegisterTracepointRequest to each agent that supports this program.

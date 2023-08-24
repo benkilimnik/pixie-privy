@@ -25,11 +25,7 @@ filegroup(
 
 filegroup(
     name = "kernel_version",
-    srcs = [
-        "config",
-        "config.gz",
-    ] + glob([
-        "test_header_packages/**/*",
+    srcs = glob([
         "sample_host_ubuntu/**/*",
         "sample_host_debian/**/*",
     ]),

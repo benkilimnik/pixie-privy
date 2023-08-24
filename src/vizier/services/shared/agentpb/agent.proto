@@ -45,8 +45,8 @@ message AgentInfo {
 }
 
 message KernelVersion {
-  int32 minor = 1;
   int32 major = 2;
+  int32 minor = 1;
   int32 patch = 3;
 }
 

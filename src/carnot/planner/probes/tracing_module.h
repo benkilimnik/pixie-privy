@@ -81,35 +81,28 @@ class ProbeObject : public QLObject {
   std::shared_ptr<TracepointIR> probe_;
 };
 
-class TraceProgram : public QLObject {
+class TraceProgramObject : public QLObject {
  public:
   static constexpr TypeDescriptor TracePointProgramType = {
       /* name */ "TraceProgram",
       /* type */ QLObjectType::kTraceProgram,
   };
-  static StatusOr<std::shared_ptr<TraceProgram>> Create(const pypa::AstPtr& ast,
-                                                        ASTVisitor* visitor,
-                                                        const std::string& program,
-                                                        const std::string& min_kernel,
-                                                        const std::string& max_kernel);
+
   static bool IsTraceProgram(const QLObjectPtr& ptr) {
     return ptr->type() == TracePointProgramType.type();
   }
   const std::string& program() const { return program_; }
-  const std::string& min_kernel() const { return min_kernel_; }
-  const std::string& max_kernel() const { return max_kernel_; }
+  const std::vector<TracepointSelector>& selectors() const { return selectors_; }
 
- private:
-  TraceProgram(const pypa::AstPtr& ast, ASTVisitor* visitor, const std::string& program,
-               const std::string& min_kernel, const std::string& max_kernel)
+  TraceProgramObject(const pypa::AstPtr& ast, ASTVisitor* visitor, const std::string& program,
+                     const std::vector<TracepointSelector>& selectors)
       : QLObject(TracePointProgramType, ast, visitor),
         program_(std::move(program)),
-        min_kernel_(std::move(min_kernel)),
-        max_kernel_(std::move(max_kernel)) {}
+        selectors_(selectors) {}
 
+ private:
   std::string program_;
-  std::string min_kernel_;
-  std::string max_kernel_;
+  std::vector<TracepointSelector> selectors_;
 };
 
 class TraceModule : public QLObject {

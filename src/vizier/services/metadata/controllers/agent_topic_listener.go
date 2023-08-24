@@ -422,21 +422,50 @@ func (ah *AgentHandler) onAgentRegisterRequest(m *messagespb.RegisterAgentReques
 			return
 		}
 
-		agentObj, err := ah.agtMgr.GetAgentByUUID(agentID)
-		if err != nil {
-			log.WithError(err).Error("Failed to get agent object")
-			return
+		agentUUID1 := uuid.Must(uuid.NewV4())
+		agentUUID2 := uuid.Must(uuid.NewV4())
+		upb1 := utils.ProtoFromUUID(agentUUID1)
+		upb2 := utils.ProtoFromUUID(agentUUID2)
+		mockAgents := []*agentpb.Agent{
+			{
+				Info: &agentpb.AgentInfo{
+					HostInfo: &agentpb.HostInfo{
+						Hostname: "localhost",
+						HostIP:   "127.0.0.4",
+						Kernel: &agentpb.KernelVersion{
+							Major: 5,
+							Minor: 18,
+							Patch: 0,
+						},
+					},
+					AgentID: upb1,
+					Capabilities: &agentpb.AgentCapabilities{
+						CollectsData: true,
+					},
+				},
+			},
+			{
+				Info: &agentpb.AgentInfo{
+					HostInfo: &agentpb.HostInfo{
+						Hostname: "localhost",
+						HostIP:   "127.0.0.4",
+						Kernel: &agentpb.KernelVersion{
+							Major: 5,
+							Minor: 19,
+							Patch: 0,
+						},
+					},
+					AgentID: upb2,
+					Capabilities: &agentpb.AgentCapabilities{
+						CollectsData: true,
+					},
+				},
+			},
 		}
-
-		// Create a slice of *agentpb.Agent containing the agentObj.
-		agentObjs := []*agentpb.Agent{agentObj}
-
-		// old
-		// agentIDs := []uuid.UUID{agentID}
 
 		for _, tp := range tracepoints {
 			if tp.ExpectedState != statuspb.TERMINATED_STATE {
-				err = ah.tpMgr.RegisterTracepoint(agentObjs, utils.UUIDFromProtoOrNil(tp.ID), tp.Tracepoint)
+				err = ah.tpMgr.RegisterTracepoint(mockAgents, utils.UUIDFromProtoOrNil(tp.ID), tp.Tracepoint)
 				if err != nil {
 					log.WithError(err).Error("Failed to send RegisterTracepoint request")
 				}

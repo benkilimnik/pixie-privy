@@ -388,21 +388,6 @@ func (mr *MockManagerMockRecorder) GetActiveAgents() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveAgents", reflect.TypeOf((*MockManager)(nil).GetActiveAgents))
 }
 
-// GetAgentByUUID mocks base method.
-func (m *MockManager) GetAgentByUUID(arg0 uuid.UUID) (*agentpb.Agent, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAgentByUUID", arg0)
-	ret0, _ := ret[0].(*agentpb.Agent)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAgentByUUID indicates an expected call of GetAgentByUUID.
-func (mr *MockManagerMockRecorder) GetAgentByUUID(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAgentByUUID", reflect.TypeOf((*MockManager)(nil).GetAgentByUUID), arg0)
-}
-
 // GetAgentIDForHostnamePair mocks base method.
 func (m *MockManager) GetAgentIDForHostnamePair(hnPair *agent.HostnameIPPair) (string, error) {
 	m.ctrl.T.Helper()

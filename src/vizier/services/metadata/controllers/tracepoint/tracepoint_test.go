@@ -26,7 +26,6 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -412,52 +411,145 @@ func TestRegisterTracepoint(t *testing.T) {
 	tracepointMgr := tracepoint.NewManager(mockTracepointStore, mockAgtMgr, 5*time.Second)
 	defer tracepointMgr.Close()
 
-	agentUUID := uuid.Must(uuid.NewV4())
-	tracepointID := uuid.Must(uuid.NewV4())
-	program := &logicalpb.TracepointDeployment{
+	tracepointDeployment := &logicalpb.TracepointDeployment{
 		Programs: []*logicalpb.TracepointDeployment_TracepointProgram{
 			{
-				TableName: "test",
+				TableName: "programFrom5.10.0To5.18.0",
+				Selectors: []*logicalpb.TracepointSelector{
+					{
+						SelectorType: logicalpb.MIN_KERNEL,
+						Value: 	  "5.10.0",
+					},
+					{
+						SelectorType: logicalpb.MAX_KERNEL,
+						Value: 	  "5.18.0",
+					},
+				},
 			},
 			{
-				TableName: "anotherTracepoint",
+				TableName: "programUpTo5.18.0",
+				Selectors: []*logicalpb.TracepointSelector{
+					{
+						SelectorType: logicalpb.MAX_KERNEL,
+						Value: 	  "5.18.0",
+					},
+				},
+			},
+			{
+				TableName: "programFrom5.19.0",
+				Selectors: []*logicalpb.TracepointSelector{
+					{
+						SelectorType: logicalpb.MIN_KERNEL,
+						Value: 	  "5.19.0",
+					},
+				},
 			},
 		},
 	}
 
-	tracepointReq := messagespb.VizierMessage{
+	agentUUID1 := uuid.Must(uuid.NewV4())
+	agentUUID2 := uuid.Must(uuid.NewV4())
+	upb1 := utils.ProtoFromUUID(agentUUID1)
+	upb2 := utils.ProtoFromUUID(agentUUID2)
+	mockAgents := []*agentpb.Agent{
+		// Should match programUpTo5.18.0 and programFrom5.10.0To5.18.0
+		{
+			Info: &agentpb.AgentInfo{
+				HostInfo: &agentpb.HostInfo{
+					Hostname: "localhost",
+					HostIP:   "127.0.0.4",
+					Kernel: &agentpb.KernelVersion{
+						Major: 5,
+						Minor: 18,
+						Patch: 0,
+					},
+				},
+				AgentID: upb1,
+				Capabilities: &agentpb.AgentCapabilities{
+					CollectsData: true,
+				},
+			},
+		},
+		// Should match programFrom5.19.0
+		{
+			Info: &agentpb.AgentInfo{
+				HostInfo: &agentpb.HostInfo{
+					Hostname: "localhost",
+					HostIP:   "127.0.0.4",
+					Kernel: &agentpb.KernelVersion{
+						Major: 5,
+						Minor: 19,
+						Patch: 0,
+					},
+				},
+				AgentID: upb2,
+				Capabilities: &agentpb.AgentCapabilities{
+					CollectsData: true,
+				},
+			},
+		},
+	}
+
+	tracepointID := uuid.Must(uuid.NewV4())
+	// Expected message to be sent to agent1. Should match programUpTo5.18.0 and programFrom5.10.0To5.18.0.
+	deploymentAgent1 := &logicalpb.TracepointDeployment{
+		Programs: []*logicalpb.TracepointDeployment_TracepointProgram{
+			tracepointDeployment.Programs[0],
+			tracepointDeployment.Programs[1],
+		},
+	}
+	expectedTracepointReq1 := messagespb.VizierMessage{
 		Msg: &messagespb.VizierMessage_TracepointMessage{
 			TracepointMessage: &messagespb.TracepointMessage{
 				Msg: &messagespb.TracepointMessage_RegisterTracepointRequest{
 					RegisterTracepointRequest: &messagespb.RegisterTracepointRequest{
-						TracepointDeployment: program,
+						TracepointDeployment: deploymentAgent1,
 						ID:                   utils.ProtoFromUUID(tracepointID),
 					},
 				},
 			},
 		},
 	}
-	msg, err := tracepointReq.Marshal()
+	// Expected message to be sent to agent2. Should match programFrom5.19.0.
+	deploymentAgent2 := &logicalpb.TracepointDeployment{
+		Programs: []*logicalpb.TracepointDeployment_TracepointProgram{
+			tracepointDeployment.Programs[2],
+		},
+	}
+	expectedTracepointReq2 := messagespb.VizierMessage{
+		Msg: &messagespb.VizierMessage_TracepointMessage{
+			TracepointMessage: &messagespb.TracepointMessage{
+				Msg: &messagespb.TracepointMessage_RegisterTracepointRequest{
+					RegisterTracepointRequest: &messagespb.RegisterTracepointRequest{
+						TracepointDeployment: deploymentAgent2,
+						ID:                   utils.ProtoFromUUID(tracepointID),
+					},
+				},
+			},
+		},
+	}
+
+	// Serialize tracepoint request proto into byte slice to compare with the actual message sent to agents.
+	msg1, err := expectedTracepointReq1.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg2, err := expectedTracepointReq2.Marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	mockAgtMgr.
 		EXPECT().
-		MessageAgents([]uuid.UUID{agentUUID}, msg).
+		MessageAgents([]uuid.UUID{agentUUID1}, msg1).
 		Return(nil)
 
-	// use GetAgentByUUID to get the agent
-	agentObj, err := mockAgtMgr.GetAgentByUUID(agentUUID)
-	if err != nil {
-		log.WithError(err).Error("Failed to get agent object")
-		return
-	}
+	mockAgtMgr.
+		EXPECT().
+		MessageAgents([]uuid.UUID{agentUUID2}, msg2).
+		Return(nil)
 
-	// Create a slice of *agentpb.Agent containing the agentObj.
-	agentObjs := []*agentpb.Agent{agentObj}
-
-	err = tracepointMgr.RegisterTracepoint(agentObjs, tracepointID, program)
+	err = tracepointMgr.RegisterTracepoint(mockAgents, tracepointID, tracepointDeployment)
 	require.NoError(t, err)
 }
 

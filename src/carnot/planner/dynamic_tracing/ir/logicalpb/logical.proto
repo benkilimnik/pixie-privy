@@ -168,8 +168,8 @@ message DeploymentSpec {
 
 enum SelectorType {
   NO_CONDITION = 0;  // default if none specified
-  MIN_KERNEL = 1;
-  MAX_KERNEL = 2;
+  MAX_KERNEL = 1;
+  MIN_KERNEL = 2;
   // Other selectors here in the future (e.g. OS version)
 }
 
