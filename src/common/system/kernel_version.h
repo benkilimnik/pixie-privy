@@ -104,8 +104,8 @@ StatusOr<KernelVersion> GetKernelVersion(
     std::vector<KernelVersionSource> sources = kDefaultKernelVersionSources);
 
 /**
-  * Effectively runs `uname -r` and returns the output.
-*/
+ * Effectively runs `uname -r` and returns the output.
+ */
 StatusOr<std::string> GetUname();
 
 /**

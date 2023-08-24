@@ -349,28 +349,28 @@ func (m *Manager) filterByMaxKernel(agents []*agentpb.Agent, version string) []*
 // a new tracepointDeployment. If multiple programs may have the same list of allowed agents,
 // we collapse them into one tracepoint deployment and send those in one request.
 func (m *Manager) RegisterTracepoint(agents []*agentpb.Agent, tracepointID uuid.UUID, tracepointDeployment *logicalpb.TracepointDeployment) error {
-    // Map where key is the hash of agent IDs and value is the list of programs for those agents.
-    agentsHashToPrograms := make(map[string][]*logicalpb.TracepointDeployment_TracepointProgram)
-    // Map where key is the hash of agent IDs and value is the list of agents.
-    agentsHashToAgents := make(map[string][]*agentpb.Agent)
+	// Map where key is the hash of agent IDs and value is the list of programs for those agents.
+	agentsHashToPrograms := make(map[string][]*logicalpb.TracepointDeployment_TracepointProgram)
+	// Map where key is the hash of agent IDs and value is the list of agents.
+	agentsHashToAgents := make(map[string][]*agentpb.Agent)
 
-    for _, prgm := range tracepointDeployment.Programs {
-        validAgents := agents // Start with all agents as potential targets.
+	for _, prgm := range tracepointDeployment.Programs {
+		validAgents := agents // Start with all agents as potential targets.
 
-        for _, selector := range prgm.Selectors {
-            validAgents = m.FilterAgentsBySelector(validAgents, selector)
-        }
+		for _, selector := range prgm.Selectors {
+			validAgents = m.FilterAgentsBySelector(validAgents, selector)
+		}
 
-        // Generate a hash for the list of valid agents.
-        agentIDs := make([]uuid.UUID, len(validAgents))
-        for i, agt := range validAgents {
-            agentIDs[i] = utils.UUIDFromProtoOrNil(agt.Info.AgentID)
-        }
-        hash := utils.HashUUIDs(agentIDs) // You need to implement this function.
+		// Generate a hash for the list of valid agents.
+		agentIDs := make([]uuid.UUID, len(validAgents))
+		for i, agt := range validAgents {
+			agentIDs[i] = utils.UUIDFromProtoOrNil(agt.Info.AgentID)
+		}
+		hash := utils.HashUUIDs(agentIDs) // You need to implement this function.
 
-        agentsHashToPrograms[hash] = append(agentsHashToPrograms[hash], prgm)
-        agentsHashToAgents[hash] = validAgents
-    }
+		agentsHashToPrograms[hash] = append(agentsHashToPrograms[hash], prgm)
+		agentsHashToAgents[hash] = validAgents
+	}
 
 	for hash, validAgentsForProgram := range agentsHashToAgents {
 		// Build a new TracepointDeployment with the group of programs.

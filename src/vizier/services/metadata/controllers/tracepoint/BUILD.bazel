@@ -64,7 +64,6 @@ pl_go_test(
         "@com_github_gofrs_uuid//:uuid",
         "@com_github_gogo_protobuf//proto",
         "@com_github_golang_mock//gomock",
-        "@com_github_sirupsen_logrus//:logrus",
         "@com_github_stretchr_testify//assert",
         "@com_github_stretchr_testify//require",
     ],

@@ -418,11 +418,11 @@ func TestRegisterTracepoint(t *testing.T) {
 				Selectors: []*logicalpb.TracepointSelector{
 					{
 						SelectorType: logicalpb.MIN_KERNEL,
-						Value: 	  "5.10.0",
+						Value:        "5.10.0",
 					},
 					{
 						SelectorType: logicalpb.MAX_KERNEL,
-						Value: 	  "5.18.0",
+						Value:        "5.18.0",
 					},
 				},
 			},
@@ -431,7 +431,7 @@ func TestRegisterTracepoint(t *testing.T) {
 				Selectors: []*logicalpb.TracepointSelector{
 					{
 						SelectorType: logicalpb.MAX_KERNEL,
-						Value: 	  "5.18.0",
+						Value:        "5.18.0",
 					},
 				},
 			},
@@ -440,7 +440,7 @@ func TestRegisterTracepoint(t *testing.T) {
 				Selectors: []*logicalpb.TracepointSelector{
 					{
 						SelectorType: logicalpb.MIN_KERNEL,
-						Value: 	  "5.19.0",
+						Value:        "5.19.0",
 					},
 				},
 			},

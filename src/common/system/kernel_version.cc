@@ -307,6 +307,5 @@ KernelVersionOrder CompareKernelVersions(KernelVersion a, KernelVersion b) {
   return KernelVersionOrder::kSame;
 }
 
-
 }  // namespace system
 }  // namespace px

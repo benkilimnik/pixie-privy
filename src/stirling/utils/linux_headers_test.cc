@@ -136,32 +136,37 @@ TEST(LinuxHeadersUtils, FindClosestPackagedLinuxHeaders) {
 #endif
 
   {
-    ASSERT_OK_AND_ASSIGN(PackagedLinuxHeadersSpec match,
-                         FindClosestPackagedLinuxHeaders(kTestSrcDir, system::KernelVersion{4, 4, 18}));
+    ASSERT_OK_AND_ASSIGN(
+        PackagedLinuxHeadersSpec match,
+        FindClosestPackagedLinuxHeaders(kTestSrcDir, system::KernelVersion{4, 4, 18}));
     EXPECT_THAT(match.path.string(), EndsWith(prefix + "4.14.176.tar.gz"));
   }
 
   {
-    ASSERT_OK_AND_ASSIGN(PackagedLinuxHeadersSpec match,
-                         FindClosestPackagedLinuxHeaders(kTestSrcDir, system::KernelVersion{4, 15, 10}));
+    ASSERT_OK_AND_ASSIGN(
+        PackagedLinuxHeadersSpec match,
+        FindClosestPackagedLinuxHeaders(kTestSrcDir, system::KernelVersion{4, 15, 10}));
     EXPECT_THAT(match.path.string(), EndsWith(prefix + "4.14.176.tar.gz"));
   }
 
   {
-    ASSERT_OK_AND_ASSIGN(PackagedLinuxHeadersSpec match,
-                         FindClosestPackagedLinuxHeaders(kTestSrcDir, system::KernelVersion{4, 18, 1}));
+    ASSERT_OK_AND_ASSIGN(
+        PackagedLinuxHeadersSpec match,
+        FindClosestPackagedLinuxHeaders(kTestSrcDir, system::KernelVersion{4, 18, 1}));
     EXPECT_THAT(match.path.string(), EndsWith(prefix + "4.18.20.tar.gz"));
   }
 
   {
-    ASSERT_OK_AND_ASSIGN(PackagedLinuxHeadersSpec match,
-                         FindClosestPackagedLinuxHeaders(kTestSrcDir, system::KernelVersion{5, 0, 0}));
+    ASSERT_OK_AND_ASSIGN(
+        PackagedLinuxHeadersSpec match,
+        FindClosestPackagedLinuxHeaders(kTestSrcDir, system::KernelVersion{5, 0, 0}));
     EXPECT_THAT(match.path.string(), EndsWith(prefix + "5.3.18.tar.gz"));
   }
 
   {
-    ASSERT_OK_AND_ASSIGN(PackagedLinuxHeadersSpec match,
-                         FindClosestPackagedLinuxHeaders(kTestSrcDir, system::KernelVersion{5, 7, 20}));
+    ASSERT_OK_AND_ASSIGN(
+        PackagedLinuxHeadersSpec match,
+        FindClosestPackagedLinuxHeaders(kTestSrcDir, system::KernelVersion{5, 7, 20}));
     EXPECT_THAT(match.path.string(), EndsWith(prefix + "5.3.18.tar.gz"));
   }
 }
