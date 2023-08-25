@@ -86,10 +86,8 @@ Status TracepointManager::HandleRegisterTracepointRequest(
   info.last_updated_at = dispatcher_->GetTimeSource().MonotonicTime();
 
   // Poke Stirling to actually add the tracepoint.
-  // This call happens on the PEM, calls version of stirling on that PEM.
-  // Currently gets TracePoint from query broker and then dispatches the same TracepointRequest to
-  // every PEM instead of doing that, we can take our tracepoint definition and dispatch different
-  // requests for different kernel versions as required.
+  // Retrieves Tracepoint from the query broker and then dispatches TracepointRequest to appropriate
+  // PEM(s).
   stirling_->RegisterTracepoint(id, std::move(program));
 
   {

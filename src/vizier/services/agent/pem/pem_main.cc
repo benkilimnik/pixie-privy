@@ -66,8 +66,6 @@ int main(int argc, char** argv) {
   if (FLAGS_host_ip.length() == 0) {
     LOG(FATAL) << "The HOST_IP must be specified";
   }
-  // parse kernel version into struct KernelVersion (can't get from Flag) using util
-  // moved FindKernelVersion from stirling to system/kernel_version.h
   px::system::KernelVersion kernel_version = px::system::GetCachedKernelVersion();
   auto manager =
       PEMManager::Create(agent_id, FLAGS_pod_name, FLAGS_host_ip, FLAGS_nats_url, kernel_version)

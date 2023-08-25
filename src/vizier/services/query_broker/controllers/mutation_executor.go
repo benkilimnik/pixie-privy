@@ -91,7 +91,6 @@ func (m *MutationExecutorImpl) Execute(ctx context.Context, req *vizierpb.Execut
 		PlanOptions:      planOpts,
 	}
 
-	// compiler compiles these tracepoint requests (which are mutations)
 	mutations, err := m.planner.CompileMutations(convertedReq)
 	if err != nil {
 		log.WithError(err).Error("Got an error while compiling mutations")

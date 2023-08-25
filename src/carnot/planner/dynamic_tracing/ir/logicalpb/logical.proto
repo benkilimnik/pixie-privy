@@ -198,8 +198,8 @@ message TracepointDeployment {
     TracepointSpec spec = 2;
     // This applies to bpftrace. Note that only one bpftrace program is allowed.
     BPFTrace bpftrace = 3 [ (gogoproto.customname) = "BPFTrace" ];
-    // Add restrictions from this program and have compiler pull it out from this
-    // TracepointDeployment object
+    // The selectors to enforce on this deployment. Program will be deployed only to agents that
+    // match.
     repeated TracepointSelector selectors = 4;
   }
   repeated TracepointProgram programs = 4;

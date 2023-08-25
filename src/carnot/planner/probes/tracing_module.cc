@@ -49,7 +49,6 @@ class UpsertHandler {
                                     const ParsedArgs& args, ASTVisitor* visitor);
 };
 
-// this handler's Eval, will create the new QL object (TraceProgram QL object)
 class TraceProgramHandler {
  public:
   static StatusOr<QLObjectPtr> Eval(const pypa::AstPtr& ast, const ParsedArgs& args,
@@ -384,8 +383,7 @@ StatusOr<QLObjectPtr> TraceProgramHandler::Eval(const pypa::AstPtr& ast, const P
       PX_ASSIGN_OR_RETURN(auto selector_value_ir, GetArgAs<StringIR>(node, name));
       tracepoint_selector.set_value(selector_value_ir->str());
       selectors.push_back(tracepoint_selector);
-    }
-    else {
+    } else {
       return CreateAstError(ast, "Unsupported selector argument provided '$0'", name);
     }
   }
@@ -510,7 +508,6 @@ StatusOr<QLObjectPtr> SharedObjectHandler::Eval(const pypa::AstPtr& ast, const P
   return SharedObjectTarget::Create(ast, visitor, shared_object_name, shared_object_upid);
 }
 
-// Creates a new QL object called a KProbeTarget
 StatusOr<QLObjectPtr> KProbeTargetHandler::Eval(const pypa::AstPtr& ast, const ParsedArgs&,
                                                 ASTVisitor* visitor) {
   return KProbeTarget::Create(ast, visitor);

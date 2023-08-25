@@ -439,10 +439,6 @@ func (s *Server) RegisterTracepoint(ctx context.Context, req *metadatapb.Registe
 			return nil, err
 		}
 
-		// TODO(benkilimnik): if script with just one kernel version (i.e. one kernel version in TracepointRequest)
-		// then send out request to all agents (old behavior)
-		// we want to lookup the metadata service using the agent definition `agent`
-		// which now includes the kernel version
 		err = s.tpMgr.RegisterTracepoint(agents, *tracepointID, tp.TracepointDeployment)
 		if err != nil {
 			return nil, err

@@ -205,8 +205,7 @@ class TraceModule : public QLObject {
 
   Args:
     program (str): The BPFtrace program string.
-    min_kernel (str): The minimum kernel version that this program can run on.
-    max_kernel (str): The maximum kernel version that this program can run on.
+    (Additional key-value arguments may be passed as tracepoint selectors. E.g. min_kernel='5.19' or max_kernel='5.18')
 
   Returns:
     TraceProgram: A pointer to the TraceProgram that can be passed as a probe_fn

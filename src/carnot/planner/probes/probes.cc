@@ -200,13 +200,11 @@ StatusOr<TracepointDeployment*> MutationsIR::CreateKProbeTracepointDeployment(
 Status TracepointDeployment::AddBPFTrace(const std::string& bpftrace_str,
                                          const std::string& output_name,
                                          const std::vector<TracepointSelector>& selectors) {
-  // Sets the TracepointProgram in TracepointDeployment proto message
   carnot::planner::dynamic_tracing::ir::logical::TracepointDeployment::TracepointProgram
       tracepoint_pb;
   tracepoint_pb.mutable_bpftrace()->set_program(bpftrace_str);
   // set the output table to write program results to
   tracepoint_pb.set_table_name(output_name);
-  // log selectors
   for (const auto& selector : selectors) {
     *tracepoint_pb.add_selectors() = selector;
   }
