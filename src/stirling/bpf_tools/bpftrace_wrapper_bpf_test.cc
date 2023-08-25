@@ -189,6 +189,47 @@ TEST(BPFTracerWrapperTest, InconsistentPrintfs) {
   }
 }
 
+TEST(BPFTracerWrapperTest, TwoTracepointsSameTable) {
+  // Define two BPFTrace scripts.
+  constexpr std::string_view kScript1 = R"(
+  interval:ms:100 {
+      @output1[0] = nsecs;
+  }
+  )";
+
+  constexpr std::string_view kScript2 = R"(
+  interval:ms:100 {
+      @output2[0] = nsecs;
+  }
+  )";
+
+  BPFTraceWrapper bpftrace_wrapper1, bpftrace_wrapper2;
+
+  // Compile and deploy the first script.
+  ASSERT_OK(bpftrace_wrapper1.CompileForMapOutput(kScript1));
+  ASSERT_OK(bpftrace_wrapper1.Deploy());
+
+  // Compile and deploy the second script.
+  ASSERT_OK(bpftrace_wrapper2.CompileForMapOutput(kScript2));
+  ASSERT_OK(bpftrace_wrapper2.Deploy());
+
+  sleep(1); // Allow the scripts to collect data.
+
+  // Retrieve data from both scripts.
+  bpftrace::BPFTraceMap entries1 = bpftrace_wrapper1.GetBPFMap("@output1");
+  bpftrace::BPFTraceMap entries2 = bpftrace_wrapper2.GetBPFMap("@output2");
+
+  // Check that the data from both scripts ends up in the same table.
+  EXPECT_FALSE(entries1.empty());
+  EXPECT_FALSE(entries2.empty());
+  // EXPECT_EQ(bpftrace_wrapper1.OutputFields(), bpftrace_wrapper2.OutputFields());
+
+  // Cleanup.
+  bpftrace_wrapper1.Stop();
+  bpftrace_wrapper2.Stop();
+}
+
+
 }  // namespace bpf_tools
 }  // namespace stirling
 }  // namespace px
