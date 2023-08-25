@@ -194,6 +194,7 @@ class TracepointDeployment {
    *
    * @param bpftrace_program the program in string format.
    * @param output_name the output table to write program results.
+   * @param selectors the selectors to use for the program.
    * @return Status
    */
   Status AddBPFTrace(const std::string& bpftrace_str, const std::string& output_name,

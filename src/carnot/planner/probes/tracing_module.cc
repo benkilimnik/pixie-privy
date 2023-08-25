@@ -368,18 +368,25 @@ StatusOr<QLObjectPtr> TraceProgramHandler::Eval(const pypa::AstPtr& ast, const P
   const google::protobuf::EnumDescriptor* selector_type_descriptor =
       carnot::planner::dynamic_tracing::ir::logical::SelectorType_descriptor();
   for (const auto& [name, node] : kwargs) {
+    if (name == "program") {
+      continue;
+    }
+    // Enum's are stored in uppercase, so we convert the argument key
     const google::protobuf::EnumValueDescriptor* selector_value =
-        selector_type_descriptor->FindValueByName(name);
+        selector_type_descriptor->FindValueByName(absl::AsciiStrToUpper(name));
     if (selector_value) {
       // Selector type found
       carnot::planner::dynamic_tracing::ir::logical::TracepointSelector tracepoint_selector;
       tracepoint_selector.set_selector_type(
           static_cast<carnot::planner::dynamic_tracing::ir::logical::SelectorType>(
               selector_value->number()));
-      // Set user provided restriction
-      PX_ASSIGN_OR_RETURN(auto selector_value_ir, GetArgAs<StringIR>(ast, args, name));
+      // Set user provided restriction, taken from the argument value
+      PX_ASSIGN_OR_RETURN(auto selector_value_ir, GetArgAs<StringIR>(node, name));
       tracepoint_selector.set_value(selector_value_ir->str());
       selectors.push_back(tracepoint_selector);
+    }
+    else {
+      return CreateAstError(ast, "Unsupported selector argument provided '$0'", name);
     }
   }
   // extract BPFTrace program string

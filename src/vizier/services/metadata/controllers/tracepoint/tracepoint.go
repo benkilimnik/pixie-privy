@@ -401,7 +401,6 @@ func (m *Manager) RegisterTracepoint(agents []*agentpb.Agent, tracepointID uuid.
 
 		agentIDs := make([]uuid.UUID, len(validAgentsForProgram))
 		for i, agt := range validAgentsForProgram {
-			// convert list to agentIDs that are not protos?
 			agentIDs[i] = utils.UUIDFromProtoOrNil(agt.Info.AgentID)
 		}
 

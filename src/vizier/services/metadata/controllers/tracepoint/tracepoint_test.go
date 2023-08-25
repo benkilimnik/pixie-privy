@@ -415,6 +415,7 @@ func TestRegisterTracepoint(t *testing.T) {
 		Programs: []*logicalpb.TracepointDeployment_TracepointProgram{
 			{
 				TableName: "programFrom5.10.0To5.18.0",
+				// In the future, we can test more selector types.
 				Selectors: []*logicalpb.TracepointSelector{
 					{
 						SelectorType: logicalpb.MIN_KERNEL,
