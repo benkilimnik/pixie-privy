@@ -23,22 +23,11 @@
 #include <sys/auxv.h>
 #include <sys/utsname.h>
 
-#include <fstream>
 #include <limits>
-#include <memory>
-#include <sstream>
 #include <vector>
 
-#include <absl/strings/numbers.h>
 #include <absl/strings/str_replace.h>
-
-#include "src/common/base/file.h"
-#include "src/common/fs/fs_wrapper.h"
-#include "src/common/fs/temp_file.h"
-#include "src/common/minitar/minitar.h"
-#include "src/common/system/config.h"
 #include "src/common/system/proc_pid_path.h"
-#include "src/common/zlib/zlib_wrapper.h"
 
 namespace px {
 namespace system {
