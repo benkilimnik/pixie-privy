@@ -213,7 +213,7 @@ TEST(BPFTracerWrapperTest, TwoTracepointsSameTable) {
   ASSERT_OK(bpftrace_wrapper2.CompileForMapOutput(kScript2));
   ASSERT_OK(bpftrace_wrapper2.Deploy());
 
-  sleep(1); // Allow the scripts to collect data.
+  sleep(1);  // Allow the scripts to collect data.
 
   // Retrieve data from both scripts.
   bpftrace::BPFTraceMap entries1 = bpftrace_wrapper1.GetBPFMap("@output1");
@@ -228,7 +228,6 @@ TEST(BPFTracerWrapperTest, TwoTracepointsSameTable) {
   bpftrace_wrapper1.Stop();
   bpftrace_wrapper2.Stop();
 }
-
 
 }  // namespace bpf_tools
 }  // namespace stirling

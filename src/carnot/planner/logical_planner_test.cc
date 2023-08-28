@@ -439,8 +439,8 @@ programs {
 TEST_F(LogicalPlannerTest, CompileTwoTracePrograms) {
   auto planner = LogicalPlanner::Create(info_).ConsumeValueOrDie();
   plannerpb::CompileMutationsRequest req;
-  req.set_query_str(absl::Substitute(kTwoTraceProgramsPxl, kBPFTraceProgramMaxKernel,
-                                                           kBPFTraceProgramMinKernel));
+  req.set_query_str(
+      absl::Substitute(kTwoTraceProgramsPxl, kBPFTraceProgramMaxKernel, kBPFTraceProgramMinKernel));
   *req.mutable_logical_planner_state() =
       testutils::CreateTwoPEMsOneKelvinPlannerState(testutils::kHttpEventsSchema);
   auto trace_ir_or_s = planner->CompileTrace(req);

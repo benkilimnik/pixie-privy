@@ -648,7 +648,6 @@ TEST_F(ProbeCompilerTest, parse_bpftrace) {
               testing::proto::EqualsProto(absl::Substitute(kBPFTraceProgramPb, literal_bpf_trace)));
 }
 
-// Test that we can compile/parse a list of TraceProgram objects with selectors
 constexpr char kBPFTraceProgramMaxKernel[] = R"bpftrace(
 kprobe:tcp_drop
 {
@@ -663,60 +662,7 @@ tracepoint:skb:kfree_skb
 }
 )bpftrace";
 
-// Test unsupported Selector (argument of TraceProgram object)
-constexpr char kBPFUnsupportedTraceProgramObjectSelectorPxl[] = R"pxl(
-import pxtrace
-import px
-
-after_519_trace_program = pxtrace.TraceProgram(
-  program="""$0""",
-  min_kernel='5.19',
-  my_unsupported_selector='12345',
-)
-
-table_name = 'tcp_drop_table'
-pxtrace.UpsertTracepoint('tcp_drop_tracer',
-                          table_name,
-                          after_519_trace_program,
-                          pxtrace.kprobe(),
-                          '10m')
-)pxl";
-
-TEST_F(ProbeCompilerTest, parse_unsupported_selector_in_trace_program_object) {
-  auto probe_ir_or_s = CompileProbeScript(kBPFUnsupportedTraceProgramObjectSelectorPxl);
-  ASSERT_NOT_OK(probe_ir_or_s);
-  EXPECT_THAT(
-      probe_ir_or_s.status(),
-      HasCompilerError("Unsupported selector argument provided \'my_unsupported_selector\'"));
-}
-
-// Test invalid Selector value (i.e. wrong type - currently needs to be string)
-constexpr char kBPFInvalidTraceProgramObjectSelectorPxl[] = R"pxl(
-import pxtrace
-import px
-
-after_519_trace_program = pxtrace.TraceProgram(
-  program="""$0""",
-  min_kernel='5.19',
-  max_kernel=None,
-)
-
-table_name = 'tcp_drop_table'
-pxtrace.UpsertTracepoint('tcp_drop_tracer',
-                          table_name,
-                          after_519_trace_program,
-                          pxtrace.kprobe(),
-                          '10m')
-)pxl";
-
-TEST_F(ProbeCompilerTest, parse_invalid_trace_program_object) {
-  auto probe_ir_or_s = CompileProbeScript(kBPFInvalidTraceProgramObjectSelectorPxl);
-  ASSERT_NOT_OK(probe_ir_or_s);
-  EXPECT_THAT(probe_ir_or_s.status(),
-              HasCompilerError("Expected \'String\' in arg \'max_kernel\', got \'none\'"));
-}
-
-// Test valid Selector in single TraceProgram object
+// Test that we can compile/parse a single TraceProgram object with a valid selector
 constexpr char kBPFSingleTraceProgramObjectPxl[] = R"pxl(
 import pxtrace
 import px
@@ -734,7 +680,6 @@ pxtrace.UpsertTracepoint('tcp_drop_tracer',
                           '10m')
 )pxl";
 
-// Expected proto (after parsing TraceProgram object)
 constexpr char kBPFSingleTraceProgramObjectPb[] = R"proto(
 name: "tcp_drop_tracer"
 ttl {
@@ -753,7 +698,6 @@ programs {
 )proto";
 
 TEST_F(ProbeCompilerTest, parse_single_bpftrace_program_object) {
-  // Compiles PxL and casts to TracepointDeployment class
   ASSERT_OK_AND_ASSIGN(auto probe_ir,
                        CompileProbeScript(absl::Substitute(kBPFSingleTraceProgramObjectPxl,
                                                            kBPFTraceProgramMinKernel)));
@@ -772,8 +716,7 @@ TEST_F(ProbeCompilerTest, parse_single_bpftrace_program_object) {
                   absl::Substitute(kBPFSingleTraceProgramObjectPb, literal_bpf_trace_min)));
 }
 
-// Test that we can compile/parse a single TraceProgram object with selectors (including currently
-// unsupported ones)
+// Test that we can compile a list of TraceProgram objects with valid selectors
 constexpr char kBPFTraceProgramObjectsPxl[] = R"pxl(
 import pxtrace
 import px
@@ -796,7 +739,6 @@ pxtrace.UpsertTracepoint('tcp_drop_tracer',
                           '10m')
 )pxl";
 
-// Expected proto (after parsing TraceProgram objects)
 constexpr char kBPFTraceProgramObjectsPb[] = R"proto(
 name: "tcp_drop_tracer"
 ttl {
@@ -825,7 +767,6 @@ programs {
 )proto";
 
 TEST_F(ProbeCompilerTest, parse_multiple_bpftrace_program_objects) {
-  // Compiles PxL and casts to TracepointDeployment class
   ASSERT_OK_AND_ASSIGN(auto probe_ir, CompileProbeScript(absl::Substitute(
                                           kBPFTraceProgramObjectsPxl, kBPFTraceProgramMinKernel,
                                           kBPFTraceProgramMaxKernel)));
@@ -848,6 +789,59 @@ TEST_F(ProbeCompilerTest, parse_multiple_bpftrace_program_objects) {
   EXPECT_THAT(pb.mutations()[0].trace(),
               testing::proto::EqualsProto(absl::Substitute(
                   kBPFTraceProgramObjectsPb, literal_bpf_trace_min, literal_bpf_trace_max)));
+}
+
+// Test that passing an unsupported selector type to TraceProgram throws a compiler error
+constexpr char kBPFUnsupportedTraceProgramObjectSelectorPxl[] = R"pxl(
+import pxtrace
+import px
+
+after_519_trace_program = pxtrace.TraceProgram(
+  program="""$0""",
+  min_kernel='5.19',
+  my_unsupported_selector='12345',
+)
+
+table_name = 'tcp_drop_table'
+pxtrace.UpsertTracepoint('tcp_drop_tracer',
+                          table_name,
+                          after_519_trace_program,
+                          pxtrace.kprobe(),
+                          '10m')
+)pxl";
+
+TEST_F(ProbeCompilerTest, parse_unsupported_selector_in_trace_program_object) {
+  auto probe_ir_or_s = CompileProbeScript(kBPFUnsupportedTraceProgramObjectSelectorPxl);
+  ASSERT_NOT_OK(probe_ir_or_s);
+  EXPECT_THAT(
+      probe_ir_or_s.status(),
+      HasCompilerError("Unsupported selector argument provided \'my_unsupported_selector\'"));
+}
+
+// Test that an invalid selector value throws a compiler error (currently needs to be a string)
+constexpr char kBPFInvalidTraceProgramObjectSelectorPxl[] = R"pxl(
+import pxtrace
+import px
+
+after_519_trace_program = pxtrace.TraceProgram(
+  program="""$0""",
+  min_kernel='5.19',
+  max_kernel=None,
+)
+
+table_name = 'tcp_drop_table'
+pxtrace.UpsertTracepoint('tcp_drop_tracer',
+                          table_name,
+                          after_519_trace_program,
+                          pxtrace.kprobe(),
+                          '10m')
+)pxl";
+
+TEST_F(ProbeCompilerTest, parse_invalid_trace_program_object) {
+  auto probe_ir_or_s = CompileProbeScript(kBPFInvalidTraceProgramObjectSelectorPxl);
+  ASSERT_NOT_OK(probe_ir_or_s);
+  EXPECT_THAT(probe_ir_or_s.status(),
+              HasCompilerError("Expected \'String\' in arg \'max_kernel\', got \'none\'"));
 }
 
 constexpr char kConfigChangePxl[] = R"pxl(
