@@ -18,15 +18,9 @@
 
 #include "src/stirling/utils/linux_headers.h"
 
-#include <elf.h>
-#include <link.h>
-#include <sys/auxv.h>
-#include <sys/utsname.h>
-
 #include <fstream>
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <vector>
 
 #include <absl/strings/numbers.h>
