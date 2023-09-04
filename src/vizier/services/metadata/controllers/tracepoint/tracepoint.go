@@ -21,6 +21,7 @@ package tracepoint
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -303,6 +304,8 @@ func (m *Manager) FilterAgentsBySelector(agents []*agentpb.Agent, selector *logi
 		filteredAgents = m.filterByMinKernel(agents, selector.Value)
 	case logicalpb.MAX_KERNEL:
 		filteredAgents = m.filterByMaxKernel(agents, selector.Value)
+	case logicalpb.HOST_NAME:
+		filteredAgents = m.filterByHostName(agents, selector.Value)
 	// Other selector types can be added here in the future.
 	default:
 		// If NO_CONDITION or unknown condition, return all agents
@@ -311,32 +314,63 @@ func (m *Manager) FilterAgentsBySelector(agents []*agentpb.Agent, selector *logi
 	return filteredAgents
 }
 
-func (m *Manager) filterByMinKernel(agents []*agentpb.Agent, version string) []*agentpb.Agent {
-	var minor, major, patch int32
-	if _, err := fmt.Sscanf(version, "%d.%d.%d", &major, &minor, &patch); err != nil {
-		return nil
-	}
-
+func (m *Manager) filterByHostName(agents []*agentpb.Agent, hostname string) []*agentpb.Agent {
 	filteredAgents := make([]*agentpb.Agent, 0)
 	for _, agent := range agents {
-		kv := agent.Info.HostInfo.Kernel
-		if kv.Major > major || (kv.Major == major && kv.Minor > minor) || (kv.Major == major && kv.Minor == minor && kv.Patch >= patch) {
+		if agent.Info.HostInfo.Hostname == hostname {
 			filteredAgents = append(filteredAgents, agent)
 		}
 	}
 	return filteredAgents
 }
 
-func (m *Manager) filterByMaxKernel(agents []*agentpb.Agent, version string) []*agentpb.Agent {
-	var minor, major, patch int32
-	if _, err := fmt.Sscanf(version, "%d.%d.%d", &major, &minor, &patch); err != nil {
-		return nil
-	}
+func parseKernelVersion(version_str string) (version, major, minor uint32, err error) {
+    parts := strings.Split(version_str, ".")
+    switch len(parts) {
+    case 1:
+        _, err = fmt.Sscanf(version_str, "%d", &version)
+    case 2:
+        _, err = fmt.Sscanf(version_str, "%d.%d", &version, &major)
+    default:
+        _, err = fmt.Sscanf(version_str, "%d.%d.%d", &version, &major, &minor)
+    }
+    return
+}
+
+func (m *Manager) filterByMinKernel(agents []*agentpb.Agent, version_str string) []*agentpb.Agent {
+    version, major, minor, err := parseKernelVersion(version_str)
+    if err != nil {
+        log.Warnf("Error parsing version string: %s, Error: %v", version_str, err)
+        return nil
+    }
 
 	filteredAgents := make([]*agentpb.Agent, 0)
 	for _, agent := range agents {
 		kv := agent.Info.HostInfo.Kernel
-		if kv.Major < major || (kv.Major == major && kv.Minor < minor) || (kv.Major == major && kv.Minor == minor && kv.Patch <= patch) {
+		if kv == nil {
+			continue
+		}
+		if kv.Version > version || (kv.Version == version && kv.MajorRev > major) || (kv.Version == version && kv.MajorRev == major && kv.MinorRev >= minor) {
+			filteredAgents = append(filteredAgents, agent)
+		}
+	}
+	return filteredAgents
+}
+
+func (m *Manager) filterByMaxKernel(agents []*agentpb.Agent, version_str string) []*agentpb.Agent {
+    version, major, minor, err := parseKernelVersion(version_str)
+    if err != nil {
+        log.Warnf("Error parsing version string: %s, Error: %v", version_str, err)
+        return nil
+    }
+
+	filteredAgents := make([]*agentpb.Agent, 0)
+	for _, agent := range agents {
+		kv := agent.Info.HostInfo.Kernel
+		if kv == nil {
+			continue
+		}
+		if kv.Version < version || (kv.Version == version && kv.MajorRev < major) || (kv.Version == version && kv.MajorRev == major && kv.MinorRev <= minor) {
 			filteredAgents = append(filteredAgents, agent)
 		}
 	}
@@ -348,6 +382,7 @@ func (m *Manager) filterByMaxKernel(agents []*agentpb.Agent, version string) []*
 // that match those selectors. For that list of agents, we send out a tracepoint request with
 // a new tracepointDeployment. If multiple programs may have the same list of allowed agents,
 // we collapse them into one tracepoint deployment and send those in one request.
+// Note: stirling current only supports one tracepoint per tracepoint deployment.
 func (m *Manager) RegisterTracepoint(agents []*agentpb.Agent, tracepointID uuid.UUID, tracepointDeployment *logicalpb.TracepointDeployment) error {
 	// Map where key is the hash of agent IDs and value is the list of programs for those agents.
 	agentsHashToPrograms := make(map[string][]*logicalpb.TracepointDeployment_TracepointProgram)

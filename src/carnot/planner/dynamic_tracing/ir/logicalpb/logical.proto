@@ -170,6 +170,7 @@ enum SelectorType {
   NO_CONDITION = 0;  // default if none specified
   MAX_KERNEL = 1;
   MIN_KERNEL = 2;
+  HOST_NAME = 3;
   // Other selectors here in the future (e.g. OS version)
 }
 

@@ -67,6 +67,7 @@ int main(int argc, char** argv) {
     LOG(FATAL) << "The HOST_IP must be specified";
   }
   px::system::KernelVersion kernel_version = px::system::GetCachedKernelVersion();
+  LOG(INFO) << absl::Substitute("Pixie PEM. Kernel version: $0", kernel_version.ToString());
   auto manager =
       PEMManager::Create(agent_id, FLAGS_pod_name, FLAGS_host_ip, FLAGS_nats_url, kernel_version)
           .ConsumeValueOrDie();

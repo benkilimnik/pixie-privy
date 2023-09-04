@@ -381,6 +381,10 @@ StatusOr<QLObjectPtr> TraceProgramHandler::Eval(const pypa::AstPtr& ast, const P
               selector_value->number()));
       // Set user provided restriction, taken from the argument value
       PX_ASSIGN_OR_RETURN(auto selector_value_ir, GetArgAs<StringIR>(node, name));
+      // Selector value is empty
+      if (selector_value_ir->str().empty()) {
+        return CreateAstError(ast, "Empty selector value provided for '$0'", name);
+      }
       tracepoint_selector.set_value(selector_value_ir->str());
       selectors.push_back(tracepoint_selector);
     } else {

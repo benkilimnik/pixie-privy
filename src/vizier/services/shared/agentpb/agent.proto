@@ -45,9 +45,9 @@ message AgentInfo {
 }
 
 message KernelVersion {
-  int32 major = 2;
-  int32 minor = 1;
-  int32 patch = 3;
+  uint32 version = 1;
+  uint32 major_rev = 2;
+  uint32 minor_rev = 3;
 }
 
 // HostInfo contains the details for the host (OS, kernel, CPU, etc).

@@ -445,13 +445,24 @@ func TestRegisterTracepoint(t *testing.T) {
 					},
 				},
 			},
+			{
+				TableName: "programHostName",
+				Selectors: []*logicalpb.TracepointSelector{
+					{
+						SelectorType: logicalpb.HOST_NAME,
+						Value:        "myHostName",
+					},
+				},
+			},
 		},
 	}
 
 	agentUUID1 := uuid.Must(uuid.NewV4())
 	agentUUID2 := uuid.Must(uuid.NewV4())
+	agentUUID3 := uuid.Must(uuid.NewV4())
 	upb1 := utils.ProtoFromUUID(agentUUID1)
 	upb2 := utils.ProtoFromUUID(agentUUID2)
+	upb3 := utils.ProtoFromUUID(agentUUID3)
 	mockAgents := []*agentpb.Agent{
 		// Should match programUpTo5.18.0 and programFrom5.10.0To5.18.0
 		{
@@ -460,9 +471,9 @@ func TestRegisterTracepoint(t *testing.T) {
 					Hostname: "localhost",
 					HostIP:   "127.0.0.4",
 					Kernel: &agentpb.KernelVersion{
-						Major: 5,
-						Minor: 18,
-						Patch: 0,
+						Version: 5,
+						MajorRev: 18,
+						MinorRev: 0,
 					},
 				},
 				AgentID: upb1,
@@ -478,12 +489,25 @@ func TestRegisterTracepoint(t *testing.T) {
 					Hostname: "localhost",
 					HostIP:   "127.0.0.4",
 					Kernel: &agentpb.KernelVersion{
-						Major: 5,
-						Minor: 19,
-						Patch: 0,
+						Version: 5,
+						MajorRev: 19,
+						MinorRev: 0,
 					},
 				},
 				AgentID: upb2,
+				Capabilities: &agentpb.AgentCapabilities{
+					CollectsData: true,
+				},
+			},
+		},
+		// Should match programHostName
+		{
+			Info: &agentpb.AgentInfo{
+				HostInfo: &agentpb.HostInfo{
+					Hostname: "myHostName",
+					HostIP:   "127.0.0.4",
+				},
+				AgentID: upb3,
 				Capabilities: &agentpb.AgentCapabilities{
 					CollectsData: true,
 				},
@@ -530,12 +554,35 @@ func TestRegisterTracepoint(t *testing.T) {
 		},
 	}
 
+	// Expected message to be sent to agent2. Should match programFrom5.19.0.
+	deploymentAgent3 := &logicalpb.TracepointDeployment{
+		Programs: []*logicalpb.TracepointDeployment_TracepointProgram{
+			tracepointDeployment.Programs[3],
+		},
+	}
+	expectedTracepointReq3 := messagespb.VizierMessage{
+		Msg: &messagespb.VizierMessage_TracepointMessage{
+			TracepointMessage: &messagespb.TracepointMessage{
+				Msg: &messagespb.TracepointMessage_RegisterTracepointRequest{
+					RegisterTracepointRequest: &messagespb.RegisterTracepointRequest{
+						TracepointDeployment: deploymentAgent3,
+						ID:                   utils.ProtoFromUUID(tracepointID),
+					},
+				},
+			},
+		},
+	}
+
 	// Serialize tracepoint request proto into byte slice to compare with the actual message sent to agents.
 	msg1, err := expectedTracepointReq1.Marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
 	msg2, err := expectedTracepointReq2.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg3, err := expectedTracepointReq3.Marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -548,6 +595,11 @@ func TestRegisterTracepoint(t *testing.T) {
 	mockAgtMgr.
 		EXPECT().
 		MessageAgents([]uuid.UUID{agentUUID2}, msg2).
+		Return(nil)
+	
+	mockAgtMgr.
+		EXPECT().
+		MessageAgents([]uuid.UUID{agentUUID3}, msg3).
 		Return(nil)
 
 	err = tracepointMgr.RegisterTracepoint(mockAgents, tracepointID, tracepointDeployment)

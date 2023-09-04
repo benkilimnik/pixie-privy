@@ -844,6 +844,32 @@ TEST_F(ProbeCompilerTest, parse_invalid_trace_program_object) {
               HasCompilerError("Expected \'String\' in arg \'max_kernel\', got \'none\'"));
 }
 
+// Test that an empty selector value throws a compiler error
+constexpr char kBPFEmptyTraceProgramObjectSelectorPxl[] = R"pxl(
+import pxtrace
+import px
+
+after_519_trace_program = pxtrace.TraceProgram(
+  program="""$0""",
+  min_kernel='5.19',
+  max_kernel='',
+)
+
+table_name = 'tcp_drop_table'
+pxtrace.UpsertTracepoint('tcp_drop_tracer',
+                          table_name,
+                          after_519_trace_program,
+                          pxtrace.kprobe(),
+                          '10m')
+)pxl";
+
+TEST_F(ProbeCompilerTest, parse_empty_trace_program_object) {
+  auto probe_ir_or_s = CompileProbeScript(kBPFEmptyTraceProgramObjectSelectorPxl);
+  ASSERT_NOT_OK(probe_ir_or_s);
+  EXPECT_THAT(probe_ir_or_s.status(),
+              HasCompilerError("Empty selector value provided for \'max_kernel\'"));
+}
+
 constexpr char kConfigChangePxl[] = R"pxl(
 import pxconfig
 import px
