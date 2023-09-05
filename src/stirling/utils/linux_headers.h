@@ -118,7 +118,7 @@ inline bool g_packaged_headers_installed = false;
  * @return Status error if no headers (either host headers or installed packaged headers) are
  * available in the end state.
  */
-StatusOr<std::filesystem::path> FindOrInstallLinuxHeaders();
+Status FindOrInstallLinuxHeaders();
 
 }  // namespace utils
 }  // namespace stirling
