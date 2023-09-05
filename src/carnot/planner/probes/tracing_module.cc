@@ -370,7 +370,7 @@ StatusOr<QLObjectPtr> TraceProgramHandler::Eval(const pypa::AstPtr& ast, const P
     if (name == "program") {
       continue;
     }
-    // Enum's are stored in uppercase, so we convert the argument key
+    // Enums are stored in uppercase, so we convert the argument key
     const google::protobuf::EnumValueDescriptor* selector_value =
         selector_type_descriptor->FindValueByName(absl::AsciiStrToUpper(name));
     if (selector_value) {

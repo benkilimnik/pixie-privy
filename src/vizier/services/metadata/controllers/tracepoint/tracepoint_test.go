@@ -471,7 +471,7 @@ func TestRegisterTracepoint(t *testing.T) {
 					Hostname: "localhost",
 					HostIP:   "127.0.0.4",
 					Kernel: &agentpb.KernelVersion{
-						Version: 5,
+						Version:  5,
 						MajorRev: 18,
 						MinorRev: 0,
 					},
@@ -489,7 +489,7 @@ func TestRegisterTracepoint(t *testing.T) {
 					Hostname: "localhost",
 					HostIP:   "127.0.0.4",
 					Kernel: &agentpb.KernelVersion{
-						Version: 5,
+						Version:  5,
 						MajorRev: 19,
 						MinorRev: 0,
 					},
@@ -596,7 +596,7 @@ func TestRegisterTracepoint(t *testing.T) {
 		EXPECT().
 		MessageAgents([]uuid.UUID{agentUUID2}, msg2).
 		Return(nil)
-	
+
 	mockAgtMgr.
 		EXPECT().
 		MessageAgents([]uuid.UUID{agentUUID3}, msg3).

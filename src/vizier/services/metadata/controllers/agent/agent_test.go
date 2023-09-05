@@ -119,7 +119,7 @@ func TestRegisterAgent(t *testing.T) {
 				Hostname: "localhost",
 				HostIP:   "127.0.0.4",
 				Kernel: &agentpb.KernelVersion{
-					Version: 5,
+					Version:  5,
 					MajorRev: 19,
 					MinorRev: 0,
 				},

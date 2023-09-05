@@ -298,6 +298,7 @@ func (m *Manager) UpdateAgentTracepointStatus(tracepointID *uuidpb.UUID, agentID
 }
 
 func (m *Manager) FilterAgentsBySelector(agents []*agentpb.Agent, selector *logicalpb.TracepointSelector) []*agentpb.Agent {
+	// Each selector successively filters the list of agents.
 	var filteredAgents []*agentpb.Agent
 	switch selector.SelectorType {
 	case logicalpb.MIN_KERNEL:
@@ -324,25 +325,27 @@ func (m *Manager) filterByHostName(agents []*agentpb.Agent, hostname string) []*
 	return filteredAgents
 }
 
-func parseKernelVersion(version_str string) (version, major, minor uint32, err error) {
-    parts := strings.Split(version_str, ".")
-    switch len(parts) {
-    case 1:
-        _, err = fmt.Sscanf(version_str, "%d", &version)
-    case 2:
-        _, err = fmt.Sscanf(version_str, "%d.%d", &version, &major)
-    default:
-        _, err = fmt.Sscanf(version_str, "%d.%d.%d", &version, &major, &minor)
-    }
-    return
+func parseKernelVersion(versionStr string) (uint32, uint32, uint32, error) {
+	var version, major, minor uint32
+	parts := strings.Split(versionStr, ".")
+	var err error
+	switch len(parts) {
+	case 1:
+		_, err = fmt.Sscanf(versionStr, "%d", &version)
+	case 2:
+		_, err = fmt.Sscanf(versionStr, "%d.%d", &version, &major)
+	default:
+		_, err = fmt.Sscanf(versionStr, "%d.%d.%d", &version, &major, &minor)
+	}
+	return version, major, minor, err
 }
 
-func (m *Manager) filterByMinKernel(agents []*agentpb.Agent, version_str string) []*agentpb.Agent {
-    version, major, minor, err := parseKernelVersion(version_str)
-    if err != nil {
-        log.Warnf("Error parsing version string: %s, Error: %v", version_str, err)
-        return nil
-    }
+func (m *Manager) filterByMinKernel(agents []*agentpb.Agent, versionStr string) []*agentpb.Agent {
+	version, major, minor, err := parseKernelVersion(versionStr)
+	if err != nil {
+		log.Warnf("Error parsing version string: %s, Error: %v", versionStr, err)
+		return nil
+	}
 
 	filteredAgents := make([]*agentpb.Agent, 0)
 	for _, agent := range agents {
@@ -357,12 +360,12 @@ func (m *Manager) filterByMinKernel(agents []*agentpb.Agent, version_str string)
 	return filteredAgents
 }
 
-func (m *Manager) filterByMaxKernel(agents []*agentpb.Agent, version_str string) []*agentpb.Agent {
-    version, major, minor, err := parseKernelVersion(version_str)
-    if err != nil {
-        log.Warnf("Error parsing version string: %s, Error: %v", version_str, err)
-        return nil
-    }
+func (m *Manager) filterByMaxKernel(agents []*agentpb.Agent, versionStr string) []*agentpb.Agent {
+	version, major, minor, err := parseKernelVersion(versionStr)
+	if err != nil {
+		log.Warnf("Error parsing version string: %s, Error: %v", versionStr, err)
+		return nil
+	}
 
 	filteredAgents := make([]*agentpb.Agent, 0)
 	for _, agent := range agents {

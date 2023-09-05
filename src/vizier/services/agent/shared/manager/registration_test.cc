@@ -62,7 +62,8 @@ class RegistrationHandlerTest : public ::testing::Test {
     agent_info_.pod_name = "pod_name";
     agent_info_.host_ip = "host_ip";
     agent_info_.capabilities.set_collects_data(true);
-    agent_info_.kernel_version = system::ParseKernelVersionString("5.15.0-106-generic").ValueOrDie();
+    agent_info_.kernel_version =
+        system::ParseKernelVersionString("5.15.0-106-generic").ValueOrDie();
 
     auto register_hook = [this](uint32_t asid) -> Status {
       called_register_++;

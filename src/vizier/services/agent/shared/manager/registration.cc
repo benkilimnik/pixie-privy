@@ -20,10 +20,10 @@
 #include <utility>
 #include <vector>
 
+#include "src/vizier/services/agent/shared/base/info.h"
 #include "src/vizier/services/agent/shared/manager/manager.h"
 #include "src/vizier/services/agent/shared/manager/registration.h"
 #include "src/vizier/services/metadata/metadatapb/service.grpc.pb.h"
-#include "src/vizier/services/agent/shared/base/info.h"
 
 namespace px {
 namespace vizier {
@@ -59,7 +59,8 @@ RegistrationHandler::RegistrationHandler(px::event::Dispatcher* dispatcher, Info
 }
 
 // convert px::system::KernelVersion to px::vizier::services::shared::agent:KernelVersion
-::px::vizier::services::shared::agent::KernelVersion KernelToProto(const system::KernelVersion& kv) {
+::px::vizier::services::shared::agent::KernelVersion KernelToProto(
+    const system::KernelVersion& kv) {
   ::px::vizier::services::shared::agent::KernelVersion kv_proto;
   kv_proto.set_version(kv.version);
   kv_proto.set_major_rev(kv.major_rev);
