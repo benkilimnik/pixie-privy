@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -63,6 +64,28 @@ std::vector<SocketDataEvent> CreateEvents(const std::vector<TStrType>& msgs) {
     pos += msgs[i].size();
   }
   return events;
+}
+
+void initialize_map_deques(
+  std::map<stream_id, std::deque<Frame>*> req_map,
+  std::map<stream_id, std::deque<Frame>*> resp_map,
+  size_t nkeys,
+) {
+  for (int i = 0; i < nkeys; ++i) {
+    std::deque<Frame> req_deque = new std::deque<Frame>();
+    req_map[i] = &req_deque;
+    std::deque<Frame> resp_deque = new std::deque<Frame>();
+    resp_map[i] = &resp_deque;
+  }
+}
+
+void free_map_deques(
+  std::map<stream_id, std::deque<Frame>*> req_map,
+  std::map<stream_id, std::deque<Frame>*> resp_map,
+) {
+  for (auto key: req_map) {
+    delete(req_maps[key])
+  }
 }
 
 }  // namespace protocols
