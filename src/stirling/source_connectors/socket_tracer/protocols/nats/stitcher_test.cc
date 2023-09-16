@@ -50,6 +50,8 @@ class NATSStitchTest : public ::testing::Test {
   int64_t ts_ns_ = 0;
 };
 
+using MessageMap = std::map<nats::stream_id, std::deque<nats::Message>*>;
+
 // Tests that messages without +OK or -ERR messages were exported as records.
 TEST_F(NATSStitchTest, MessagesWithoutResponse) {
   std::deque<Message> reqs = {GenMsg("SUB", "sub options")};
@@ -57,7 +59,13 @@ TEST_F(NATSStitchTest, MessagesWithoutResponse) {
 
   NoState no_state;
 
-  RecordsWithErrorCount<Record> results = StitchFrames<Record>(&reqs, &resps, &no_state);
+  MessageMap req_messages;
+  MessageMap res_messages;
+  req_messages[0] = &reqs;
+  res_messages[0] = &resps;
+
+  RecordsWithErrorCount<Record> results =
+      StitchFrames<Record>(&req_messages, &res_messages, &no_state);
   EXPECT_EQ(results.error_count, 0);
   EXPECT_THAT(results.records, ElementsAre(EqualsRecord("SUB", ""), EqualsRecord("MSG", "")));
 }
@@ -69,7 +77,13 @@ TEST_F(NATSStitchTest, MessagesMatchesOKAndErr) {
 
   NoState no_state;
 
-  RecordsWithErrorCount<Record> results = StitchFrames<Record>(&reqs, &resps, &no_state);
+  MessageMap req_messages;
+  MessageMap res_messages;
+  req_messages[0] = &reqs;
+  res_messages[0] = &resps;
+
+  RecordsWithErrorCount<Record> results =
+      StitchFrames<Record>(&req_messages, &res_messages, &no_state);
   EXPECT_EQ(results.error_count, 0);
   EXPECT_THAT(results.records, ElementsAre(EqualsRecord("SUB", "-ERR")));
 }

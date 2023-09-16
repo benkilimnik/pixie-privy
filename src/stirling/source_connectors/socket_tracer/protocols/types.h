@@ -19,6 +19,7 @@
 #pragma once
 
 #include <deque>
+#include <map>
 #include <variant>
 
 #include "src/stirling/source_connectors/socket_tracer/protocols/amqp/types_gen.h"
@@ -40,6 +41,7 @@ namespace protocols {
 // clang-format off
 // PROTOCOL_LIST: Requires update on new protocols.
 using FrameDequeVariant = std::variant<std::monostate,
+                                    //    std::map<cass::stream_id, std::deque<cass::Frame>>,
                                        std::deque<cass::Frame>,
                                        std::deque<http::Message>,
                                        std::deque<mux::Frame>,

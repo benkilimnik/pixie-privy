@@ -39,16 +39,17 @@ namespace amqp {
  * @param resp_frames: deque of all response frames.
  * @return A vector of entries to be appended to table store.
  */
-RecordsWithErrorCount<Record> StitchFrames(std::deque<Frame>* req_packets,
-                                           std::deque<Frame>* resp_packets);
+RecordsWithErrorCount<Record> StitchFrames(std::deque<Frame>* req_messages,
+                                           std::deque<Frame>* res_messages);
 
 }  // namespace amqp
 
 template <>
-inline RecordsWithErrorCount<amqp::Record> StitchFrames(std::deque<amqp::Frame>* req_packets,
-                                                        std::deque<amqp::Frame>* resp_packets,
-                                                        NoState*) {
-  return amqp::StitchFrames(req_packets, resp_packets);
+inline RecordsWithErrorCount<amqp::Record> StitchFrames(
+    std::map<amqp::channel_id, std::deque<amqp::Frame>*>* req_messages,
+    std::map<amqp::channel_id, std::deque<amqp::Frame>*>* res_messages, NoState*) {
+  // TODO(@benkilimnik): remove hard coded channel id once StitchFrames makes use of them.
+  return amqp::StitchFrames((*req_messages)[0], (*res_messages)[0]);
 }
 
 }  // namespace protocols

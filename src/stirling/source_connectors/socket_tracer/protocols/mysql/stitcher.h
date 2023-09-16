@@ -99,10 +99,12 @@ StatusOr<ParseState> ProcessRequestWithBasicResponse(const Packet& req_packet, b
 }  // namespace mysql
 
 template <>
-inline RecordsWithErrorCount<mysql::Record> StitchFrames(std::deque<mysql::Packet>* req_packets,
-                                                         std::deque<mysql::Packet>* resp_packets,
-                                                         mysql::StateWrapper* state) {
-  return mysql::ProcessMySQLPackets(req_packets, resp_packets, &state->global);
+inline RecordsWithErrorCount<mysql::Record> StitchFrames(
+    std::map<mysql::connection_id, std::deque<mysql::Packet>*>* req_messages,
+    std::map<mysql::connection_id, std::deque<mysql::Packet>*>* res_messages,
+    mysql::StateWrapper* state) {
+  // TODO(@benkilimnik): remove hard-coded connection id once ProcessMySQLPackets makes use of them
+  return mysql::ProcessMySQLPackets((*req_messages)[0], (*res_messages)[0], &state->global);
 }
 
 }  // namespace protocols

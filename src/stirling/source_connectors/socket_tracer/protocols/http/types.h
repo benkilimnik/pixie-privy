@@ -110,10 +110,13 @@ struct StateWrapper {
   std::monostate recv;
 };
 
+using stream_id = uint16_t;
+
 struct ProtocolTraits : public BaseProtocolTraits<Record> {
   using frame_type = Message;
   using record_type = Record;
   using state_type = StateWrapper;
+  using key_type = stream_id;
 };
 
 }  // namespace http

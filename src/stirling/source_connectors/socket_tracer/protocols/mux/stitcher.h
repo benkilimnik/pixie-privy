@@ -19,6 +19,7 @@
 #pragma once
 
 #include <deque>
+#include <map>
 #include <vector>
 
 #include "src/common/base/base.h"
@@ -35,10 +36,10 @@ RecordsWithErrorCount<mux::Record> StitchFrames(std::deque<mux::Frame>* reqs,
 }  // namespace mux
 
 template <>
-inline RecordsWithErrorCount<mux::Record> StitchFrames(std::deque<mux::Frame>* reqs,
-                                                       std::deque<mux::Frame>* resps,
-                                                       NoState* /*state*/) {
-  return mux::StitchFrames(reqs, resps);
+inline RecordsWithErrorCount<mux::Record> StitchFrames(
+    std::map<mux::stream_id, std::deque<mux::Frame>*>* req_messages,
+    std::map<mux::stream_id, std::deque<mux::Frame>*>* res_messages, NoState* /*state*/) {
+  return mux::StitchFrames((*req_messages)[0], (*res_messages)[0]);
 }
 
 }  // namespace protocols

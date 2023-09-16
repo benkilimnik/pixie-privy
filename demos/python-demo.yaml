@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    pixie-demo: px-python-demo
+  name: px-python-demo
+---
+apiVersion: v1
+data:
+  password: Y2Fzc2FuZHJh
+  username: Y2Fzc2FuZHJh
+kind: Secret
+metadata:
+  labels:
+    pixie-demo: px-python-demo
+  name: demo-superuser
+  namespace: px-python-demo
+type: Opaque
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    pixie-demo: px-python-demo
+  name: stitcher-backend
+  namespace: px-python-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: stitcher-backend
+      pixie-demo: px-python-demo
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: stitcher-backend
+        pixie-demo: px-python-demo
+    spec:
+      containers:
+        - env:
+            - name: CASSANDRA_HOST
+              value: demo-dc1-service
+            - name: CASSANDRA_USER
+              value: cassandra
+            - name: CASSANDRA_PASSWORD
+              value: cassandra
+            - name: CASSANDRA_PORT
+              value: "9042"
+            - name: CASSANDRA_CONTACT_POINTS
+              value: demo-dc1-service:9042
+            - name: CASSANDRA_KEYSPACE_CQL
+              value:
+                "CREATE KEYSPACE IF NOT EXISTS cassandra_pythondemo WITH REPLICATION
+                = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };"
+            - name: CASSANDRA_KEYSPACE_CREATE
+              value: "true"
+            - name: CASSANDRA_KEYSPACE_NAME
+              value: stitcher
+            - name: CASSANDRA_LOCAL_DC
+              value: dc1
+            - name: CASSANDRA_USE_ASTRA
+              value: "false"
+            - name: DISTRIBUTED_TRACING_ENABLED
+              value: "false"
+            - name: DISTRIBUTED_TRACING_URL
+              value: http://tracing-server:9411
+            - name: LISTENING_PORT
+              value: "9966"
+            - name: MONITORING_ENABLED
+              value: "false"
+            - name: MONITORING_LISTENING_PORT
+              value: "9967"
+            - name: MONITORING_METRICS
+              value: "false"
+            - name: MONITORING_PROMETHEUS
+              value: "false"
+          image: gcr.io/pl-pixies/users/bkilimnik/stitcher-backend:1.01
+          imagePullPolicy: ""
+          name: stitcher-backend
+          ports:
+            - containerPort: 9966
+            - containerPort: 9967
+          resources: {}
+      initContainers:
+        - command:
+            - sh
+            - -c
+            - set -xe; while ! cqlsh demo-dc1-service 9042 -u cassandra -p cassandra -e
+              "describe cluster" ; do echo "waiting until cassandra is available"; sleep
+              2; done;
+          env:
+            - name: CASSANDRA_HOST
+              value: demo-dc1-service
+            - name: CASSANDRA_PORT
+              value: "9042"
+          image: cassandra:3.11.8@sha256:f38395460cdaf4ccf4da72766dd076069c39ce47ffc51e5bdfaecfca843d964a
+          name: cassandra-wait
+      restartPolicy: Always
+      serviceAccountName: ""
+      volumes: null
+status: {}
+---
+apiVersion: k8ssandra.io/v1alpha1
+kind: K8ssandraCluster
+metadata:
+  labels:
+    pixie-demo: px-python-demo
+    pixie-demo-initial-cleanup: "true"
+  name: demo
+  namespace: px-python-demo
+spec:
+  cassandra:
+    datacenters:
+      - config:
+          jvmOptions:
+            heapSize: 512M
+        metadata:
+          name: dc1
+        size: 1
+        storageConfig:
+          cassandraDataVolumeClaimSpec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 5Gi
+            storageClassName: standard
+    serverVersion: 4.0.1

@@ -20,6 +20,7 @@
 
 #include <deque>
 #include <limits>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -31,9 +32,9 @@ namespace stirling {
 namespace protocols {
 
 template <>
-RecordsWithErrorCount<nats::Record> StitchFrames(std::deque<nats::Message>* req_msgs,
-                                                 std::deque<nats::Message>* resp_msgs,
-                                                 NoState* /* state */);
+RecordsWithErrorCount<nats::Record> StitchFrames(
+    std::map<nats::stream_id, std::deque<nats::Message>*>* req_messages,
+    std::map<nats::stream_id, std::deque<nats::Message>*>* res_messages, NoState* /* state */);
 
 }  // namespace protocols
 }  // namespace stirling

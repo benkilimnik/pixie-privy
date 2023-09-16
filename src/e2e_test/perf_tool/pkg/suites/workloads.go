@@ -141,6 +141,30 @@ func SockShopWorkload() *pb.WorkloadSpec {
 		Healthchecks: HTTPHealthChecks("px-sock-shop", true),
 	}
 }
+func PythonDemoWorkload() *pb.WorkloadSpec {
+	return &pb.WorkloadSpec{
+		Name: "px-python-demo",
+		DeploySteps: []*pb.DeployStep{
+			{
+				DeployType: &pb.DeployStep_Px{
+					Px: &pb.PxCLIDeploy{
+						Args: []string{
+							"demo",
+							"deploy",
+							"px-python-demo",
+							"--artifacts",
+							"https://storage.googleapis.com/pl-infra-dev-artifacts/dev-demo-apps",
+						},
+						Namespaces: []string{
+							"px-python-demo",
+						},
+					},
+				},
+			},
+		},
+		Healthchecks: HTTPHealthChecks("px-python-demo", false),
+	}
+}
 
 // OnlineBoutiqueWorkload returns the WorkloadSpec to deploy online boutique.
 func OnlineBoutiqueWorkload() *pb.WorkloadSpec {

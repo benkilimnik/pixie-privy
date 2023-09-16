@@ -45,10 +45,12 @@ RecordsWithErrorCount<Record> StitchFrames(std::deque<Packet>* req_packets,
 }  // namespace kafka
 
 template <>
-inline RecordsWithErrorCount<kafka::Record> StitchFrames(std::deque<kafka::Packet>* req_packets,
-                                                         std::deque<kafka::Packet>* resp_packets,
-                                                         kafka::StateWrapper* state) {
-  return kafka::StitchFrames(req_packets, resp_packets, &state->global);
+inline RecordsWithErrorCount<kafka::Record> StitchFrames(
+    std::map<kafka::correlation_id, std::deque<kafka::Packet>*>* req_messages,
+    std::map<kafka::correlation_id, std::deque<kafka::Packet>*>* res_messages,
+    kafka::StateWrapper* state) {
+  // TODO(@benkilimnik): remove hard coded correlation id once StitchFrames makes use of them.
+  return kafka::StitchFrames((*req_messages)[0], (*res_messages)[0], &state->global);
 }
 
 }  // namespace protocols

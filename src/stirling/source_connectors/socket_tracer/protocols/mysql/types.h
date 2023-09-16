@@ -421,10 +421,13 @@ struct Record {
   }
 };
 
+using connection_id = uint16_t;
+
 struct ProtocolTraits : public BaseProtocolTraits<Record> {
   using frame_type = Packet;
   using record_type = Record;
   using state_type = StateWrapper;
+  using key_type = connection_id;
 };
 
 }  // namespace mysql

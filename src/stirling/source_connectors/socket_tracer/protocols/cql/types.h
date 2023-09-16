@@ -19,6 +19,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <optional>
 #include <string>
 
@@ -102,6 +103,7 @@ struct Frame : public FrameBase {
   FrameHeader hdr;
   std::string msg;
   bool consumed = false;
+  bool discarded = false;
 
   size_t ByteSize() const override { return sizeof(Frame) + msg.size(); }
 };
@@ -167,10 +169,13 @@ struct Record {
   }
 };
 
+using stream_id = uint16_t;
+
 struct ProtocolTraits : public BaseProtocolTraits<Record> {
   using frame_type = Frame;
   using record_type = Record;
   using state_type = NoState;
+  using key_type = stream_id;
 };
 
 }  // namespace cass
