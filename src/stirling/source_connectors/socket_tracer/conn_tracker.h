@@ -310,9 +310,6 @@ class ConnTracker : NotCopyMoveable {
       responses[key]->push_back(frame);
     }
 
-    // requests[0] = &req_frames;
-    // responses[0] = &resp_frames;
-
     CONN_TRACE(2) << absl::Substitute("req_frames=$0 resp_frames=$1", req_frames.size(),
                                       resp_frames.size());
 
