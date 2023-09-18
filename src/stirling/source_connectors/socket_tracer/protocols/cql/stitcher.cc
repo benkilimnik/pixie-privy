@@ -377,23 +377,23 @@ StatusOr<Record> ProcessSolitaryResp(Frame* resp_frame) {
 RecordsWithErrorCount<Record> StitchFrames(
     std::map<cass::stream_id, std::deque<cass::Frame>*>* requests,
     std::map<cass::stream_id, std::deque<cass::Frame>*>* responses) {
-
   std::vector<Record> entries;
   int error_count = 0;
 
-	// iterate through all deques of responses associated with a specific streamID and find the matching request
-	for (auto it = responses->begin(); it != responses->end(); it++) {
-		auto stream_id = it->first;
-		auto& resp_frames = *(it->second);
-		auto pos = requests->find(stream_id);
-		if (pos == requests->end()) {
-				// no requests found
-				// log error and check next request
-				++error_count;
-				continue;
-		} 
+  // iterate through all deques of responses associated with a specific streamID and find the
+  // matching request
+  for (auto it = responses->begin(); it != responses->end(); it++) {
+    auto stream_id = it->first;
+    auto& resp_frames = *(it->second);
+    auto pos = requests->find(stream_id);
+    if (pos == requests->end()) {
+      // no requests found
+      // log error and check next request
+      ++error_count;
+      continue;
+    }
 
-		// we found a potential set of requests for this stream ID
+    // we found a potential set of requests for this stream ID
     auto& req_frames = pos->second;
     std::deque<uint64_t> req_timestamps = std::deque<uint64_t>();
     // get just the timestamps for matching with responses
@@ -402,31 +402,34 @@ RecordsWithErrorCount<Record> StitchFrames(
     }
 
     uint64_t latest_resp_ts = 0;
-		// go through the responses for this stream ID and check for requests
-		for (auto& resp_frame : resp_frames) {
+    // go through the responses for this stream ID and check for requests
+    for (auto& resp_frame : resp_frames) {
       latest_resp_ts = resp_frame.timestamp_ns;
-			// Event responses are special: they have no request.
-			if (resp_frame.hdr.opcode == Opcode::kEvent) {
-				StatusOr<Record> record_status = ProcessSolitaryResp(&resp_frame);
-				if (record_status.ok()) {
-					entries.push_back(record_status.ConsumeValueOrDie());
-				} else {
-					VLOG(1) << record_status.msg();
-					++error_count;
-				}
-				continue;
-			}
+      // Event responses are special: they have no request.
+      if (resp_frame.hdr.opcode == Opcode::kEvent) {
+        StatusOr<Record> record_status = ProcessSolitaryResp(&resp_frame);
+        if (record_status.ok()) {
+          entries.push_back(record_status.ConsumeValueOrDie());
+        } else {
+          VLOG(1) << record_status.msg();
+          ++error_count;
+        }
+        continue;
+      }
 
       // This returns the first request timestamp that is JUST BEFORE the response timestamp
-      // Upper bound returns the first request timestamps GREATER than the response timestamp; we want to get the one right before 
+      // Upper bound returns the first request timestamps GREATER than the response timestamp; we
+      // want to get the one right before
       auto stream_it =
-          std::upper_bound(req_timestamps.begin(), req_timestamps.end(), resp_frame.timestamp_ns) - 1;
+          std::upper_bound(req_timestamps.begin(), req_timestamps.end(), resp_frame.timestamp_ns) -
+          1;
       int req_index = stream_it - req_timestamps.begin();
       // Responses should always have a more recent timestamp than the first request. If this
       // condition is triggered we should not attempt to match this frame. Since responses are
       // cleared during StitchFrames this will get cleaned up during the current iteration.
       if (stream_it + 1 == req_timestamps.begin()) {
-        DCHECK(false) << "Unable to find request that is earlier than response: " << resp_frame.ToString();
+        DCHECK(false) << "Unable to find request that is earlier than response: "
+                      << resp_frame.ToString();
         continue;
       }
       auto& req_frame = (*req_frames)[req_index];
@@ -439,7 +442,7 @@ RecordsWithErrorCount<Record> StitchFrames(
         VLOG(1) << record_status.ToString();
         ++error_count;
       }
-      // Record that the req and response pair are consumed 
+      // Record that the req and response pair are consumed
       req_frame.consumed = true;
     }
 
@@ -448,11 +451,11 @@ RecordsWithErrorCount<Record> StitchFrames(
     while (req_it != req_frames->end()) {
       auto& frame = *req_it;
       if (frame.consumed) {
-      } else if (!frame.consumed &&
-                  (frame.discarded || frame.timestamp_ns < latest_resp_ts)) {
+      } else if (!frame.consumed && (frame.discarded || frame.timestamp_ns < latest_resp_ts)) {
         error_count++;
       } else {
-        // marking the first request that is not consumed as the delete position (log stream and timestamp)
+        // marking the first request that is not consumed as the delete position (log stream and
+        // timestamp)
         delete_pos = req_it;
         break;
       }
@@ -461,8 +464,8 @@ RecordsWithErrorCount<Record> StitchFrames(
 
     // Mark requests as discarded that will never match. These frames will be deleted in future
     // StitchFrames iterations once they bubble up to the front of the deque and form a contiguous
-    // range with the consumed frames. This is done to avoid the bookeeping necessary to delete multiple
-    // ranges of indices in the deque (which occur when responses are lost).
+    // range with the consumed frames. This is done to avoid the bookeeping necessary to delete
+    // multiple ranges of indices in the deque (which occur when responses are lost).
     if (req_it != req_frames->end()) {
       while (req_it != req_frames->end()) {
         auto& frame = *req_it;
@@ -471,8 +474,7 @@ RecordsWithErrorCount<Record> StitchFrames(
         }
         req_it++;
       }
-    } 
-    else {
+    } else {
       delete_pos = req_frames->end();
     }
     req_frames->erase(req_frames->begin(), delete_pos);
@@ -493,7 +495,7 @@ RecordsWithErrorCount<Record> StitchFrames(
   //     responses->erase(it);
   //   }
   // }
-	return {entries, error_count};
+  return {entries, error_count};
 }
 
 }  // namespace cass
