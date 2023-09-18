@@ -417,6 +417,12 @@ RecordsWithErrorCount<Record> StitchFrames(
         continue;
       }
 
+      if (req_timestamps.empty()) {
+        VLOG(1) << absl::Substitute("Did not find a request matching the response. Stream = $0",
+                                resp_frame.hdr.stream);
+        ++error_count;
+        continue;
+      }
       // This returns the first request timestamp that is JUST BEFORE the response timestamp
       // Upper bound returns the first request timestamps GREATER than the response timestamp; we
       // want to get the one right before
@@ -454,8 +460,7 @@ RecordsWithErrorCount<Record> StitchFrames(
       } else if (!frame.consumed && (frame.discarded || frame.timestamp_ns < latest_resp_ts)) {
         error_count++;
       } else {
-        // marking the first request that is not consumed as the delete position (log stream and
-        // timestamp)
+        // marking the first request that is not consumed as the delete position
         delete_pos = req_it;
         break;
       }
