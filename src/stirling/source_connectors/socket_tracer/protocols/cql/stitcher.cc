@@ -441,9 +441,6 @@ RecordsWithErrorCount<Record> StitchFrames(
       }
       // Record that the req and response pair are consumed 
       req_frame.consumed = true;
-      // print stream and timestamp of matched pair
-      LOG(INFO) << absl::Substitute("Matched req and resp: stream_id=$0 req_ts=$1 resp_ts=$2",
-                                    stream_id, req_frame.timestamp_ns, resp_frame.timestamp_ns);
     }
 
     auto req_it = req_frames->begin();
@@ -456,8 +453,6 @@ RecordsWithErrorCount<Record> StitchFrames(
         error_count++;
       } else {
         // marking the first request that is not consumed as the delete position (log stream and timestamp)
-        LOG(INFO) << absl::Substitute("Marking delete position req: stream_id=$0 req_ts=$1 latest_resp_ts=$2",
-                                      stream_id, frame.timestamp_ns, latest_resp_ts);
         delete_pos = req_it;
         break;
       }
@@ -472,22 +467,32 @@ RecordsWithErrorCount<Record> StitchFrames(
       while (req_it != req_frames->end()) {
         auto& frame = *req_it;
         if (!frame.consumed && frame.timestamp_ns < latest_resp_ts) {
-          LOG(INFO) << absl::Substitute("Discarding req: stream_id=$0 req_ts=$1 resp_ts=$2",
-                                        stream_id, frame.timestamp_ns, latest_resp_ts);
           frame.discarded = true;
         }
         req_it++;
       }
     } 
     else {
-      LOG(INFO) << absl::Substitute("Discarding all reqs: stream_id=$0 latest_resp_ts=$1",
-                                    stream_id, latest_resp_ts);
       delete_pos = req_frames->end();
     }
     req_frames->erase(req_frames->begin(), delete_pos);
     resp_frames.clear();
   }
-  // TODO: free deques if they're empty
+  // TODO(@benkilimnik): free deques if they're empty
+  // for (auto it = requests->begin(); it != requests->end(); it++) {
+  //   auto& req_frames = *(it->second);
+  //   if (req_frames.empty()) {
+  //     delete it->second;
+  //     requests->erase(it);
+  //   }
+  // }
+  // for (auto it = responses->begin(); it != responses->end(); it++) {
+  //   auto& resp_frames = *(it->second);
+  //   if (resp_frames.empty()) {
+  //     delete it->second;
+  //     responses->erase(it);
+  //   }
+  // }
 	return {entries, error_count};
 }
 
