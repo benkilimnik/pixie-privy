@@ -173,8 +173,6 @@ constexpr uint8_t kSupportedResp[] = {
 //                                   0x74, 0x75, 0x74, 0x6f, 0x72, 0x69, 0x61, 0x6c, 0x73, 0x70, 0x6f,
 //                                   0x69, 0x6e, 0x74, 0x00, 0x03, 0x65, 0x6d, 0x70};
 
-const size_t maxNumberKeys = 3;
-
 //-----------------------------------------------------------------------------
 // Test Cases
 //-----------------------------------------------------------------------------
@@ -405,7 +403,7 @@ TEST(CassStitcherTest, StartupReady) {
   std::map<stream_id, std::deque<Frame>*> resp_map;
   req_map = std::map<stream_id, std::deque<Frame>*>();
   resp_map = std::map<stream_id, std::deque<Frame>*>();
-  initialize_map_deques(&req_map, &resp_map, maxNumberKeys);
+  initialize_map_deques(&req_map, &resp_map, 3);
   RecordsWithErrorCount<Record> result;
 
   // req_frames.push_back(CreateFrame(0, Opcode::kStartup, kStartupReq, 1));
@@ -436,7 +434,7 @@ TEST(CassStitcherTest, RegisterReady) {
   std::map<stream_id, std::deque<Frame>*> resp_map;
   req_map = std::map<stream_id, std::deque<Frame>*>();
   resp_map = std::map<stream_id, std::deque<Frame>*>();
-  initialize_map_deques(&req_map, &resp_map, maxNumberKeys);
+  initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
   // req_frames.push_back(CreateFrame(0, Opcode::kRegister, kRegisterReq, 1));
@@ -467,7 +465,7 @@ TEST(CassStitcherTest, OptionsSupported) {
   std::map<stream_id, std::deque<Frame>*> resp_map;
   req_map = std::map<stream_id, std::deque<Frame>*>();
   resp_map = std::map<stream_id, std::deque<Frame>*>();
-  initialize_map_deques(&req_map, &resp_map, maxNumberKeys);
+  initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
   // req_frames.push_back(CreateFrame(0, Opcode::kOptions, 1));
@@ -500,7 +498,7 @@ TEST(CassStitcherTest, QueryResult) {
   std::map<stream_id, std::deque<Frame>*> resp_map;
   req_map = std::map<stream_id, std::deque<Frame>*>();
   resp_map = std::map<stream_id, std::deque<Frame>*>();
-  initialize_map_deques(&req_map, &resp_map, maxNumberKeys);
+  initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
   // req_frames.push_back(CreateFrame(0, Opcode::kQuery, kQueryReq, 1));
@@ -537,7 +535,7 @@ TEST(CassStitcherTest, QueryError) {
   std::map<stream_id, std::deque<Frame>*> resp_map;
   req_map = std::map<stream_id, std::deque<Frame>*>();
   resp_map = std::map<stream_id, std::deque<Frame>*>();
-  initialize_map_deques(&req_map, &resp_map, maxNumberKeys);
+  initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
   result = StitchFrames(&req_map, &resp_map);
@@ -576,7 +574,7 @@ TEST(CassStitcherTest, PrepareResult) {
   std::map<stream_id, std::deque<Frame>*> resp_map;
   req_map = std::map<stream_id, std::deque<Frame>*>();
   resp_map = std::map<stream_id, std::deque<Frame>*>();
-  initialize_map_deques(&req_map, &resp_map, maxNumberKeys);
+  initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
   // req_frames.push_back(CreateFrame(0, Opcode::kPrepare, kPrepareReq, 1));
@@ -610,7 +608,7 @@ TEST(CassStitcherTest, ExecuteResult) {
   std::map<stream_id, std::deque<Frame>*> resp_map;
   req_map = std::map<stream_id, std::deque<Frame>*>();
   resp_map = std::map<stream_id, std::deque<Frame>*>();
-  initialize_map_deques(&req_map, &resp_map, maxNumberKeys);
+  initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
   req_map[0]->push_back(CreateFrame(0, Opcode::kPrepare, kExecuteReq, 1));
@@ -643,7 +641,7 @@ TEST(CassStitcherTest, StartupAuthenticate) {
   std::map<stream_id, std::deque<Frame>*> resp_map;
   req_map = std::map<stream_id, std::deque<Frame>*>();
   resp_map = std::map<stream_id, std::deque<Frame>*>();
-  initialize_map_deques(&req_map, &resp_map, maxNumberKeys);
+  initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
   // req_frames.push_back(CreateFrame(0, Opcode::kStartup, kStartupReq, 1));
@@ -674,7 +672,7 @@ TEST(CassStitcherTest, AuthResponseAuthSuccess) {
   std::map<stream_id, std::deque<Frame>*> resp_map;
   req_map = std::map<stream_id, std::deque<Frame>*>();
   resp_map = std::map<stream_id, std::deque<Frame>*>();
-  initialize_map_deques(&req_map, &resp_map, maxNumberKeys);
+  initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
   // req_frames.push_back(CreateFrame(0, Opcode::kAuthResponse, kAuthResponseReq, 1));
