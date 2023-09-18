@@ -278,6 +278,21 @@ TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
   EXPECT_EQ(result.error_count, 1);
   EXPECT_EQ(result.records.size(), 5);
 
+  LOG(INFO) << "1. Printing req_frames";
+  LOG(INFO) << "------------------";
+  for (auto& pair : req_map) {
+    for (auto& frame : *pair.second) {
+      LOG(INFO) << frame.hdr.stream << " " << frame.timestamp_ns;
+    }
+  }
+  LOG(INFO) << "1. Printing resp_frames";
+  LOG(INFO) << "------------------";
+  for (auto& pair : resp_map) {
+    for (auto& frame : *pair.second) {
+      LOG(INFO) << frame.hdr.stream << " " << frame.timestamp_ns;
+    }
+  }
+
   // No requests or responses should be deleted when streams of
   // the head of requests are inactive
   result = StitchFrames(&req_map, &resp_map);
