@@ -18,6 +18,8 @@
 
 #include "src/stirling/source_connectors/socket_tracer/protocols/cql/stitcher.h"
 
+#include <algorithm>
+#include <cwchar>
 #include <deque>
 #include <string>
 #include <utility>
@@ -383,7 +385,6 @@ RecordsWithErrorCount<Record> StitchFrames(
 	for (auto it = responses->begin(); it != responses->end(); it++) {
 		auto stream_id = it->first;
 		auto& resp_frames = *(it->second);
-    LOG(INFO) << absl::Substitute("Found $0 responses for stream $1", resp_frames.size(), stream_id);
 		auto pos = requests->find(stream_id);
 		if (pos == requests->end()) {
 				// no requests found
@@ -391,11 +392,19 @@ RecordsWithErrorCount<Record> StitchFrames(
 				++error_count;
 				continue;
 		} 
+
 		// we found a potential set of requests for this stream ID
     auto& req_frames = pos->second;
-    LOG(INFO) << absl::Substitute("Found $0 requests for stream $1", req_frames->size(), stream_id);
+    std::deque<uint64_t> req_timestamps = std::deque<uint64_t>();
+    // get just the timestamps for matching with responses
+    for (auto& req_frame : *req_frames) {
+      req_timestamps.push_back(req_frame.timestamp_ns);
+    }
+
+    uint64_t latest_resp_ts = 0;
 		// go through the responses for this stream ID and check for requests
 		for (auto& resp_frame : resp_frames) {
+      latest_resp_ts = resp_frame.timestamp_ns;
 			// Event responses are special: they have no request.
 			if (resp_frame.hdr.opcode == Opcode::kEvent) {
 				StatusOr<Record> record_status = ProcessSolitaryResp(&resp_frame);
@@ -408,22 +417,19 @@ RecordsWithErrorCount<Record> StitchFrames(
 				continue;
 			}
 
-			// Responses should always have a more recent timestamp than the first request. If this
-			// condition is triggered we should not attempt to match this frame. Since responses are
-			// cleared during StitchFrames this will get cleaned up during the current iteration.
-			if (req_frames->front().timestamp_ns >= resp_frame.timestamp_ns) {
-				DCHECK(false) << "Unable to find request that is earlier than response: " << resp_frame.ToString();
-				continue;
-			}
-			auto it = req_frames->begin();
-      if (it == req_frames->end()) {
-        LOG(INFO) << "No requests found for stream " << stream_id;
-				VLOG(1) << absl::Substitute("Did not find a request matching the response. Stream = $0",
-																		resp_frame.hdr.stream);
-				++error_count;
+      // This returns the first request timestamp that is JUST BEFORE the response timestamp
+      // Upper bound returns the first request timestamps GREATER than the response timestamp; we want to get the one right before 
+      auto stream_it =
+          std::upper_bound(req_timestamps.begin(), req_timestamps.end(), resp_frame.timestamp_ns) - 1;
+      int req_index = stream_it - req_timestamps.begin();
+      // Responses should always have a more recent timestamp than the first request. If this
+      // condition is triggered we should not attempt to match this frame. Since responses are
+      // cleared during StitchFrames this will get cleaned up during the current iteration.
+      if (stream_it + 1 == req_timestamps.begin()) {
+        DCHECK(false) << "Unable to find request that is earlier than response: " << resp_frame.ToString();
         continue;
       }
-      auto& req_frame = *it;
+      auto& req_frame = (*req_frames)[req_index];
       VLOG(2) << absl::Substitute("req_op=$0 msg=$1", magic_enum::enum_name(req_frame.hdr.opcode),
                                   req_frame.msg);
       StatusOr<Record> record_status = ProcessReqRespPair(&req_frame, &resp_frame);
@@ -435,41 +441,40 @@ RecordsWithErrorCount<Record> StitchFrames(
       }
       // Record that the req and response pair are consumed 
       req_frame.consumed = true;
-
-      it = req_frames->begin();
-      auto delete_pos = req_frames->begin();
-
-      while (it != req_frames->end()) {
-        auto& frame = *it;
-        if (frame.consumed) {
-        } else if (!frame.consumed &&
-                    (frame.discarded || frame.timestamp_ns < resp_frame.timestamp_ns)) {
-          error_count++;
-        } else {
-          delete_pos = it;
-          break;
-        }
-        it++;
-      }
-
-      // Mark requests as discarded that will never match. These frames will be deleted in future
-      // StitchFrames iterations once they bubble up to the front of the deque and form a contiguous
-      // range with the consumed frames. This is done to avoid the bookeeping necessary to delete multiple
-      // ranges of indices in the deque (which occur when responses are lost).
-      if (it != req_frames->end()) {
-        while (it != req_frames->end()) {
-          auto& frame = *it;
-          if (!frame.consumed && frame.timestamp_ns < resp_frame.timestamp_ns) {
-            frame.discarded = true;
-          }
-          it++;
-        }
-      } else {
-        delete_pos = req_frames->end();
-      }
-      req_frames->erase(req_frames->begin(), delete_pos);
-      resp_frames.clear();
     }
+
+    auto req_it = req_frames->begin();
+    auto delete_pos = req_frames->begin();
+    while (req_it != req_frames->end()) {
+      auto& frame = *req_it;
+      if (frame.consumed) {
+      } else if (!frame.consumed &&
+                  (frame.discarded || frame.timestamp_ns < latest_resp_ts)) {
+        error_count++;
+      } else {
+        delete_pos = req_it;
+        break;
+      }
+      req_it++;
+    }
+
+    // Mark requests as discarded that will never match. These frames will be deleted in future
+    // StitchFrames iterations once they bubble up to the front of the deque and form a contiguous
+    // range with the consumed frames. This is done to avoid the bookeeping necessary to delete multiple
+    // ranges of indices in the deque (which occur when responses are lost).
+    if (req_it != req_frames->end()) {
+      while (req_it != req_frames->end()) {
+        auto& frame = *req_it;
+        if (!frame.consumed && frame.timestamp_ns < latest_resp_ts) {
+          frame.discarded = true;
+        }
+        req_it++;
+      }
+    } else {
+      delete_pos = req_frames->end();
+    }
+    req_frames->erase(req_frames->begin(), delete_pos);
+    resp_frames.clear();
   }
   // TODO: free deques if they're empty
 	return {entries, error_count};
