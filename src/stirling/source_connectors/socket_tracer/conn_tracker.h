@@ -288,6 +288,8 @@ class ConnTracker : NotCopyMoveable {
     auto& resp_frames = resp_data()->Frames<TFrameType>();
     auto state_ptr = protocol_state<TStateType>();
 
+    // TODO(@benkilimnik): Move populating the deques into DataStreamsToFrames
+    // i.e. into the event_parser. Populating here for simplicity.
     // GetStreamID returns 0 for protocols that don't support streams
     std::map<TKey, std::deque<TFrameType>*> requests;
     std::map<TKey, std::deque<TFrameType>*> responses;
@@ -308,6 +310,13 @@ class ConnTracker : NotCopyMoveable {
         responses[key] = new std::deque<TFrameType>;
       }
       responses[key]->push_back(frame);
+    }
+    // If either requests or responses are empty, create empty deque for stream 0
+    if (requests.empty()) {
+      requests[0] = new std::deque<TFrameType>;
+    }
+    if (responses.empty()) {
+      responses[0] = new std::deque<TFrameType>;
     }
 
     CONN_TRACE(2) << absl::Substitute("req_frames=$0 resp_frames=$1", req_frames.size(),

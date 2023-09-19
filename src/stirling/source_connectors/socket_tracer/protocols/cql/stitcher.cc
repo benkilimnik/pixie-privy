@@ -489,7 +489,6 @@ RecordsWithErrorCount<Record> StitchFrames(
   // TODO(@benkilimnik): should we free the deques if they're empty?
   // This would necessicate more fine-grained memory management in the
   // stitcher tests, but could improve overall performance.
-
   // std::vector<cass::stream_id> ids_to_remove;
   // for (const auto& [id, req_frames] : *requests) {
   //   if (req_frames->empty()) {
