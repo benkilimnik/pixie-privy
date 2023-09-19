@@ -21,10 +21,10 @@
 #include <gtest/gtest.h>
 #include <map>
 
+#include "src/stirling/source_connectors/socket_tracer/protocols/common/test_utils.h"
 #include "src/stirling/source_connectors/socket_tracer/protocols/cql/parse.h"
 #include "src/stirling/source_connectors/socket_tracer/protocols/cql/stitcher.h"
 #include "src/stirling/source_connectors/socket_tracer/protocols/cql/test_utils.h"
-#include "src/stirling/source_connectors/socket_tracer/protocols/common/test_utils.h"
 
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
@@ -164,14 +164,15 @@ constexpr uint8_t kSupportedResp[] = {
     0x6e, 0x61, 0x70, 0x70, 0x79, 0x00, 0x03, 0x6c, 0x7a, 0x34, 0x00, 0x0b, 0x43, 0x51, 0x4c, 0x5f,
     0x56, 0x45, 0x52, 0x53, 0x49, 0x4f, 0x4e, 0x00, 0x01, 0x00, 0x05, 0x33, 0x2e, 0x34, 0x2e, 0x34};
 
-// TODO(@benkilimnik: Previously used for negative stream id test. Remove or adapt with new map interface)
-// Asynchronous EVENT response from server.
-// Content: SCHEMA_CHANGE DROPPED TABLE tutorialspoint emp
-// constexpr uint8_t kEventResp[] = {0x00, 0x0d, 0x53, 0x43, 0x48, 0x45, 0x4d, 0x41, 0x5f, 0x43, 0x48,
-//                                   0x41, 0x4e, 0x47, 0x45, 0x00, 0x07, 0x44, 0x52, 0x4f, 0x50, 0x50,
-//                                   0x45, 0x44, 0x00, 0x05, 0x54, 0x41, 0x42, 0x4c, 0x45, 0x00, 0x0e,
-//                                   0x74, 0x75, 0x74, 0x6f, 0x72, 0x69, 0x61, 0x6c, 0x73, 0x70, 0x6f,
-//                                   0x69, 0x6e, 0x74, 0x00, 0x03, 0x65, 0x6d, 0x70};
+// TODO(@benkilimnik): Previously used for negative stream id test. Remove or adapt with new map
+// interface). Asynchronous EVENT response from server. Content: SCHEMA_CHANGE DROPPED TABLE
+// tutorialspoint emp constexpr uint8_t kEventResp[] = {0x00, 0x0d, 0x53, 0x43, 0x48, 0x45, 0x4d,
+// 0x41, 0x5f, 0x43, 0x48,
+//                                   0x41, 0x4e, 0x47, 0x45, 0x00, 0x07, 0x44, 0x52, 0x4f, 0x50,
+//                                   0x50, 0x45, 0x44, 0x00, 0x05, 0x54, 0x41, 0x42, 0x4c, 0x45,
+//                                   0x00, 0x0e, 0x74, 0x75, 0x74, 0x6f, 0x72, 0x69, 0x61, 0x6c,
+//                                   0x73, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x00, 0x03, 0x65, 0x6d,
+//                                   0x70};
 
 //-----------------------------------------------------------------------------
 // Test Cases
@@ -360,8 +361,8 @@ TEST(CassStitcherTest, NonCQLFrames) {
   free_map_deques(&req_map, &resp_map);
 }
 
-// Cannot allocate deque for negative stream id in map
-// Remove test?
+// TODO(@benkilimnik) Cannot allocate deque for negative stream id in map
+// Can we remove this test?
 // TEST(CassStitcherTest, OpEvent) {
 //   std::map<stream_id, std::deque<Frame>*> req_map;
 //   std::map<stream_id, std::deque<Frame>*> resp_map;
@@ -370,12 +371,11 @@ TEST(CassStitcherTest, NonCQLFrames) {
 
 //   RecordsWithErrorCount<Record> result;
 
-//   std::deque<Frame>* req_deque = new std::deque<Frame>();
-//   req_map[-1] = req_deque;
+//   // std::deque<Frame>* req_deque = new std::deque<Frame>();
+//   // req_map[-1] = req_deque;
 
 //   // resp_frames.push_back(CreateFrame(-1, Opcode::kEvent, kEventResp, 3));
-//   // TODO: ensure that negative stream_id is handled correctly
-//   resp_map[-1]->push_back(CreateFrame(-1, Opcode::kEvent, kEventResp, 3));
+//   // resp_map[-1]->push_back(CreateFrame(-1, Opcode::kEvent, kEventResp, 3));
 
 //   result = StitchFrames(&req_map, &resp_map);
 //   // EXPECT_TRUE(resp_frames.empty());
@@ -585,7 +585,7 @@ TEST(CassStitcherTest, ExecuteResult) {
   initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
-  req_map[0]->push_back(CreateFrame(0, Opcode::kPrepare, kExecuteReq, 1));
+  req_map[0]->push_back(CreateFrame(0, Opcode::kExecute, kExecuteReq, 1));
   resp_map[0]->push_back(CreateFrame(0, Opcode::kResult, kExecuteResultResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);

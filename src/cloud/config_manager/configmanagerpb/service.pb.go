@@ -415,7 +415,7 @@ func (this *ConfigForVizierResponse) GoString() string {
 	s := make([]string, 0, 6)
 	s = append(s, "&configmanagerpb.ConfigForVizierResponse{")
 	keysForNameToYamlContent := make([]string, 0, len(this.NameToYamlContent))
-	for k, _ := range this.NameToYamlContent {
+	for k := range this.NameToYamlContent {
 		keysForNameToYamlContent = append(keysForNameToYamlContent, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForNameToYamlContent)
@@ -841,7 +841,7 @@ func (this *ConfigForVizierResponse) String() string {
 		return "nil"
 	}
 	keysForNameToYamlContent := make([]string, 0, len(this.NameToYamlContent))
-	for k, _ := range this.NameToYamlContent {
+	for k := range this.NameToYamlContent {
 		keysForNameToYamlContent = append(keysForNameToYamlContent, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForNameToYamlContent)

@@ -1406,7 +1406,7 @@ func (this *ComputedSchema) GoString() string {
 		s = append(s, "Tables: "+fmt.Sprintf("%#v", this.Tables)+",\n")
 	}
 	keysForTableNameToAgentIDs := make([]string, 0, len(this.TableNameToAgentIDs))
-	for k, _ := range this.TableNameToAgentIDs {
+	for k := range this.TableNameToAgentIDs {
 		keysForTableNameToAgentIDs = append(keysForTableNameToAgentIDs, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForTableNameToAgentIDs)
@@ -2613,7 +2613,7 @@ func (this *ComputedSchema) String() string {
 	}
 	repeatedStringForTables += "}"
 	keysForTableNameToAgentIDs := make([]string, 0, len(this.TableNameToAgentIDs))
-	for k, _ := range this.TableNameToAgentIDs {
+	for k := range this.TableNameToAgentIDs {
 		keysForTableNameToAgentIDs = append(keysForTableNameToAgentIDs, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForTableNameToAgentIDs)

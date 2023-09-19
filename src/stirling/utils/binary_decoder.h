@@ -45,6 +45,7 @@ class BinaryDecoder {
   StatusOr<TCharType> ExtractChar() {
     static_assert(sizeof(TCharType) == 1);
     if (buf_.size() < sizeof(TCharType)) {
+      LOG(INFO) << "HERE_1";
       return error::ResourceUnavailable("Insufficient number of bytes.");
     }
     TCharType res = buf_.front();
@@ -55,6 +56,7 @@ class BinaryDecoder {
   template <typename TIntType>
   StatusOr<TIntType> ExtractInt() {
     if (buf_.size() < sizeof(TIntType)) {
+      LOG(INFO) << "HERE_2";
       return error::ResourceUnavailable("Insufficient number of bytes.");
     }
     TIntType val = ::px::utils::BEndianBytesToInt<TIntType>(buf_);
@@ -76,6 +78,7 @@ class BinaryDecoder {
 
       if (b < 0x80) {
         if (i == kMaxVarintLen64 - 1 && b > 1) {
+          LOG(INFO) << "HERE_3";
           return error::ResourceUnavailable("Insufficient number of bytes.");
         }
         return x | uint64_t(b) << bits;
@@ -86,6 +89,7 @@ class BinaryDecoder {
       i++;
     }
     if (i == kMaxVarintLen64) {
+      LOG(INFO) << "HERE_4";
       return error::ResourceUnavailable("Insufficient number of bytes.");
     }
     return 0;
@@ -95,6 +99,7 @@ class BinaryDecoder {
   StatusOr<std::basic_string_view<TCharType>> ExtractString(size_t len) {
     static_assert(sizeof(TCharType) == 1);
     if (buf_.size() < len) {
+      LOG(INFO) << "HERE_5";
       return error::ResourceUnavailable("Insufficient number of bytes.");
     }
     auto tbuf = CreateStringView<TCharType>(buf_);
@@ -137,6 +142,7 @@ class BinaryDecoder {
 
   Status ExtractBufIgnore(uint64_t num_bytes) {
     if (buf_.size() < num_bytes) {
+      LOG(INFO) << "HERE_6";
       return error::ResourceUnavailable("Insufficient number of bytes.");
     }
     buf_.remove_prefix(num_bytes);

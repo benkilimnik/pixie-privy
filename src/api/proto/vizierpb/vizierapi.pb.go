@@ -4911,7 +4911,7 @@ func (this *Configs_OTelEndpointConfig) GoString() string {
 	s = append(s, "&vizierpb.Configs_OTelEndpointConfig{")
 	s = append(s, "URL: "+fmt.Sprintf("%#v", this.URL)+",\n")
 	keysForHeaders := make([]string, 0, len(this.Headers))
-	for k, _ := range this.Headers {
+	for k := range this.Headers {
 		keysForHeaders = append(keysForHeaders, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForHeaders)
@@ -8919,7 +8919,7 @@ func (this *Configs_OTelEndpointConfig) String() string {
 		return "nil"
 	}
 	keysForHeaders := make([]string, 0, len(this.Headers))
-	for k, _ := range this.Headers {
+	for k := range this.Headers {
 		keysForHeaders = append(keysForHeaders, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForHeaders)

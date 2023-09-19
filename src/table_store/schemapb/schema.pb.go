@@ -1494,7 +1494,7 @@ func (this *Schema) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&schemapb.Schema{")
 	keysForRelationMap := make([]string, 0, len(this.RelationMap))
-	for k, _ := range this.RelationMap {
+	for k := range this.RelationMap {
 		keysForRelationMap = append(keysForRelationMap, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForRelationMap)
@@ -2671,7 +2671,7 @@ func (this *Schema) String() string {
 		return "nil"
 	}
 	keysForRelationMap := make([]string, 0, len(this.RelationMap))
-	for k, _ := range this.RelationMap {
+	for k := range this.RelationMap {
 		keysForRelationMap = append(keysForRelationMap, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForRelationMap)

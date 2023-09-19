@@ -3580,7 +3580,7 @@ func (this *GetScriptsResponse) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&metadatapb.GetScriptsResponse{")
 	keysForScripts := make([]string, 0, len(this.Scripts))
-	for k, _ := range this.Scripts {
+	for k := range this.Scripts {
 		keysForScripts = append(keysForScripts, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForScripts)
@@ -3644,7 +3644,7 @@ func (this *SetScriptsRequest) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&metadatapb.SetScriptsRequest{")
 	keysForScripts := make([]string, 0, len(this.Scripts))
-	for k, _ := range this.Scripts {
+	for k := range this.Scripts {
 		keysForScripts = append(keysForScripts, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForScripts)
@@ -7050,7 +7050,7 @@ func (this *GetScriptsResponse) String() string {
 		return "nil"
 	}
 	keysForScripts := make([]string, 0, len(this.Scripts))
-	for k, _ := range this.Scripts {
+	for k := range this.Scripts {
 		keysForScripts = append(keysForScripts, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForScripts)
@@ -7108,7 +7108,7 @@ func (this *SetScriptsRequest) String() string {
 		return "nil"
 	}
 	keysForScripts := make([]string, 0, len(this.Scripts))
-	for k, _ := range this.Scripts {
+	for k := range this.Scripts {
 		keysForScripts = append(keysForScripts, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForScripts)

@@ -662,11 +662,13 @@ var _bindata = map[string]func() (*asset, error){
 // directory embedded in the file by go-bindata.
 // For example if you run go-bindata on data/... and data contains the
 // following hierarchy:
-//     data/
-//       foo.txt
-//       img/
-//         a.png
-//         b.png
+//
+//	data/
+//	  foo.txt
+//	  img/
+//	    a.png
+//	    b.png
+//
 // then AssetDir("data") would return []string{"foo.txt", "img"}
 // AssetDir("data/img") would return []string{"a.png", "b.png"}
 // AssetDir("foo.txt") and AssetDir("notexist") would return an error
@@ -699,30 +701,30 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"000001_create_plugin_releases_table.down.sql":          &bintree{_000001_create_plugin_releases_tableDownSql, map[string]*bintree{}},
-	"000001_create_plugin_releases_table.up.sql":            &bintree{_000001_create_plugin_releases_tableUpSql, map[string]*bintree{}},
-	"000002_create_retention_releases_table.down.sql":       &bintree{_000002_create_retention_releases_tableDownSql, map[string]*bintree{}},
-	"000002_create_retention_releases_table.up.sql":         &bintree{_000002_create_retention_releases_tableUpSql, map[string]*bintree{}},
-	"000003_create_org_retention_table.down.sql":            &bintree{_000003_create_org_retention_tableDownSql, map[string]*bintree{}},
-	"000003_create_org_retention_table.up.sql":              &bintree{_000003_create_org_retention_tableUpSql, map[string]*bintree{}},
-	"000004_create_retention_scripts_table.down.sql":        &bintree{_000004_create_retention_scripts_tableDownSql, map[string]*bintree{}},
-	"000004_create_retention_scripts_table.up.sql":          &bintree{_000004_create_retention_scripts_tableUpSql, map[string]*bintree{}},
-	"000005_fix_preset_scripts_type.down.sql":               &bintree{_000005_fix_preset_scripts_typeDownSql, map[string]*bintree{}},
-	"000005_fix_preset_scripts_type.up.sql":                 &bintree{_000005_fix_preset_scripts_typeUpSql, map[string]*bintree{}},
-	"000006_add_pgcrypto.down.sql":                          &bintree{_000006_add_pgcryptoDownSql, map[string]*bintree{}},
-	"000006_add_pgcrypto.up.sql":                            &bintree{_000006_add_pgcryptoUpSql, map[string]*bintree{}},
-	"000007_update_retention_scripts_table.down.sql":        &bintree{_000007_update_retention_scripts_tableDownSql, map[string]*bintree{}},
-	"000007_update_retention_scripts_table.up.sql":          &bintree{_000007_update_retention_scripts_tableUpSql, map[string]*bintree{}},
-	"000008_drop_plugin_version_retention_scripts.down.sql": &bintree{_000008_drop_plugin_version_retention_scriptsDownSql, map[string]*bintree{}},
-	"000008_drop_plugin_version_retention_scripts.up.sql":   &bintree{_000008_drop_plugin_version_retention_scriptsUpSql, map[string]*bintree{}},
-	"000009_add_plugin_custom_export_url.down.sql":          &bintree{_000009_add_plugin_custom_export_urlDownSql, map[string]*bintree{}},
-	"000009_add_plugin_custom_export_url.up.sql":            &bintree{_000009_add_plugin_custom_export_urlUpSql, map[string]*bintree{}},
-	"000010_add_retention_plugin_insecure.down.sql":         &bintree{_000010_add_retention_plugin_insecureDownSql, map[string]*bintree{}},
-	"000010_add_retention_plugin_insecure.up.sql":           &bintree{_000010_add_retention_plugin_insecureUpSql, map[string]*bintree{}},
-	"000011_add_retention_plugin_insecure_default.down.sql": &bintree{_000011_add_retention_plugin_insecure_defaultDownSql, map[string]*bintree{}},
-	"000011_add_retention_plugin_insecure_default.up.sql":   &bintree{_000011_add_retention_plugin_insecure_defaultUpSql, map[string]*bintree{}},
-	"000012_drop_unique_name_constraint.down.sql":           &bintree{_000012_drop_unique_name_constraintDownSql, map[string]*bintree{}},
-	"000012_drop_unique_name_constraint.up.sql":             &bintree{_000012_drop_unique_name_constraintUpSql, map[string]*bintree{}},
+	"000001_create_plugin_releases_table.down.sql":          {_000001_create_plugin_releases_tableDownSql, map[string]*bintree{}},
+	"000001_create_plugin_releases_table.up.sql":            {_000001_create_plugin_releases_tableUpSql, map[string]*bintree{}},
+	"000002_create_retention_releases_table.down.sql":       {_000002_create_retention_releases_tableDownSql, map[string]*bintree{}},
+	"000002_create_retention_releases_table.up.sql":         {_000002_create_retention_releases_tableUpSql, map[string]*bintree{}},
+	"000003_create_org_retention_table.down.sql":            {_000003_create_org_retention_tableDownSql, map[string]*bintree{}},
+	"000003_create_org_retention_table.up.sql":              {_000003_create_org_retention_tableUpSql, map[string]*bintree{}},
+	"000004_create_retention_scripts_table.down.sql":        {_000004_create_retention_scripts_tableDownSql, map[string]*bintree{}},
+	"000004_create_retention_scripts_table.up.sql":          {_000004_create_retention_scripts_tableUpSql, map[string]*bintree{}},
+	"000005_fix_preset_scripts_type.down.sql":               {_000005_fix_preset_scripts_typeDownSql, map[string]*bintree{}},
+	"000005_fix_preset_scripts_type.up.sql":                 {_000005_fix_preset_scripts_typeUpSql, map[string]*bintree{}},
+	"000006_add_pgcrypto.down.sql":                          {_000006_add_pgcryptoDownSql, map[string]*bintree{}},
+	"000006_add_pgcrypto.up.sql":                            {_000006_add_pgcryptoUpSql, map[string]*bintree{}},
+	"000007_update_retention_scripts_table.down.sql":        {_000007_update_retention_scripts_tableDownSql, map[string]*bintree{}},
+	"000007_update_retention_scripts_table.up.sql":          {_000007_update_retention_scripts_tableUpSql, map[string]*bintree{}},
+	"000008_drop_plugin_version_retention_scripts.down.sql": {_000008_drop_plugin_version_retention_scriptsDownSql, map[string]*bintree{}},
+	"000008_drop_plugin_version_retention_scripts.up.sql":   {_000008_drop_plugin_version_retention_scriptsUpSql, map[string]*bintree{}},
+	"000009_add_plugin_custom_export_url.down.sql":          {_000009_add_plugin_custom_export_urlDownSql, map[string]*bintree{}},
+	"000009_add_plugin_custom_export_url.up.sql":            {_000009_add_plugin_custom_export_urlUpSql, map[string]*bintree{}},
+	"000010_add_retention_plugin_insecure.down.sql":         {_000010_add_retention_plugin_insecureDownSql, map[string]*bintree{}},
+	"000010_add_retention_plugin_insecure.up.sql":           {_000010_add_retention_plugin_insecureUpSql, map[string]*bintree{}},
+	"000011_add_retention_plugin_insecure_default.down.sql": {_000011_add_retention_plugin_insecure_defaultDownSql, map[string]*bintree{}},
+	"000011_add_retention_plugin_insecure_default.up.sql":   {_000011_add_retention_plugin_insecure_defaultUpSql, map[string]*bintree{}},
+	"000012_drop_unique_name_constraint.down.sql":           {_000012_drop_unique_name_constraintDownSql, map[string]*bintree{}},
+	"000012_drop_unique_name_constraint.up.sql":             {_000012_drop_unique_name_constraintUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory

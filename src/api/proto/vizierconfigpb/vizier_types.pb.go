@@ -1023,7 +1023,7 @@ func (this *VizierSpec) GoString() string {
 		s = append(s, "Pod_Policy: "+fmt.Sprintf("%#v", this.Pod_Policy)+",\n")
 	}
 	keysForPatches := make([]string, 0, len(this.Patches))
-	for k, _ := range this.Patches {
+	for k := range this.Patches {
 		keysForPatches = append(keysForPatches, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForPatches)
@@ -1056,7 +1056,7 @@ func (this *PodPolicyReq) GoString() string {
 	s := make([]string, 0, 9)
 	s = append(s, "&vizierconfigpb.PodPolicyReq{")
 	keysForLabels := make([]string, 0, len(this.Labels))
-	for k, _ := range this.Labels {
+	for k := range this.Labels {
 		keysForLabels = append(keysForLabels, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForLabels)
@@ -1069,7 +1069,7 @@ func (this *PodPolicyReq) GoString() string {
 		s = append(s, "Labels: "+mapStringForLabels+",\n")
 	}
 	keysForAnnotations := make([]string, 0, len(this.Annotations))
-	for k, _ := range this.Annotations {
+	for k := range this.Annotations {
 		keysForAnnotations = append(keysForAnnotations, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForAnnotations)
@@ -1085,7 +1085,7 @@ func (this *PodPolicyReq) GoString() string {
 		s = append(s, "Resources: "+fmt.Sprintf("%#v", this.Resources)+",\n")
 	}
 	keysForNodeSelector := make([]string, 0, len(this.NodeSelector))
-	for k, _ := range this.NodeSelector {
+	for k := range this.NodeSelector {
 		keysForNodeSelector = append(keysForNodeSelector, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForNodeSelector)
@@ -1141,7 +1141,7 @@ func (this *ResourceList) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&vizierconfigpb.ResourceList{")
 	keysForResourceList := make([]string, 0, len(this.ResourceList))
-	for k, _ := range this.ResourceList {
+	for k := range this.ResourceList {
 		keysForResourceList = append(keysForResourceList, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForResourceList)
@@ -1175,7 +1175,7 @@ func (this *DataCollectorParams) GoString() string {
 	s = append(s, "DatastreamBufferSize: "+fmt.Sprintf("%#v", this.DatastreamBufferSize)+",\n")
 	s = append(s, "DatastreamBufferSpikeSize: "+fmt.Sprintf("%#v", this.DatastreamBufferSpikeSize)+",\n")
 	keysForCustomPEMFlags := make([]string, 0, len(this.CustomPEMFlags))
-	for k, _ := range this.CustomPEMFlags {
+	for k := range this.CustomPEMFlags {
 		keysForCustomPEMFlags = append(keysForCustomPEMFlags, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForCustomPEMFlags)
@@ -2039,7 +2039,7 @@ func (this *VizierSpec) String() string {
 		return "nil"
 	}
 	keysForPatches := make([]string, 0, len(this.Patches))
-	for k, _ := range this.Patches {
+	for k := range this.Patches {
 		keysForPatches = append(keysForPatches, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForPatches)
@@ -2081,7 +2081,7 @@ func (this *PodPolicyReq) String() string {
 	}
 	repeatedStringForTolerations += "}"
 	keysForLabels := make([]string, 0, len(this.Labels))
-	for k, _ := range this.Labels {
+	for k := range this.Labels {
 		keysForLabels = append(keysForLabels, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForLabels)
@@ -2091,7 +2091,7 @@ func (this *PodPolicyReq) String() string {
 	}
 	mapStringForLabels += "}"
 	keysForAnnotations := make([]string, 0, len(this.Annotations))
-	for k, _ := range this.Annotations {
+	for k := range this.Annotations {
 		keysForAnnotations = append(keysForAnnotations, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForAnnotations)
@@ -2101,7 +2101,7 @@ func (this *PodPolicyReq) String() string {
 	}
 	mapStringForAnnotations += "}"
 	keysForNodeSelector := make([]string, 0, len(this.NodeSelector))
-	for k, _ := range this.NodeSelector {
+	for k := range this.NodeSelector {
 		keysForNodeSelector = append(keysForNodeSelector, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForNodeSelector)
@@ -2150,7 +2150,7 @@ func (this *ResourceList) String() string {
 		return "nil"
 	}
 	keysForResourceList := make([]string, 0, len(this.ResourceList))
-	for k, _ := range this.ResourceList {
+	for k := range this.ResourceList {
 		keysForResourceList = append(keysForResourceList, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForResourceList)
@@ -2180,7 +2180,7 @@ func (this *DataCollectorParams) String() string {
 		return "nil"
 	}
 	keysForCustomPEMFlags := make([]string, 0, len(this.CustomPEMFlags))
-	for k, _ := range this.CustomPEMFlags {
+	for k := range this.CustomPEMFlags {
 		keysForCustomPEMFlags = append(keysForCustomPEMFlags, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForCustomPEMFlags)

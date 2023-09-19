@@ -266,11 +266,13 @@ var _bindata = map[string]func() (*asset, error){
 // directory embedded in the file by go-bindata.
 // For example if you run go-bindata on data/... and data contains the
 // following hierarchy:
-//     data/
-//       foo.txt
-//       img/
-//         a.png
-//         b.png
+//
+//	data/
+//	  foo.txt
+//	  img/
+//	    a.png
+//	    b.png
+//
 // then AssetDir("data") would return []string{"foo.txt", "img"}
 // AssetDir("data/img") would return []string{"a.png", "b.png"}
 // AssetDir("foo.txt") and AssetDir("notexist") would return an error
@@ -303,12 +305,12 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"000001_create_cron_scripts_table.down.sql":             &bintree{_000001_create_cron_scripts_tableDownSql, map[string]*bintree{}},
-	"000001_create_cron_scripts_table.up.sql":               &bintree{_000001_create_cron_scripts_tableUpSql, map[string]*bintree{}},
-	"000002_add_frequency_cron_scripts_table.down.sql":      &bintree{_000002_add_frequency_cron_scripts_tableDownSql, map[string]*bintree{}},
-	"000002_add_frequency_cron_scripts_table.up.sql":        &bintree{_000002_add_frequency_cron_scripts_tableUpSql, map[string]*bintree{}},
-	"000003_update_cluster_ids_cron_scripts_table.down.sql": &bintree{_000003_update_cluster_ids_cron_scripts_tableDownSql, map[string]*bintree{}},
-	"000003_update_cluster_ids_cron_scripts_table.up.sql":   &bintree{_000003_update_cluster_ids_cron_scripts_tableUpSql, map[string]*bintree{}},
+	"000001_create_cron_scripts_table.down.sql":             {_000001_create_cron_scripts_tableDownSql, map[string]*bintree{}},
+	"000001_create_cron_scripts_table.up.sql":               {_000001_create_cron_scripts_tableUpSql, map[string]*bintree{}},
+	"000002_add_frequency_cron_scripts_table.down.sql":      {_000002_add_frequency_cron_scripts_tableDownSql, map[string]*bintree{}},
+	"000002_add_frequency_cron_scripts_table.up.sql":        {_000002_add_frequency_cron_scripts_tableUpSql, map[string]*bintree{}},
+	"000003_update_cluster_ids_cron_scripts_table.down.sql": {_000003_update_cluster_ids_cron_scripts_tableDownSql, map[string]*bintree{}},
+	"000003_update_cluster_ids_cron_scripts_table.up.sql":   {_000003_update_cluster_ids_cron_scripts_tableUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory

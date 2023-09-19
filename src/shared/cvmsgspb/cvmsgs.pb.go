@@ -3822,7 +3822,7 @@ func (this *VizierHeartbeat) GoString() string {
 	s = append(s, "Time: "+fmt.Sprintf("%#v", this.Time)+",\n")
 	s = append(s, "SequenceNumber: "+fmt.Sprintf("%#v", this.SequenceNumber)+",\n")
 	keysForPodStatuses := make([]string, 0, len(this.PodStatuses))
-	for k, _ := range this.PodStatuses {
+	for k := range this.PodStatuses {
 		keysForPodStatuses = append(keysForPodStatuses, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForPodStatuses)
@@ -3835,7 +3835,7 @@ func (this *VizierHeartbeat) GoString() string {
 		s = append(s, "PodStatuses: "+mapStringForPodStatuses+",\n")
 	}
 	keysForUnhealthyDataPlanePodStatuses := make([]string, 0, len(this.UnhealthyDataPlanePodStatuses))
-	for k, _ := range this.UnhealthyDataPlanePodStatuses {
+	for k := range this.UnhealthyDataPlanePodStatuses {
 		keysForUnhealthyDataPlanePodStatuses = append(keysForUnhealthyDataPlanePodStatuses, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForUnhealthyDataPlanePodStatuses)
@@ -3965,7 +3965,7 @@ func (this *VizierInfo) GoString() string {
 	s = append(s, "OperatorVersion: "+fmt.Sprintf("%#v", this.OperatorVersion)+",\n")
 	s = append(s, "VizierVersion: "+fmt.Sprintf("%#v", this.VizierVersion)+",\n")
 	keysForControlPlanePodStatuses := make([]string, 0, len(this.ControlPlanePodStatuses))
-	for k, _ := range this.ControlPlanePodStatuses {
+	for k := range this.ControlPlanePodStatuses {
 		keysForControlPlanePodStatuses = append(keysForControlPlanePodStatuses, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForControlPlanePodStatuses)
@@ -3978,7 +3978,7 @@ func (this *VizierInfo) GoString() string {
 		s = append(s, "ControlPlanePodStatuses: "+mapStringForControlPlanePodStatuses+",\n")
 	}
 	keysForUnhealthyDataPlanePodStatuses := make([]string, 0, len(this.UnhealthyDataPlanePodStatuses))
-	for k, _ := range this.UnhealthyDataPlanePodStatuses {
+	for k := range this.UnhealthyDataPlanePodStatuses {
 		keysForUnhealthyDataPlanePodStatuses = append(keysForUnhealthyDataPlanePodStatuses, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForUnhealthyDataPlanePodStatuses)
@@ -4282,7 +4282,7 @@ func (this *GetCronScriptsResponse) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&cvmsgspb.GetCronScriptsResponse{")
 	keysForScripts := make([]string, 0, len(this.Scripts))
-	for k, _ := range this.Scripts {
+	for k := range this.Scripts {
 		keysForScripts = append(keysForScripts, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForScripts)
@@ -7132,7 +7132,7 @@ func (this *VizierHeartbeat) String() string {
 		return "nil"
 	}
 	keysForPodStatuses := make([]string, 0, len(this.PodStatuses))
-	for k, _ := range this.PodStatuses {
+	for k := range this.PodStatuses {
 		keysForPodStatuses = append(keysForPodStatuses, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForPodStatuses)
@@ -7142,7 +7142,7 @@ func (this *VizierHeartbeat) String() string {
 	}
 	mapStringForPodStatuses += "}"
 	keysForUnhealthyDataPlanePodStatuses := make([]string, 0, len(this.UnhealthyDataPlanePodStatuses))
-	for k, _ := range this.UnhealthyDataPlanePodStatuses {
+	for k := range this.UnhealthyDataPlanePodStatuses {
 		keysForUnhealthyDataPlanePodStatuses = append(keysForUnhealthyDataPlanePodStatuses, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForUnhealthyDataPlanePodStatuses)
@@ -7259,7 +7259,7 @@ func (this *VizierInfo) String() string {
 		return "nil"
 	}
 	keysForControlPlanePodStatuses := make([]string, 0, len(this.ControlPlanePodStatuses))
-	for k, _ := range this.ControlPlanePodStatuses {
+	for k := range this.ControlPlanePodStatuses {
 		keysForControlPlanePodStatuses = append(keysForControlPlanePodStatuses, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForControlPlanePodStatuses)
@@ -7269,7 +7269,7 @@ func (this *VizierInfo) String() string {
 	}
 	mapStringForControlPlanePodStatuses += "}"
 	keysForUnhealthyDataPlanePodStatuses := make([]string, 0, len(this.UnhealthyDataPlanePodStatuses))
-	for k, _ := range this.UnhealthyDataPlanePodStatuses {
+	for k := range this.UnhealthyDataPlanePodStatuses {
 		keysForUnhealthyDataPlanePodStatuses = append(keysForUnhealthyDataPlanePodStatuses, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForUnhealthyDataPlanePodStatuses)
@@ -7587,7 +7587,7 @@ func (this *GetCronScriptsResponse) String() string {
 		return "nil"
 	}
 	keysForScripts := make([]string, 0, len(this.Scripts))
-	for k, _ := range this.Scripts {
+	for k := range this.Scripts {
 		keysForScripts = append(keysForScripts, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForScripts)

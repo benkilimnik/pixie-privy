@@ -398,11 +398,13 @@ var _bindata = map[string]func() (*asset, error){
 // directory embedded in the file by go-bindata.
 // For example if you run go-bindata on data/... and data contains the
 // following hierarchy:
-//     data/
-//       foo.txt
-//       img/
-//         a.png
-//         b.png
+//
+//	data/
+//	  foo.txt
+//	  img/
+//	    a.png
+//	    b.png
+//
 // then AssetDir("data") would return []string{"foo.txt", "img"}
 // AssetDir("data/img") would return []string{"a.png", "b.png"}
 // AssetDir("foo.txt") and AssetDir("notexist") would return an error
@@ -435,18 +437,18 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"000001_add_api_keys.down.sql":              &bintree{_000001_add_api_keysDownSql, map[string]*bintree{}},
-	"000001_add_api_keys.up.sql":                &bintree{_000001_add_api_keysUpSql, map[string]*bintree{}},
-	"000002_create_pgcrypto_extension.down.sql": &bintree{_000002_create_pgcrypto_extensionDownSql, map[string]*bintree{}},
-	"000002_create_pgcrypto_extension.up.sql":   &bintree{_000002_create_pgcrypto_extensionUpSql, map[string]*bintree{}},
-	"000003_unsalt_api_key.down.sql":            &bintree{_000003_unsalt_api_keyDownSql, map[string]*bintree{}},
-	"000003_unsalt_api_key.up.sql":              &bintree{_000003_unsalt_api_keyUpSql, map[string]*bintree{}},
-	"000004_px_api_prefix.down.sql":             &bintree{_000004_px_api_prefixDownSql, map[string]*bintree{}},
-	"000004_px_api_prefix.up.sql":               &bintree{_000004_px_api_prefixUpSql, map[string]*bintree{}},
-	"000005_px_apikey_crypt.down.sql":           &bintree{_000005_px_apikey_cryptDownSql, map[string]*bintree{}},
-	"000005_px_apikey_crypt.up.sql":             &bintree{_000005_px_apikey_cryptUpSql, map[string]*bintree{}},
-	"000006_px_apikey_del_unsalted.down.sql":    &bintree{_000006_px_apikey_del_unsaltedDownSql, map[string]*bintree{}},
-	"000006_px_apikey_del_unsalted.up.sql":      &bintree{_000006_px_apikey_del_unsaltedUpSql, map[string]*bintree{}},
+	"000001_add_api_keys.down.sql":              {_000001_add_api_keysDownSql, map[string]*bintree{}},
+	"000001_add_api_keys.up.sql":                {_000001_add_api_keysUpSql, map[string]*bintree{}},
+	"000002_create_pgcrypto_extension.down.sql": {_000002_create_pgcrypto_extensionDownSql, map[string]*bintree{}},
+	"000002_create_pgcrypto_extension.up.sql":   {_000002_create_pgcrypto_extensionUpSql, map[string]*bintree{}},
+	"000003_unsalt_api_key.down.sql":            {_000003_unsalt_api_keyDownSql, map[string]*bintree{}},
+	"000003_unsalt_api_key.up.sql":              {_000003_unsalt_api_keyUpSql, map[string]*bintree{}},
+	"000004_px_api_prefix.down.sql":             {_000004_px_api_prefixDownSql, map[string]*bintree{}},
+	"000004_px_api_prefix.up.sql":               {_000004_px_api_prefixUpSql, map[string]*bintree{}},
+	"000005_px_apikey_crypt.down.sql":           {_000005_px_apikey_cryptDownSql, map[string]*bintree{}},
+	"000005_px_apikey_crypt.up.sql":             {_000005_px_apikey_cryptUpSql, map[string]*bintree{}},
+	"000006_px_apikey_del_unsalted.down.sql":    {_000006_px_apikey_del_unsaltedDownSql, map[string]*bintree{}},
+	"000006_px_apikey_del_unsalted.up.sql":      {_000006_px_apikey_del_unsaltedUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory

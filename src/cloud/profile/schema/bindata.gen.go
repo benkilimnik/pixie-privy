@@ -1058,11 +1058,13 @@ var _bindata = map[string]func() (*asset, error){
 // directory embedded in the file by go-bindata.
 // For example if you run go-bindata on data/... and data contains the
 // following hierarchy:
-//     data/
-//       foo.txt
-//       img/
-//         a.png
-//         b.png
+//
+//	data/
+//	  foo.txt
+//	  img/
+//	    a.png
+//	    b.png
+//
 // then AssetDir("data") would return []string{"foo.txt", "img"}
 // AssetDir("data/img") would return []string{"a.png", "b.png"}
 // AssetDir("foo.txt") and AssetDir("notexist") would return an error
@@ -1095,48 +1097,48 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"000001_create_org_user_tables.down.sql":                 &bintree{_000001_create_org_user_tablesDownSql, map[string]*bintree{}},
-	"000001_create_org_user_tables.up.sql":                   &bintree{_000001_create_org_user_tablesUpSql, map[string]*bintree{}},
-	"000002_add_unique_constraint_email.down.sql":            &bintree{_000002_add_unique_constraint_emailDownSql, map[string]*bintree{}},
-	"000002_add_unique_constraint_email.up.sql":              &bintree{_000002_add_unique_constraint_emailUpSql, map[string]*bintree{}},
-	"000003_add_profile_picture.down.sql":                    &bintree{_000003_add_profile_pictureDownSql, map[string]*bintree{}},
-	"000003_add_profile_picture.up.sql":                      &bintree{_000003_add_profile_pictureUpSql, map[string]*bintree{}},
-	"000004_add_updated_created_at.down.sql":                 &bintree{_000004_add_updated_created_atDownSql, map[string]*bintree{}},
-	"000004_add_updated_created_at.up.sql":                   &bintree{_000004_add_updated_created_atUpSql, map[string]*bintree{}},
-	"000005_create_user_settings_table.down.sql":             &bintree{_000005_create_user_settings_tableDownSql, map[string]*bintree{}},
-	"000005_create_user_settings_table.up.sql":               &bintree{_000005_create_user_settings_tableUpSql, map[string]*bintree{}},
-	"000006_add_approved_column.down.sql":                    &bintree{_000006_add_approved_columnDownSql, map[string]*bintree{}},
-	"000006_add_approved_column.up.sql":                      &bintree{_000006_add_approved_columnUpSql, map[string]*bintree{}},
-	"000007_add_enable_approvals_column.down.sql":            &bintree{_000007_add_enable_approvals_columnDownSql, map[string]*bintree{}},
-	"000007_add_enable_approvals_column.up.sql":              &bintree{_000007_add_enable_approvals_columnUpSql, map[string]*bintree{}},
-	"000008_insert_default_user_value.up.sql":                &bintree{_000008_insert_default_user_valueUpSql, map[string]*bintree{}},
-	"000009_org_add_updated_created_at.down.sql":             &bintree{_000009_org_add_updated_created_atDownSql, map[string]*bintree{}},
-	"000009_org_add_updated_created_at.up.sql":               &bintree{_000009_org_add_updated_created_atUpSql, map[string]*bintree{}},
-	"000010_user_add_identity_provider.down.sql":             &bintree{_000010_user_add_identity_providerDownSql, map[string]*bintree{}},
-	"000010_user_add_identity_provider.up.sql":               &bintree{_000010_user_add_identity_providerUpSql, map[string]*bintree{}},
-	"000011_user_set_identity_provider_google_oauth2.up.sql": &bintree{_000011_user_set_identity_provider_google_oauth2UpSql, map[string]*bintree{}},
-	"000012_user_add_auth_provider_id.down.sql":              &bintree{_000012_user_add_auth_provider_idDownSql, map[string]*bintree{}},
-	"000012_user_add_auth_provider_id.up.sql":                &bintree{_000012_user_add_auth_provider_idUpSql, map[string]*bintree{}},
-	"000013_lengthen_profile_email.down.sql":                 &bintree{_000013_lengthen_profile_emailDownSql, map[string]*bintree{}},
-	"000013_lengthen_profile_email.up.sql":                   &bintree{_000013_lengthen_profile_emailUpSql, map[string]*bintree{}},
-	"000014_lengthen_auth_provider_id.down.sql":              &bintree{_000014_lengthen_auth_provider_idDownSql, map[string]*bintree{}},
-	"000014_lengthen_auth_provider_id.up.sql":                &bintree{_000014_lengthen_auth_provider_idUpSql, map[string]*bintree{}},
-	"000015_create_user_attributes_table.down.sql":           &bintree{_000015_create_user_attributes_tableDownSql, map[string]*bintree{}},
-	"000015_create_user_attributes_table.up.sql":             &bintree{_000015_create_user_attributes_tableUpSql, map[string]*bintree{}},
-	"000016_move_user_settings.down.sql":                     &bintree{_000016_move_user_settingsDownSql, map[string]*bintree{}},
-	"000016_move_user_settings.up.sql":                       &bintree{_000016_move_user_settingsUpSql, map[string]*bintree{}},
-	"000017_reformat_user_settings.down.sql":                 &bintree{_000017_reformat_user_settingsDownSql, map[string]*bintree{}},
-	"000017_reformat_user_settings.up.sql":                   &bintree{_000017_reformat_user_settingsUpSql, map[string]*bintree{}},
-	"000018_add_unique_constraint_auth_provider_id.down.sql": &bintree{_000018_add_unique_constraint_auth_provider_idDownSql, map[string]*bintree{}},
-	"000018_add_unique_constraint_auth_provider_id.up.sql":   &bintree{_000018_add_unique_constraint_auth_provider_idUpSql, map[string]*bintree{}},
-	"000019_create_org_ide_configs_tables.down.sql":          &bintree{_000019_create_org_ide_configs_tablesDownSql, map[string]*bintree{}},
-	"000019_create_org_ide_configs_tables.up.sql":            &bintree{_000019_create_org_ide_configs_tablesUpSql, map[string]*bintree{}},
-	"000020_empty_domain_name_col.down.sql":                  &bintree{_000020_empty_domain_name_colDownSql, map[string]*bintree{}},
-	"000020_empty_domain_name_col.up.sql":                    &bintree{_000020_empty_domain_name_colUpSql, map[string]*bintree{}},
-	"000021_org_add_invite_signing_key.down.sql":             &bintree{_000021_org_add_invite_signing_keyDownSql, map[string]*bintree{}},
-	"000021_org_add_invite_signing_key.up.sql":               &bintree{_000021_org_add_invite_signing_keyUpSql, map[string]*bintree{}},
-	"000022_users_drop_usernames.down.sql":                   &bintree{_000022_users_drop_usernamesDownSql, map[string]*bintree{}},
-	"000022_users_drop_usernames.up.sql":                     &bintree{_000022_users_drop_usernamesUpSql, map[string]*bintree{}},
+	"000001_create_org_user_tables.down.sql":                 {_000001_create_org_user_tablesDownSql, map[string]*bintree{}},
+	"000001_create_org_user_tables.up.sql":                   {_000001_create_org_user_tablesUpSql, map[string]*bintree{}},
+	"000002_add_unique_constraint_email.down.sql":            {_000002_add_unique_constraint_emailDownSql, map[string]*bintree{}},
+	"000002_add_unique_constraint_email.up.sql":              {_000002_add_unique_constraint_emailUpSql, map[string]*bintree{}},
+	"000003_add_profile_picture.down.sql":                    {_000003_add_profile_pictureDownSql, map[string]*bintree{}},
+	"000003_add_profile_picture.up.sql":                      {_000003_add_profile_pictureUpSql, map[string]*bintree{}},
+	"000004_add_updated_created_at.down.sql":                 {_000004_add_updated_created_atDownSql, map[string]*bintree{}},
+	"000004_add_updated_created_at.up.sql":                   {_000004_add_updated_created_atUpSql, map[string]*bintree{}},
+	"000005_create_user_settings_table.down.sql":             {_000005_create_user_settings_tableDownSql, map[string]*bintree{}},
+	"000005_create_user_settings_table.up.sql":               {_000005_create_user_settings_tableUpSql, map[string]*bintree{}},
+	"000006_add_approved_column.down.sql":                    {_000006_add_approved_columnDownSql, map[string]*bintree{}},
+	"000006_add_approved_column.up.sql":                      {_000006_add_approved_columnUpSql, map[string]*bintree{}},
+	"000007_add_enable_approvals_column.down.sql":            {_000007_add_enable_approvals_columnDownSql, map[string]*bintree{}},
+	"000007_add_enable_approvals_column.up.sql":              {_000007_add_enable_approvals_columnUpSql, map[string]*bintree{}},
+	"000008_insert_default_user_value.up.sql":                {_000008_insert_default_user_valueUpSql, map[string]*bintree{}},
+	"000009_org_add_updated_created_at.down.sql":             {_000009_org_add_updated_created_atDownSql, map[string]*bintree{}},
+	"000009_org_add_updated_created_at.up.sql":               {_000009_org_add_updated_created_atUpSql, map[string]*bintree{}},
+	"000010_user_add_identity_provider.down.sql":             {_000010_user_add_identity_providerDownSql, map[string]*bintree{}},
+	"000010_user_add_identity_provider.up.sql":               {_000010_user_add_identity_providerUpSql, map[string]*bintree{}},
+	"000011_user_set_identity_provider_google_oauth2.up.sql": {_000011_user_set_identity_provider_google_oauth2UpSql, map[string]*bintree{}},
+	"000012_user_add_auth_provider_id.down.sql":              {_000012_user_add_auth_provider_idDownSql, map[string]*bintree{}},
+	"000012_user_add_auth_provider_id.up.sql":                {_000012_user_add_auth_provider_idUpSql, map[string]*bintree{}},
+	"000013_lengthen_profile_email.down.sql":                 {_000013_lengthen_profile_emailDownSql, map[string]*bintree{}},
+	"000013_lengthen_profile_email.up.sql":                   {_000013_lengthen_profile_emailUpSql, map[string]*bintree{}},
+	"000014_lengthen_auth_provider_id.down.sql":              {_000014_lengthen_auth_provider_idDownSql, map[string]*bintree{}},
+	"000014_lengthen_auth_provider_id.up.sql":                {_000014_lengthen_auth_provider_idUpSql, map[string]*bintree{}},
+	"000015_create_user_attributes_table.down.sql":           {_000015_create_user_attributes_tableDownSql, map[string]*bintree{}},
+	"000015_create_user_attributes_table.up.sql":             {_000015_create_user_attributes_tableUpSql, map[string]*bintree{}},
+	"000016_move_user_settings.down.sql":                     {_000016_move_user_settingsDownSql, map[string]*bintree{}},
+	"000016_move_user_settings.up.sql":                       {_000016_move_user_settingsUpSql, map[string]*bintree{}},
+	"000017_reformat_user_settings.down.sql":                 {_000017_reformat_user_settingsDownSql, map[string]*bintree{}},
+	"000017_reformat_user_settings.up.sql":                   {_000017_reformat_user_settingsUpSql, map[string]*bintree{}},
+	"000018_add_unique_constraint_auth_provider_id.down.sql": {_000018_add_unique_constraint_auth_provider_idDownSql, map[string]*bintree{}},
+	"000018_add_unique_constraint_auth_provider_id.up.sql":   {_000018_add_unique_constraint_auth_provider_idUpSql, map[string]*bintree{}},
+	"000019_create_org_ide_configs_tables.down.sql":          {_000019_create_org_ide_configs_tablesDownSql, map[string]*bintree{}},
+	"000019_create_org_ide_configs_tables.up.sql":            {_000019_create_org_ide_configs_tablesUpSql, map[string]*bintree{}},
+	"000020_empty_domain_name_col.down.sql":                  {_000020_empty_domain_name_colDownSql, map[string]*bintree{}},
+	"000020_empty_domain_name_col.up.sql":                    {_000020_empty_domain_name_colUpSql, map[string]*bintree{}},
+	"000021_org_add_invite_signing_key.down.sql":             {_000021_org_add_invite_signing_keyDownSql, map[string]*bintree{}},
+	"000021_org_add_invite_signing_key.up.sql":               {_000021_org_add_invite_signing_keyUpSql, map[string]*bintree{}},
+	"000022_users_drop_usernames.down.sql":                   {_000022_users_drop_usernamesDownSql, map[string]*bintree{}},
+	"000022_users_drop_usernames.up.sql":                     {_000022_users_drop_usernamesUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory

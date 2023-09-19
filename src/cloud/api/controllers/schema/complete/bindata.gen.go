@@ -200,11 +200,13 @@ var _bindata = map[string]func() (*asset, error){
 // directory embedded in the file by go-bindata.
 // For example if you run go-bindata on data/... and data contains the
 // following hierarchy:
-//     data/
-//       foo.txt
-//       img/
-//         a.png
-//         b.png
+//
+//	data/
+//	  foo.txt
+//	  img/
+//	    a.png
+//	    b.png
+//
 // then AssetDir("data") would return []string{"foo.txt", "img"}
 // AssetDir("data/img") would return []string{"a.png", "b.png"}
 // AssetDir("foo.txt") and AssetDir("notexist") would return an error
@@ -237,9 +239,9 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"01_base_schema.graphql":   &bintree{_01_base_schemaGraphql, map[string]*bintree{}},
-	"02_unauth_schema.graphql": &bintree{_02_unauth_schemaGraphql, map[string]*bintree{}},
-	"03_auth_schema.graphql":   &bintree{_03_auth_schemaGraphql, map[string]*bintree{}},
+	"01_base_schema.graphql":   {_01_base_schemaGraphql, map[string]*bintree{}},
+	"02_unauth_schema.graphql": {_02_unauth_schemaGraphql, map[string]*bintree{}},
+	"03_auth_schema.graphql":   {_03_auth_schemaGraphql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory

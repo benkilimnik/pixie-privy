@@ -230,11 +230,11 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"tmp": &bintree{nil, map[string]*bintree{
-		"vizier_yamls": &bintree{nil, map[string]*bintree{
-			"etcd.yaml":   &bintree{tmpVizier_yamlsEtcdYaml, map[string]*bintree{}},
-			"nats.yaml":   &bintree{tmpVizier_yamlsNatsYaml, map[string]*bintree{}},
-			"vizier.yaml": &bintree{tmpVizier_yamlsVizierYaml, map[string]*bintree{}},
+	"tmp": {nil, map[string]*bintree{
+		"vizier_yamls": {nil, map[string]*bintree{
+			"etcd.yaml":   {tmpVizier_yamlsEtcdYaml, map[string]*bintree{}},
+			"nats.yaml":   {tmpVizier_yamlsNatsYaml, map[string]*bintree{}},
+			"vizier.yaml": {tmpVizier_yamlsVizierYaml, map[string]*bintree{}},
 		}},
 	}},
 }}

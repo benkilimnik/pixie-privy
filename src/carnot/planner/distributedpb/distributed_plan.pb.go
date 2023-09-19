@@ -1586,7 +1586,7 @@ func (this *DistributedPlan) GoString() string {
 	s := make([]string, 0, 7)
 	s = append(s, "&distributedpb.DistributedPlan{")
 	keysForQbAddressToPlan := make([]string, 0, len(this.QbAddressToPlan))
-	for k, _ := range this.QbAddressToPlan {
+	for k := range this.QbAddressToPlan {
 		keysForQbAddressToPlan = append(keysForQbAddressToPlan, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForQbAddressToPlan)
@@ -1599,7 +1599,7 @@ func (this *DistributedPlan) GoString() string {
 		s = append(s, "QbAddressToPlan: "+mapStringForQbAddressToPlan+",\n")
 	}
 	keysForQbAddressToDagId := make([]string, 0, len(this.QbAddressToDagId))
-	for k, _ := range this.QbAddressToDagId {
+	for k := range this.QbAddressToDagId {
 		keysForQbAddressToDagId = append(keysForQbAddressToDagId, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForQbAddressToDagId)
@@ -1636,7 +1636,7 @@ func (this *OTelEndpointConfig) GoString() string {
 	s = append(s, "&distributedpb.OTelEndpointConfig{")
 	s = append(s, "URL: "+fmt.Sprintf("%#v", this.URL)+",\n")
 	keysForHeaders := make([]string, 0, len(this.Headers))
-	for k, _ := range this.Headers {
+	for k := range this.Headers {
 		keysForHeaders = append(keysForHeaders, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForHeaders)
@@ -2985,7 +2985,7 @@ func (this *DistributedPlan) String() string {
 		return "nil"
 	}
 	keysForQbAddressToPlan := make([]string, 0, len(this.QbAddressToPlan))
-	for k, _ := range this.QbAddressToPlan {
+	for k := range this.QbAddressToPlan {
 		keysForQbAddressToPlan = append(keysForQbAddressToPlan, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForQbAddressToPlan)
@@ -2995,7 +2995,7 @@ func (this *DistributedPlan) String() string {
 	}
 	mapStringForQbAddressToPlan += "}"
 	keysForQbAddressToDagId := make([]string, 0, len(this.QbAddressToDagId))
-	for k, _ := range this.QbAddressToDagId {
+	for k := range this.QbAddressToDagId {
 		keysForQbAddressToDagId = append(keysForQbAddressToDagId, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForQbAddressToDagId)
@@ -3028,7 +3028,7 @@ func (this *OTelEndpointConfig) String() string {
 		return "nil"
 	}
 	keysForHeaders := make([]string, 0, len(this.Headers))
-	for k, _ := range this.Headers {
+	for k := range this.Headers {
 		keysForHeaders = append(keysForHeaders, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForHeaders)

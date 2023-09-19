@@ -579,7 +579,7 @@ func (this *OperatorExecutionStats) GoString() string {
 		s = append(s, "OperatorStats: "+fmt.Sprintf("%#v", this.OperatorStats)+",\n")
 	}
 	keysForExtraMetrics := make([]string, 0, len(this.ExtraMetrics))
-	for k, _ := range this.ExtraMetrics {
+	for k := range this.ExtraMetrics {
 		keysForExtraMetrics = append(keysForExtraMetrics, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForExtraMetrics)
@@ -592,7 +592,7 @@ func (this *OperatorExecutionStats) GoString() string {
 		s = append(s, "ExtraMetrics: "+mapStringForExtraMetrics+",\n")
 	}
 	keysForExtraInfo := make([]string, 0, len(this.ExtraInfo))
-	for k, _ := range this.ExtraInfo {
+	for k := range this.ExtraInfo {
 		keysForExtraInfo = append(keysForExtraInfo, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForExtraInfo)
@@ -1031,7 +1031,7 @@ func (this *OperatorExecutionStats) String() string {
 		return "nil"
 	}
 	keysForExtraMetrics := make([]string, 0, len(this.ExtraMetrics))
-	for k, _ := range this.ExtraMetrics {
+	for k := range this.ExtraMetrics {
 		keysForExtraMetrics = append(keysForExtraMetrics, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForExtraMetrics)
@@ -1041,7 +1041,7 @@ func (this *OperatorExecutionStats) String() string {
 	}
 	mapStringForExtraMetrics += "}"
 	keysForExtraInfo := make([]string, 0, len(this.ExtraInfo))
-	for k, _ := range this.ExtraInfo {
+	for k := range this.ExtraInfo {
 		keysForExtraInfo = append(keysForExtraInfo, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForExtraInfo)

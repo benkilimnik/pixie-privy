@@ -1934,7 +1934,7 @@ func (this *DeploymentSpec_LabelSelector) GoString() string {
 	s := make([]string, 0, 8)
 	s = append(s, "&logicalpb.DeploymentSpec_LabelSelector{")
 	keysForLabels := make([]string, 0, len(this.Labels))
-	for k, _ := range this.Labels {
+	for k := range this.Labels {
 		keysForLabels = append(keysForLabels, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForLabels)
@@ -3439,7 +3439,7 @@ func (this *DeploymentSpec_LabelSelector) String() string {
 		return "nil"
 	}
 	keysForLabels := make([]string, 0, len(this.Labels))
-	for k, _ := range this.Labels {
+	for k := range this.Labels {
 		keysForLabels = append(keysForLabels, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForLabels)

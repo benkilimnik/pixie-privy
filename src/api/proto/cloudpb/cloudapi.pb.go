@@ -10645,7 +10645,7 @@ func (this *ClusterInfo) GoString() string {
 	s = append(s, "OperatorVersion: "+fmt.Sprintf("%#v", this.OperatorVersion)+",\n")
 	s = append(s, "VizierVersion: "+fmt.Sprintf("%#v", this.VizierVersion)+",\n")
 	keysForControlPlanePodStatuses := make([]string, 0, len(this.ControlPlanePodStatuses))
-	for k, _ := range this.ControlPlanePodStatuses {
+	for k := range this.ControlPlanePodStatuses {
 		keysForControlPlanePodStatuses = append(keysForControlPlanePodStatuses, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForControlPlanePodStatuses)
@@ -10658,7 +10658,7 @@ func (this *ClusterInfo) GoString() string {
 		s = append(s, "ControlPlanePodStatuses: "+mapStringForControlPlanePodStatuses+",\n")
 	}
 	keysForUnhealthyDataPlanePodStatuses := make([]string, 0, len(this.UnhealthyDataPlanePodStatuses))
-	for k, _ := range this.UnhealthyDataPlanePodStatuses {
+	for k := range this.UnhealthyDataPlanePodStatuses {
 		keysForUnhealthyDataPlanePodStatuses = append(keysForUnhealthyDataPlanePodStatuses, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForUnhealthyDataPlanePodStatuses)
@@ -11426,7 +11426,7 @@ func (this *ConfigForVizierResponse) GoString() string {
 	s := make([]string, 0, 6)
 	s = append(s, "&cloudpb.ConfigForVizierResponse{")
 	keysForNameToYamlContent := make([]string, 0, len(this.NameToYamlContent))
-	for k, _ := range this.NameToYamlContent {
+	for k := range this.NameToYamlContent {
 		keysForNameToYamlContent = append(keysForNameToYamlContent, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForNameToYamlContent)
@@ -11517,7 +11517,7 @@ func (this *GetOrgRetentionPluginConfigResponse) GoString() string {
 	s := make([]string, 0, 7)
 	s = append(s, "&cloudpb.GetOrgRetentionPluginConfigResponse{")
 	keysForConfigs := make([]string, 0, len(this.Configs))
-	for k, _ := range this.Configs {
+	for k := range this.Configs {
 		keysForConfigs = append(keysForConfigs, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForConfigs)
@@ -11542,7 +11542,7 @@ func (this *UpdateRetentionPluginConfigRequest) GoString() string {
 	s = append(s, "&cloudpb.UpdateRetentionPluginConfigRequest{")
 	s = append(s, "PluginId: "+fmt.Sprintf("%#v", this.PluginId)+",\n")
 	keysForConfigs := make([]string, 0, len(this.Configs))
-	for k, _ := range this.Configs {
+	for k := range this.Configs {
 		keysForConfigs = append(keysForConfigs, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForConfigs)
@@ -11620,7 +11620,7 @@ func (this *GetRetentionPluginInfoResponse) GoString() string {
 	s := make([]string, 0, 8)
 	s = append(s, "&cloudpb.GetRetentionPluginInfoResponse{")
 	keysForConfigs := make([]string, 0, len(this.Configs))
-	for k, _ := range this.Configs {
+	for k := range this.Configs {
 		keysForConfigs = append(keysForConfigs, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForConfigs)
@@ -21811,7 +21811,7 @@ func (this *ClusterInfo) String() string {
 		return "nil"
 	}
 	keysForControlPlanePodStatuses := make([]string, 0, len(this.ControlPlanePodStatuses))
-	for k, _ := range this.ControlPlanePodStatuses {
+	for k := range this.ControlPlanePodStatuses {
 		keysForControlPlanePodStatuses = append(keysForControlPlanePodStatuses, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForControlPlanePodStatuses)
@@ -21821,7 +21821,7 @@ func (this *ClusterInfo) String() string {
 	}
 	mapStringForControlPlanePodStatuses += "}"
 	keysForUnhealthyDataPlanePodStatuses := make([]string, 0, len(this.UnhealthyDataPlanePodStatuses))
-	for k, _ := range this.UnhealthyDataPlanePodStatuses {
+	for k := range this.UnhealthyDataPlanePodStatuses {
 		keysForUnhealthyDataPlanePodStatuses = append(keysForUnhealthyDataPlanePodStatuses, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForUnhealthyDataPlanePodStatuses)
@@ -22540,7 +22540,7 @@ func (this *ConfigForVizierResponse) String() string {
 		return "nil"
 	}
 	keysForNameToYamlContent := make([]string, 0, len(this.NameToYamlContent))
-	for k, _ := range this.NameToYamlContent {
+	for k := range this.NameToYamlContent {
 		keysForNameToYamlContent = append(keysForNameToYamlContent, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForNameToYamlContent)
@@ -22632,7 +22632,7 @@ func (this *GetOrgRetentionPluginConfigResponse) String() string {
 		return "nil"
 	}
 	keysForConfigs := make([]string, 0, len(this.Configs))
-	for k, _ := range this.Configs {
+	for k := range this.Configs {
 		keysForConfigs = append(keysForConfigs, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForConfigs)
@@ -22654,7 +22654,7 @@ func (this *UpdateRetentionPluginConfigRequest) String() string {
 		return "nil"
 	}
 	keysForConfigs := make([]string, 0, len(this.Configs))
-	for k, _ := range this.Configs {
+	for k := range this.Configs {
 		keysForConfigs = append(keysForConfigs, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForConfigs)
@@ -22722,7 +22722,7 @@ func (this *GetRetentionPluginInfoResponse) String() string {
 		return "nil"
 	}
 	keysForConfigs := make([]string, 0, len(this.Configs))
-	for k, _ := range this.Configs {
+	for k := range this.Configs {
 		keysForConfigs = append(keysForConfigs, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForConfigs)

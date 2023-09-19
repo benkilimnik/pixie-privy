@@ -2476,7 +2476,7 @@ func (this *GetRetentionPluginConfigResponse) GoString() string {
 	s := make([]string, 0, 10)
 	s = append(s, "&pluginpb.GetRetentionPluginConfigResponse{")
 	keysForConfigurations := make([]string, 0, len(this.Configurations))
-	for k, _ := range this.Configurations {
+	for k := range this.Configurations {
 		keysForConfigurations = append(keysForConfigurations, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForConfigurations)
@@ -2531,7 +2531,7 @@ func (this *GetOrgRetentionPluginConfigResponse) GoString() string {
 	s := make([]string, 0, 7)
 	s = append(s, "&pluginpb.GetOrgRetentionPluginConfigResponse{")
 	keysForConfigurations := make([]string, 0, len(this.Configurations))
-	for k, _ := range this.Configurations {
+	for k := range this.Configurations {
 		keysForConfigurations = append(keysForConfigurations, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForConfigurations)
@@ -2559,7 +2559,7 @@ func (this *UpdateOrgRetentionPluginConfigRequest) GoString() string {
 	}
 	s = append(s, "PluginID: "+fmt.Sprintf("%#v", this.PluginID)+",\n")
 	keysForConfigurations := make([]string, 0, len(this.Configurations))
-	for k, _ := range this.Configurations {
+	for k := range this.Configurations {
 		keysForConfigurations = append(keysForConfigurations, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForConfigurations)
@@ -5106,7 +5106,7 @@ func (this *GetRetentionPluginConfigResponse) String() string {
 	}
 	repeatedStringForPresetScripts += "}"
 	keysForConfigurations := make([]string, 0, len(this.Configurations))
-	for k, _ := range this.Configurations {
+	for k := range this.Configurations {
 		keysForConfigurations = append(keysForConfigurations, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForConfigurations)
@@ -5155,7 +5155,7 @@ func (this *GetOrgRetentionPluginConfigResponse) String() string {
 		return "nil"
 	}
 	keysForConfigurations := make([]string, 0, len(this.Configurations))
-	for k, _ := range this.Configurations {
+	for k := range this.Configurations {
 		keysForConfigurations = append(keysForConfigurations, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForConfigurations)
@@ -5177,7 +5177,7 @@ func (this *UpdateOrgRetentionPluginConfigRequest) String() string {
 		return "nil"
 	}
 	keysForConfigurations := make([]string, 0, len(this.Configurations))
-	for k, _ := range this.Configurations {
+	for k := range this.Configurations {
 		keysForConfigurations = append(keysForConfigurations, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForConfigurations)

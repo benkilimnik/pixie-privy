@@ -7196,7 +7196,7 @@ func (this *ObjectMetadata) GoString() string {
 	s = append(s, "CreationTimestampNS: "+fmt.Sprintf("%#v", this.CreationTimestampNS)+",\n")
 	s = append(s, "DeletionTimestampNS: "+fmt.Sprintf("%#v", this.DeletionTimestampNS)+",\n")
 	keysForLabels := make([]string, 0, len(this.Labels))
-	for k, _ := range this.Labels {
+	for k := range this.Labels {
 		keysForLabels = append(keysForLabels, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForLabels)
@@ -7212,7 +7212,7 @@ func (this *ObjectMetadata) GoString() string {
 		s = append(s, "OwnerReferences: "+fmt.Sprintf("%#v", this.OwnerReferences)+",\n")
 	}
 	keysForAnnotations := make([]string, 0, len(this.Annotations))
-	for k, _ := range this.Annotations {
+	for k := range this.Annotations {
 		keysForAnnotations = append(keysForAnnotations, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForAnnotations)
@@ -7277,7 +7277,7 @@ func (this *PodSpec) GoString() string {
 	s = append(s, "&metadatapb.PodSpec{")
 	s = append(s, "DNSPolicy: "+fmt.Sprintf("%#v", this.DNSPolicy)+",\n")
 	keysForNodeSelector := make([]string, 0, len(this.NodeSelector))
-	for k, _ := range this.NodeSelector {
+	for k := range this.NodeSelector {
 		keysForNodeSelector = append(keysForNodeSelector, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForNodeSelector)
@@ -7768,7 +7768,7 @@ func (this *LabelSelector) GoString() string {
 	s := make([]string, 0, 6)
 	s = append(s, "&metadatapb.LabelSelector{")
 	keysForMatchLabels := make([]string, 0, len(this.MatchLabels))
-	for k, _ := range this.MatchLabels {
+	for k := range this.MatchLabels {
 		keysForMatchLabels = append(keysForMatchLabels, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForMatchLabels)
@@ -13108,7 +13108,7 @@ func (this *ObjectMetadata) String() string {
 	}
 	repeatedStringForOwnerReferences += "}"
 	keysForLabels := make([]string, 0, len(this.Labels))
-	for k, _ := range this.Labels {
+	for k := range this.Labels {
 		keysForLabels = append(keysForLabels, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForLabels)
@@ -13118,7 +13118,7 @@ func (this *ObjectMetadata) String() string {
 	}
 	mapStringForLabels += "}"
 	keysForAnnotations := make([]string, 0, len(this.Annotations))
-	for k, _ := range this.Annotations {
+	for k := range this.Annotations {
 		keysForAnnotations = append(keysForAnnotations, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForAnnotations)
@@ -13180,7 +13180,7 @@ func (this *PodSpec) String() string {
 		return "nil"
 	}
 	keysForNodeSelector := make([]string, 0, len(this.NodeSelector))
-	for k, _ := range this.NodeSelector {
+	for k := range this.NodeSelector {
 		keysForNodeSelector = append(keysForNodeSelector, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForNodeSelector)
@@ -13685,7 +13685,7 @@ func (this *LabelSelector) String() string {
 	}
 	repeatedStringForMatchExpressions += "}"
 	keysForMatchLabels := make([]string, 0, len(this.MatchLabels))
-	for k, _ := range this.MatchLabels {
+	for k := range this.MatchLabels {
 		keysForMatchLabels = append(keysForMatchLabels, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForMatchLabels)

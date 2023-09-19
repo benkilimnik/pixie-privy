@@ -266,11 +266,13 @@ var _bindata = map[string]func() (*asset, error){
 // directory embedded in the file by go-bindata.
 // For example if you run go-bindata on data/... and data contains the
 // following hierarchy:
-//     data/
-//       foo.txt
-//       img/
-//         a.png
-//         b.png
+//
+//	data/
+//	  foo.txt
+//	  img/
+//	    a.png
+//	    b.png
+//
 // then AssetDir("data") would return []string{"foo.txt", "img"}
 // AssetDir("data/img") would return []string{"a.png", "b.png"}
 // AssetDir("foo.txt") and AssetDir("notexist") would return an error
@@ -303,12 +305,12 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"000001_create_sites_table.down.sql":       &bintree{_000001_create_sites_tableDownSql, map[string]*bintree{}},
-	"000001_create_sites_table.up.sql":         &bintree{_000001_create_sites_tableUpSql, map[string]*bintree{}},
-	"000002_create_site_name_column.down.sql":  &bintree{_000002_create_site_name_columnDownSql, map[string]*bintree{}},
-	"000002_create_site_name_column.up.sql":    &bintree{_000002_create_site_name_columnUpSql, map[string]*bintree{}},
-	"000003_rename_sites_to_projects.down.sql": &bintree{_000003_rename_sites_to_projectsDownSql, map[string]*bintree{}},
-	"000003_rename_sites_to_projects.up.sql":   &bintree{_000003_rename_sites_to_projectsUpSql, map[string]*bintree{}},
+	"000001_create_sites_table.down.sql":       {_000001_create_sites_tableDownSql, map[string]*bintree{}},
+	"000001_create_sites_table.up.sql":         {_000001_create_sites_tableUpSql, map[string]*bintree{}},
+	"000002_create_site_name_column.down.sql":  {_000002_create_site_name_columnDownSql, map[string]*bintree{}},
+	"000002_create_site_name_column.up.sql":    {_000002_create_site_name_columnUpSql, map[string]*bintree{}},
+	"000003_rename_sites_to_projects.down.sql": {_000003_rename_sites_to_projectsDownSql, map[string]*bintree{}},
+	"000003_rename_sites_to_projects.up.sql":   {_000003_rename_sites_to_projectsUpSql, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory

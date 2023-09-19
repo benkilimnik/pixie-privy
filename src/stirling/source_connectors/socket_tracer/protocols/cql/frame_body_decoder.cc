@@ -40,6 +40,7 @@ StatusOr<TIntType> FrameBodyDecoder::ExtractIntCore() {
 template <typename TFloatType>
 StatusOr<TFloatType> ExtractFloatCore(std::string_view* buf) {
   if (buf->size() < sizeof(TFloatType)) {
+    LOG(INFO) << "HERE Insufficient number of bytes for float: " << buf->size();
     return error::ResourceUnavailable("Insufficient number of bytes.");
   }
   TFloatType val = utils::BEndianBytesToFloat<TFloatType>(*buf);

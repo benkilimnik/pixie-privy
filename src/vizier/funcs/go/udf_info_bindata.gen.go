@@ -195,11 +195,11 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"src": &bintree{nil, map[string]*bintree{
-		"vizier": &bintree{nil, map[string]*bintree{
-			"funcs": &bintree{nil, map[string]*bintree{
-				"data": &bintree{nil, map[string]*bintree{
-					"udf.pb": &bintree{srcVizierFuncsDataUdfPb, map[string]*bintree{}},
+	"src": {nil, map[string]*bintree{
+		"vizier": {nil, map[string]*bintree{
+			"funcs": {nil, map[string]*bintree{
+				"data": {nil, map[string]*bintree{
+					"udf.pb": {srcVizierFuncsDataUdfPb, map[string]*bintree{}},
 				}},
 			}},
 		}},

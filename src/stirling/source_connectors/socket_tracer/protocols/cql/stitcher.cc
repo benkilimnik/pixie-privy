@@ -383,8 +383,8 @@ RecordsWithErrorCount<Record> StitchFrames(
   // iterate through all deques of responses associated with a specific streamID and find the
   // matching request
   for (auto it = responses->begin(); it != responses->end(); it++) {
-    auto stream_id = it->first;
-    auto& resp_frames = *(it->second);
+    cass::stream_id stream_id = it->first;
+    std::deque<cass::Frame>& resp_frames = *(it->second);
     auto pos = requests->find(stream_id);
     if (pos == requests->end()) {
       // no requests found
@@ -394,16 +394,16 @@ RecordsWithErrorCount<Record> StitchFrames(
     }
 
     // we found a potential set of requests for this stream ID
-    auto& req_frames = pos->second;
+    std::deque<cass::Frame>* req_frames = pos->second;
     std::deque<uint64_t> req_timestamps = std::deque<uint64_t>();
     // get just the timestamps for matching with responses
-    for (auto& req_frame : *req_frames) {
+    for (cass::Frame& req_frame : *req_frames) {
       req_timestamps.push_back(req_frame.timestamp_ns);
     }
 
     uint64_t latest_resp_ts = 0;
     // go through the responses for this stream ID and check for requests
-    for (auto& resp_frame : resp_frames) {
+    for (cass::Frame& resp_frame : resp_frames) {
       latest_resp_ts = resp_frame.timestamp_ns;
       // Event responses are special: they have no request.
       if (resp_frame.hdr.opcode == Opcode::kEvent) {
@@ -419,7 +419,7 @@ RecordsWithErrorCount<Record> StitchFrames(
 
       if (req_timestamps.empty()) {
         VLOG(1) << absl::Substitute("Did not find a request matching the response. Stream = $0",
-                                resp_frame.hdr.stream);
+                                    resp_frame.hdr.stream);
         ++error_count;
         continue;
       }
@@ -438,11 +438,10 @@ RecordsWithErrorCount<Record> StitchFrames(
                       << resp_frame.ToString();
         continue;
       }
-      auto& req_frame = (*req_frames)[req_index];
+      cass::Frame& req_frame = (*req_frames)[req_index];
       VLOG(2) << absl::Substitute("req_op=$0 msg=$1", magic_enum::enum_name(req_frame.hdr.opcode),
                                   req_frame.msg);
       StatusOr<Record> record_status = ProcessReqRespPair(&req_frame, &resp_frame);
-      LOG(INFO) << "Request msg: " << req_frame.msg << " Response msg: " << resp_frame.msg;
       if (record_status.ok()) {
         entries.push_back(record_status.ConsumeValueOrDie());
       } else {
@@ -486,21 +485,32 @@ RecordsWithErrorCount<Record> StitchFrames(
     req_frames->erase(req_frames->begin(), delete_pos);
     resp_frames.clear();
   }
-  // TODO(@benkilimnik): free deques if they're empty
-  // for (auto it = requests->begin(); it != requests->end(); it++) {
-  //   auto& req_frames = *(it->second);
-  //   if (req_frames.empty()) {
-  //     delete it->second;
-  //     requests->erase(it);
+
+  // TODO(@benkilimnik): should we free the deques if they're empty?
+  // This would necessicate more fine-grained memory management in the
+  // stitcher tests, but could improve overall performance.
+
+  // std::vector<cass::stream_id> ids_to_remove;
+  // for (const auto& [id, req_frames] : *requests) {
+  //   if (req_frames->empty()) {
+  //     delete req_frames;
+  //     ids_to_remove.push_back(id);
   //   }
   // }
-  // for (auto it = responses->begin(); it != responses->end(); it++) {
-  //   auto& resp_frames = *(it->second);
-  //   if (resp_frames.empty()) {
-  //     delete it->second;
-  //     responses->erase(it);
+  // for (const auto& id : ids_to_remove) {
+  //   requests->erase(id);
+  // }
+  // ids_to_remove.clear();
+  // for (const auto& [id, resp_frames] : *responses) {
+  //   if (resp_frames->empty()) {
+  //     delete resp_frames;
+  //     ids_to_remove.push_back(id);
   //   }
   // }
+  // for (const auto& id : ids_to_remove) {
+  //   responses->erase(id);
+  // }
+
   return {entries, error_count};
 }
 
