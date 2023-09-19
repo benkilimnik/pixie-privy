@@ -442,6 +442,7 @@ RecordsWithErrorCount<Record> StitchFrames(
       VLOG(2) << absl::Substitute("req_op=$0 msg=$1", magic_enum::enum_name(req_frame.hdr.opcode),
                                   req_frame.msg);
       StatusOr<Record> record_status = ProcessReqRespPair(&req_frame, &resp_frame);
+      LOG(INFO) << "Request msg: " << req_frame.msg << " Response msg: " << resp_frame.msg;
       if (record_status.ok()) {
         entries.push_back(record_status.ConsumeValueOrDie());
       } else {

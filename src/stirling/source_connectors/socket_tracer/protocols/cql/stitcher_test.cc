@@ -406,15 +406,11 @@ TEST(CassStitcherTest, StartupReady) {
   initialize_map_deques(&req_map, &resp_map, 3);
   RecordsWithErrorCount<Record> result;
 
-  // req_frames.push_back(CreateFrame(0, Opcode::kStartup, kStartupReq, 1));
   req_map[0]->push_back(CreateFrame(0, Opcode::kStartup, kStartupReq, 1));
-  // resp_frames.push_back(CreateFrame(0, Opcode::kReady, 2));
   resp_map[0]->push_back(CreateFrame(0, Opcode::kReady, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  // EXPECT_TRUE(resp_frames.empty());
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 0);
   EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
@@ -437,15 +433,11 @@ TEST(CassStitcherTest, RegisterReady) {
   initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
-  // req_frames.push_back(CreateFrame(0, Opcode::kRegister, kRegisterReq, 1));
   req_map[0]->push_back(CreateFrame(0, Opcode::kRegister, kRegisterReq, 1));
-  // resp_frames.push_back(CreateFrame(0, Opcode::kReady, 2));
   resp_map[0]->push_back(CreateFrame(0, Opcode::kReady, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  // EXPECT_TRUE(resp_frames.empty());
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 0);
   EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
@@ -468,15 +460,11 @@ TEST(CassStitcherTest, OptionsSupported) {
   initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
-  // req_frames.push_back(CreateFrame(0, Opcode::kOptions, 1));
   req_map[0]->push_back(CreateFrame(0, Opcode::kOptions, 1));
-  // resp_frames.push_back(CreateFrame(0, Opcode::kSupported, kSupportedResp, 2));
   resp_map[0]->push_back(CreateFrame(0, Opcode::kSupported, kSupportedResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  // EXPECT_TRUE(resp_frames.empty());
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 0);
   EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
@@ -501,15 +489,11 @@ TEST(CassStitcherTest, QueryResult) {
   initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
-  // req_frames.push_back(CreateFrame(0, Opcode::kQuery, kQueryReq, 1));
   req_map[0]->push_back(CreateFrame(0, Opcode::kQuery, kQueryReq, 1));
-  // resp_frames.push_back(CreateFrame(0, Opcode::kResult, kResultResp, 2));
   resp_map[0]->push_back(CreateFrame(0, Opcode::kResult, kResultResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  // EXPECT_TRUE(resp_frames.empty());
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 0);
   EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
@@ -539,22 +523,16 @@ TEST(CassStitcherTest, QueryError) {
   RecordsWithErrorCount<Record> result;
 
   result = StitchFrames(&req_map, &resp_map);
-  // EXPECT_TRUE(resp_frames.empty());
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 0);
   EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   EXPECT_EQ(result.records.size(), 0);
 
-  // req_frames.push_back(CreateFrame(0, Opcode::kQuery, kBadQueryReq, 1));
   req_map[0]->push_back(CreateFrame(0, Opcode::kQuery, kBadQueryReq, 1));
-  // resp_frames.push_back(CreateFrame(0, Opcode::kError, kBadQueryErrorResp, 2));
   resp_map[0]->push_back(CreateFrame(0, Opcode::kError, kBadQueryErrorResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  // EXPECT_TRUE(resp_frames.empty());
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 0);
   EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
@@ -577,15 +555,11 @@ TEST(CassStitcherTest, PrepareResult) {
   initialize_map_deques(&req_map, &resp_map, 1);
   RecordsWithErrorCount<Record> result;
 
-  // req_frames.push_back(CreateFrame(0, Opcode::kPrepare, kPrepareReq, 1));
   req_map[0]->push_back(CreateFrame(0, Opcode::kPrepare, kPrepareReq, 1));
-  // resp_frames.push_back(CreateFrame(0, Opcode::kResult, kPrepareResultResp, 2));
   resp_map[0]->push_back(CreateFrame(0, Opcode::kResult, kPrepareResultResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  // EXPECT_TRUE(resp_frames.empty());
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 0);
   EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
