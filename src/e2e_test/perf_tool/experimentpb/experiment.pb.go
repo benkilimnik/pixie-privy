@@ -2896,7 +2896,7 @@ func (this *PxLScriptSpec) GoString() string {
 		s = append(s, "CollectionPeriod: "+fmt.Sprintf("%#v", this.CollectionPeriod)+",\n")
 	}
 	keysForTemplateValues := make([]string, 0, len(this.TemplateValues))
-	for k := range this.TemplateValues {
+	for k, _ := range this.TemplateValues {
 		keysForTemplateValues = append(keysForTemplateValues, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForTemplateValues)
@@ -2909,7 +2909,7 @@ func (this *PxLScriptSpec) GoString() string {
 		s = append(s, "TemplateValues: "+mapStringForTemplateValues+",\n")
 	}
 	keysForTableOutputs := make([]string, 0, len(this.TableOutputs))
-	for k := range this.TableOutputs {
+	for k, _ := range this.TableOutputs {
 		keysForTableOutputs = append(keysForTableOutputs, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForTableOutputs)
@@ -3006,7 +3006,7 @@ func (this *PrometheusScrapeSpec) GoString() string {
 		s = append(s, "ScrapePeriod: "+fmt.Sprintf("%#v", this.ScrapePeriod)+",\n")
 	}
 	keysForMetricNames := make([]string, 0, len(this.MetricNames))
-	for k := range this.MetricNames {
+	for k, _ := range this.MetricNames {
 		keysForMetricNames = append(keysForMetricNames, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForMetricNames)
@@ -5239,7 +5239,7 @@ func (this *PxLScriptSpec) String() string {
 		return "nil"
 	}
 	keysForTemplateValues := make([]string, 0, len(this.TemplateValues))
-	for k := range this.TemplateValues {
+	for k, _ := range this.TemplateValues {
 		keysForTemplateValues = append(keysForTemplateValues, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForTemplateValues)
@@ -5249,7 +5249,7 @@ func (this *PxLScriptSpec) String() string {
 	}
 	mapStringForTemplateValues += "}"
 	keysForTableOutputs := make([]string, 0, len(this.TableOutputs))
-	for k := range this.TableOutputs {
+	for k, _ := range this.TableOutputs {
 		keysForTableOutputs = append(keysForTableOutputs, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForTableOutputs)
@@ -5344,7 +5344,7 @@ func (this *PrometheusScrapeSpec) String() string {
 		return "nil"
 	}
 	keysForMetricNames := make([]string, 0, len(this.MetricNames))
-	for k := range this.MetricNames {
+	for k, _ := range this.MetricNames {
 		keysForMetricNames = append(keysForMetricNames, k)
 	}
 	github_com_gogo_protobuf_sortkeys.Strings(keysForMetricNames)
