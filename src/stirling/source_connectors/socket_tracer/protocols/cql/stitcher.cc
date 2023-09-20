@@ -43,7 +43,7 @@ std::string BytesToString(std::basic_string_view<uint8_t> x) {
 Status ProcessStartupReq(Frame* req_frame, Request* req) {
   PX_ASSIGN_OR_RETURN(StartupReq r, ParseStartupReq(req_frame));
 
-  CTX_DCHECK(req->msg.empty());
+  DCHECK(req->msg.empty());
   req->msg = ToJSONString(r.options);
 
   return Status::OK();
@@ -54,7 +54,7 @@ Status ProcessAuthResponseReq(Frame* req_frame, Request* req) {
 
   std::string_view token_str = CreateStringView<char>(r.token);
 
-  CTX_DCHECK(req->msg.empty());
+  DCHECK(req->msg.empty());
   req->msg = token_str;
 
   return Status::OK();
@@ -64,7 +64,7 @@ Status ProcessOptionsReq(Frame* req_frame, Request* req) {
   PX_ASSIGN_OR_RETURN(OptionsReq r, ParseOptionsReq(req_frame));
 
   PX_UNUSED(r);
-  CTX_DCHECK(req->msg.empty());
+  DCHECK(req->msg.empty());
 
   return Status::OK();
 }
@@ -72,7 +72,7 @@ Status ProcessOptionsReq(Frame* req_frame, Request* req) {
 Status ProcessRegisterReq(Frame* req_frame, Request* req) {
   PX_ASSIGN_OR_RETURN(RegisterReq r, ParseRegisterReq(req_frame));
 
-  CTX_DCHECK(req->msg.empty());
+  DCHECK(req->msg.empty());
   req->msg = ToJSONString(r.event_types);
 
   return Status::OK();
@@ -89,7 +89,7 @@ Status ProcessQueryReq(Frame* req_frame, Request* req) {
     hex_values.push_back(BytesToString(value_i.value));
   }
 
-  CTX_DCHECK(req->msg.empty());
+  DCHECK(req->msg.empty());
   req->msg = r.query;
 
   // For now, just tag the parameter values to the end.
@@ -104,7 +104,7 @@ Status ProcessQueryReq(Frame* req_frame, Request* req) {
 Status ProcessPrepareReq(Frame* req_frame, Request* req) {
   PX_ASSIGN_OR_RETURN(PrepareReq r, ParsePrepareReq(req_frame));
 
-  CTX_DCHECK(req->msg.empty());
+  DCHECK(req->msg.empty());
   req->msg = r.query;
 
   return Status::OK();
@@ -121,7 +121,7 @@ Status ProcessExecuteReq(Frame* req_frame, Request* req) {
     hex_values.push_back(BytesToString(value_i.value));
   }
 
-  CTX_DCHECK(req->msg.empty());
+  DCHECK(req->msg.empty());
   req->msg = ToJSONString(hex_values);
 
   return Status::OK();
@@ -155,7 +155,7 @@ Status ProcessBatchReq(Frame* req_frame, Request* req) {
 Status ProcessErrorResp(Frame* resp_frame, Response* resp) {
   PX_ASSIGN_OR_RETURN(ErrorResp r, ParseErrorResp(resp_frame));
 
-  CTX_DCHECK(resp->msg.empty());
+  DCHECK(resp->msg.empty());
   resp->msg = absl::Substitute("[$0] $1", r.error_code, r.error_msg);
 
   return Status::OK();
@@ -165,7 +165,7 @@ Status ProcessReadyResp(Frame* resp_frame, Response* resp) {
   PX_ASSIGN_OR_RETURN(ReadyResp r, ParseReadyResp(resp_frame));
 
   PX_UNUSED(r);
-  CTX_DCHECK(resp->msg.empty());
+  DCHECK(resp->msg.empty());
 
   return Status::OK();
 }
@@ -173,7 +173,7 @@ Status ProcessReadyResp(Frame* resp_frame, Response* resp) {
 Status ProcessSupportedResp(Frame* resp_frame, Response* resp) {
   PX_ASSIGN_OR_RETURN(SupportedResp r, ParseSupportedResp(resp_frame));
 
-  CTX_DCHECK(resp->msg.empty());
+  DCHECK(resp->msg.empty());
   resp->msg = ToJSONString(r.options);
 
   return Status::OK();
@@ -182,7 +182,7 @@ Status ProcessSupportedResp(Frame* resp_frame, Response* resp) {
 Status ProcessAuthenticateResp(Frame* resp_frame, Response* resp) {
   PX_ASSIGN_OR_RETURN(AuthenticateResp r, ParseAuthenticateResp(resp_frame));
 
-  CTX_DCHECK(resp->msg.empty());
+  DCHECK(resp->msg.empty());
   resp->msg = std::move(r.authenticator_name);
 
   return Status::OK();
@@ -193,7 +193,7 @@ Status ProcessAuthSuccessResp(Frame* resp_frame, Response* resp) {
 
   std::string token_hex = BytesToString(r.token);
 
-  CTX_DCHECK(resp->msg.empty());
+  DCHECK(resp->msg.empty());
   resp->msg = token_hex;
 
   return Status::OK();
@@ -204,7 +204,7 @@ Status ProcessAuthChallengeResp(Frame* resp_frame, Response* resp) {
 
   std::string token_hex = BytesToString(r.token);
 
-  CTX_DCHECK(resp->msg.empty());
+  DCHECK(resp->msg.empty());
   resp->msg = token_hex;
 
   return Status::OK();
@@ -213,7 +213,7 @@ Status ProcessAuthChallengeResp(Frame* resp_frame, Response* resp) {
 Status ProcessResultResp(Frame* resp_frame, Response* resp) {
   PX_ASSIGN_OR_RETURN(ResultResp r, ParseResultResp(resp_frame));
 
-  CTX_DCHECK(resp->msg.empty());
+  DCHECK(resp->msg.empty());
 
   switch (r.kind) {
     case ResultRespKind::kVoid: {
@@ -265,12 +265,12 @@ Status ProcessEventResp(Frame* resp_frame, Response* resp) {
   PX_ASSIGN_OR_RETURN(EventResp r, ParseEventResp(resp_frame));
 
   if (r.event_type == "TOPOLOGY_CHANGE" || r.event_type == "STATUS_CHANGE") {
-    CTX_DCHECK(resp->msg.empty());
+    DCHECK(resp->msg.empty());
     resp->msg = absl::StrCat(r.event_type, " ", r.change_type, " ", r.addr.AddrStr());
 
     return Status::OK();
   } else if (r.event_type == "SCHEMA_CHANGE") {
-    CTX_DCHECK(resp->msg.empty());
+    DCHECK(resp->msg.empty());
     resp->msg = absl::StrCat(r.event_type, " ", r.sc.change_type, " keyspace=", r.sc.keyspace,
                              " name=", r.sc.name);
     // TODO(oazizi): Add sc.arg_types to the response string.
@@ -334,7 +334,7 @@ Status ProcessResp(Frame* resp_frame, Response* resp) {
 }
 
 StatusOr<Record> ProcessReqRespPair(Frame* req_frame, Frame* resp_frame) {
-  CTX_ECHECK_LT(req_frame->timestamp_ns, resp_frame->timestamp_ns);
+  ECHECK_LT(req_frame->timestamp_ns, resp_frame->timestamp_ns);
 
   Record r;
   PX_RETURN_IF_ERROR(ProcessReq(req_frame, &r.req));
@@ -348,7 +348,7 @@ StatusOr<Record> ProcessSolitaryResp(Frame* resp_frame) {
 
   // For now, Event is the only supported solitary response.
   // If this ever changes, the code below needs to be adapted.
-  CTX_DCHECK(resp_frame->hdr.opcode == Opcode::kEvent);
+  DCHECK(resp_frame->hdr.opcode == Opcode::kEvent);
 
   // Make a fake request to go along with the response.
   // - Use REGISTER op, since that was what set up the events in the first place.
@@ -372,76 +372,113 @@ StatusOr<Record> ProcessSolitaryResp(Frame* resp_frame) {
 //  - Request and response deques are likely (confirm?) to be mostly ordered.
 //  - Stream values can be re-used, so sorting would have to consider times too.
 //  - Stream values need not be in any sequential order.
-RecordsWithErrorCount<Record> StitchFrames(std::deque<Frame>* req_frames,
-                                           std::deque<Frame>* resp_frames) {
+RecordsWithErrorCount<Record> StitchFrames(
+    std::map<cass::stream_id, std::deque<cass::Frame>>* requests,
+    std::map<cass::stream_id, std::deque<cass::Frame>>* responses) {
   std::vector<Record> entries;
   int error_count = 0;
 
-  for (auto& resp_frame : *resp_frames) {
-    bool found_match = false;
-
-    // Event responses are special: they have no request.
-    if (resp_frame.hdr.opcode == Opcode::kEvent) {
-      StatusOr<Record> record_status = ProcessSolitaryResp(&resp_frame);
-      if (record_status.ok()) {
-        entries.push_back(record_status.ConsumeValueOrDie());
-      } else {
-        VLOG(1) << record_status.msg();
-        ++error_count;
-      }
+  // iterate through all deques of responses associated with a specific streamID and find the
+  // matching request
+  for (auto it = responses->begin(); it != responses->end(); it++) {
+    cass::stream_id stream_id = it->first;
+    std::deque<cass::Frame>& resp_frames = it->second;
+    auto pos = requests->find(stream_id);
+    if (pos == requests->end()) {
+      VLOG(1) << absl::Substitute("Could not find any requests for stream = $0", stream_id);
+      // if we don't find a matching request, we can't do anything with this response
+      // so clean it up
+      resp_frames.clear();
+      ++error_count;
       continue;
     }
 
-    // Search for matching req frame
-    for (auto& req_frame : *req_frames) {
-      if (resp_frame.hdr.stream == req_frame.hdr.stream) {
-        VLOG(2) << absl::Substitute("req_op=$0 msg=$1", magic_enum::enum_name(req_frame.hdr.opcode),
-                                    req_frame.msg);
+    // we found a potential set of requests for this stream ID
+    std::deque<cass::Frame>& req_frames = pos->second;
+    std::deque<uint64_t> req_timestamps = std::deque<uint64_t>();
+    // get just the timestamps for matching with responses
+    for (cass::Frame& req_frame : req_frames) {
+      req_timestamps.push_back(req_frame.timestamp_ns);
+    }
 
-        StatusOr<Record> record_status = ProcessReqRespPair(&req_frame, &resp_frame);
+    uint64_t latest_resp_ts = 0;
+    // go through the responses for this stream ID and check for requests
+    for (cass::Frame& resp_frame : resp_frames) {
+      latest_resp_ts = resp_frame.timestamp_ns;
+      // Event responses are special: they have no request.
+      if (resp_frame.hdr.opcode == Opcode::kEvent) {
+        StatusOr<Record> record_status = ProcessSolitaryResp(&resp_frame);
         if (record_status.ok()) {
           entries.push_back(record_status.ConsumeValueOrDie());
         } else {
-          VLOG(1) << record_status.ToString();
+          VLOG(1) << record_status.msg();
           ++error_count;
         }
+        continue;
+      }
 
-        // Found a match, so remove both request and response.
-        // We don't remove request frames on the fly, however,
-        // because it could otherwise cause unnecessary churn/copying in the deque.
-        // This is due to the fact that responses can come out-of-order.
-        // Just mark the request as consumed, and clean-up when they reach the head of the queue.
-        // Note that responses are always head-processed, so they don't require this optimization.
-        found_match = true;
-        req_frame.consumed = true;
+      // This returns the first request timestamp that is JUST BEFORE the response timestamp
+      // Upper bound returns the first request timestamps GREATER than the response timestamp; we
+      // want to get the one right before
+      auto stream_it =
+          std::upper_bound(req_timestamps.begin(), req_timestamps.end(), resp_frame.timestamp_ns) -
+          1;
+      int req_index = stream_it - req_timestamps.begin();
+      // Responses should always have a more recent timestamp than the first request. If this
+      // condition is triggered we should not attempt to match this frame. Since responses are
+      // cleared during StitchFrames this will get cleaned up during the current iteration.
+      if (stream_it + 1 == req_timestamps.begin()) {
+        DCHECK(false) << "Unable to find request that is earlier than response: "
+                      << resp_frame.ToString();
+        continue;
+      }
+      cass::Frame& req_frame = req_frames[req_index];
+      VLOG(2) << absl::Substitute("req_op=$0 msg=$1", magic_enum::enum_name(req_frame.hdr.opcode),
+                                  req_frame.msg);
+      StatusOr<Record> record_status = ProcessReqRespPair(&req_frame, &resp_frame);
+      if (record_status.ok()) {
+        entries.push_back(record_status.ConsumeValueOrDie());
+      } else {
+        VLOG(1) << record_status.ToString();
+        ++error_count;
+      }
+      // Record that the req and response pair are consumed
+      req_frame.consumed = true;
+    }
+
+    auto req_it = req_frames.begin();
+    auto delete_pos = req_frames.begin();
+    while (req_it != req_frames.end()) {
+      auto& frame = *req_it;
+      if (frame.consumed) {
+      } else if (!frame.consumed && (frame.discarded || frame.timestamp_ns < latest_resp_ts)) {
+        error_count++;
+      } else {
+        // marking the first request that is not consumed as the delete position
+        delete_pos = req_it;
         break;
       }
+      req_it++;
     }
 
-    if (!found_match) {
-      VLOG(1) << absl::Substitute("Did not find a request matching the response. Stream = $0",
-                                  resp_frame.hdr.stream);
-      ++error_count;
-    }
-
-    // Clean-up consumed frames at the head.
-    // Do this inside the resp loop to aggressively clean-out req_frames whenever a frame consumed.
-    // Should speed up the req_frames search for the next iteration.
-    auto it = req_frames->begin();
-    while (it != req_frames->end()) {
-      if (!(*it).consumed) {
-        break;
+    // Mark requests as discarded that will never match. These frames will be deleted in future
+    // StitchFrames iterations once they bubble up to the front of the deque and form a contiguous
+    // range with the consumed frames. This is done to avoid the bookeeping necessary to delete
+    // multiple ranges of indices in the deque (which occur when responses are lost).
+    if (req_it != req_frames.end()) {
+      while (req_it != req_frames.end()) {
+        auto& frame = *req_it;
+        if (!frame.consumed && frame.timestamp_ns < latest_resp_ts) {
+          frame.discarded = true;
+        }
+        req_it++;
       }
-      it++;
+    } else {
+      delete_pos = req_frames.end();
     }
-    req_frames->erase(req_frames->begin(), it);
-
-    // TODO(oazizi): Consider removing requests that are too old, otherwise a lost response can mean
-    // the are never processed. This would result in a memory leak until the more drastic connection
-    // tracker clean-up mechanisms kick in.
+    req_frames.erase(req_frames.begin(), delete_pos);
+    resp_frames.clear();
   }
-
-  resp_frames->clear();
 
   return {entries, error_count};
 }

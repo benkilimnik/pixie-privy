@@ -271,9 +271,40 @@ class ConnTracker : NotCopyMoveable {
     CONN_TRACE(2) << absl::Substitute("req_frames=$0 resp_frames=$1", req_frames.size(),
                                       resp_frames.size());
 
-    protocols::RecordsWithErrorCount<TRecordType> result =
-        protocols::StitchFrames<TRecordType, TFrameType, TStateType>(&req_frames, &resp_frames,
-                                                                     state_ptr);
+    protocols::RecordsWithErrorCount<TRecordType> result;
+
+    // If this protocol doesn't support streams, we call StitchFrames with just the deque.
+    // If it does, we populate a map of stream ID to deque.
+    if constexpr (TProtocolTraits::stream_support ==
+                  protocols::BaseProtocolTraits<TRecordType>::UseStream) {
+      using TKey = typename TProtocolTraits::key_type;
+      // TODO(@benkilimnik): If many protocols end up using the map interface, it may be worth
+      // populating the map earlier in DataStreamsToFrames i.e. in the event parser. This might
+      // improve performance slightly, since we wouldn't have to iterate over the frames twice.
+      // However, it would require significant refactoring.
+      std::map<TKey, std::deque<TFrameType>> requests;
+      std::map<TKey, std::deque<TFrameType>> responses;
+      for (auto& frame : req_frames) {
+        // GetStreamID returns 0 by default if not specialized in protocol.
+        auto key = protocols::GetStreamID<TKey, TFrameType>(&frame);
+        requests[key].push_back(frame);
+      }
+      for (auto& frame : resp_frames) {
+        auto key = protocols::GetStreamID<TKey, TFrameType>(&frame);
+        responses[key].push_back(frame);
+      }
+      if (requests.empty()) {
+        requests[0] = std::deque<TFrameType>{};
+      }
+      if (responses.empty()) {
+        responses[0] = std::deque<TFrameType>{};
+      }
+      result = protocols::StitchFrames<TRecordType, TKey, TFrameType, TStateType>(
+          &requests, &responses, state_ptr);
+    } else {
+      result = protocols::StitchFrames<TRecordType, TFrameType, TStateType>(
+          &req_frames, &resp_frames, state_ptr);
+    }
 
     CONN_TRACE(2) << absl::Substitute("records=$0", result.records.size());
 

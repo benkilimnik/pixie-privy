@@ -40,7 +40,7 @@ namespace cass {
 // For how to parse frames, see the Cassandra spec:
 // https://git-wip-us.apache.org/repos/asf?p=cassandra.git;a=blob_plain;f=doc/native_protocol_v3.spec
 ParseState ParseFrame(message_type_t type, std::string_view* buf, Frame* result) {
-  CTX_DCHECK(type == message_type_t::kRequest || type == message_type_t::kResponse);
+  DCHECK(type == message_type_t::kRequest || type == message_type_t::kResponse);
 
   if (buf->size() < kFrameHeaderLength) {
     return ParseState::kNeedsMoreData;
@@ -94,6 +94,11 @@ size_t FindFrameBoundary<cass::Frame>(message_type_t /*type*/, std::string_view 
                                       size_t /*start_pos*/, NoState* /*state*/) {
   // Not implemented.
   return std::string::npos;
+}
+
+template <>
+cass::stream_id GetStreamID(cass::Frame* frame) {
+  return frame->hdr.stream;
 }
 
 }  // namespace protocols

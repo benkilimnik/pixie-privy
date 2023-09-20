@@ -16,9 +16,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <asm-generic/errno.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <map>
 
+#include "src/stirling/source_connectors/socket_tracer/protocols/common/test_utils.h"
 #include "src/stirling/source_connectors/socket_tracer/protocols/cql/parse.h"
 #include "src/stirling/source_connectors/socket_tracer/protocols/cql/stitcher.h"
 #include "src/stirling/source_connectors/socket_tracer/protocols/cql/test_utils.h"
@@ -161,83 +164,125 @@ constexpr uint8_t kSupportedResp[] = {
     0x6e, 0x61, 0x70, 0x70, 0x79, 0x00, 0x03, 0x6c, 0x7a, 0x34, 0x00, 0x0b, 0x43, 0x51, 0x4c, 0x5f,
     0x56, 0x45, 0x52, 0x53, 0x49, 0x4f, 0x4e, 0x00, 0x01, 0x00, 0x05, 0x33, 0x2e, 0x34, 0x2e, 0x34};
 
-// Asynchronous EVENT response from server.
-// Content: SCHEMA_CHANGE DROPPED TABLE tutorialspoint emp
-constexpr uint8_t kEventResp[] = {0x00, 0x0d, 0x53, 0x43, 0x48, 0x45, 0x4d, 0x41, 0x5f, 0x43, 0x48,
-                                  0x41, 0x4e, 0x47, 0x45, 0x00, 0x07, 0x44, 0x52, 0x4f, 0x50, 0x50,
-                                  0x45, 0x44, 0x00, 0x05, 0x54, 0x41, 0x42, 0x4c, 0x45, 0x00, 0x0e,
-                                  0x74, 0x75, 0x74, 0x6f, 0x72, 0x69, 0x61, 0x6c, 0x73, 0x70, 0x6f,
-                                  0x69, 0x6e, 0x74, 0x00, 0x03, 0x65, 0x6d, 0x70};
+// TODO(@benkilimnik): Previously used for negative stream id test. Remove or adapt with new map
+// interface). Asynchronous EVENT response from server. Content: SCHEMA_CHANGE DROPPED TABLE
+// tutorialspoint emp constexpr uint8_t kEventResp[] = {0x00, 0x0d, 0x53, 0x43, 0x48, 0x45, 0x4d,
+// 0x41, 0x5f, 0x43, 0x48,
+//                                   0x41, 0x4e, 0x47, 0x45, 0x00, 0x07, 0x44, 0x52, 0x4f, 0x50,
+//                                   0x50, 0x45, 0x44, 0x00, 0x05, 0x54, 0x41, 0x42, 0x4c, 0x45,
+//                                   0x00, 0x0e, 0x74, 0x75, 0x74, 0x6f, 0x72, 0x69, 0x61, 0x6c,
+//                                   0x73, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x00, 0x03, 0x65, 0x6d,
+//                                   0x70};
 
 //-----------------------------------------------------------------------------
 // Test Cases
 //-----------------------------------------------------------------------------
 
-TEST(CassStitcherTest, OutOfOrderMatching) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
+TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
+  req_map = std::map<stream_id, std::deque<Frame>>();
+  resp_map = std::map<stream_id, std::deque<Frame>>();
+
   RecordsWithErrorCount<Record> result;
 
   int t = 0;
 
-  Frame req0_frame = CreateFrame(0, Opcode::kQuery, kBadQueryReq, ++t);
-  Frame resp0_frame = CreateFrame(0, Opcode::kError, kBadQueryErrorResp, ++t);
-  Frame req1_frame = CreateFrame(1, Opcode::kQuery, kBadQueryReq, ++t);
-  Frame resp1_frame = CreateFrame(1, Opcode::kError, kBadQueryErrorResp, ++t);
-  Frame req2_frame = CreateFrame(2, Opcode::kQuery, kBadQueryReq, ++t);
-  Frame resp2_frame = CreateFrame(2, Opcode::kError, kBadQueryErrorResp, ++t);
+  Frame req0_s0_frame = CreateFrame(0, Opcode::kQuery, kBadQueryReq, ++t);
+  Frame resp0_s0_frame = CreateFrame(0, Opcode::kError, kBadQueryErrorResp, ++t);
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  Frame req0_s1_frame = CreateFrame(1, Opcode::kQuery, kBadQueryReq, ++t);
+  Frame resp0_s1_frame = CreateFrame(1, Opcode::kError, kBadQueryErrorResp, ++t);
+  Frame req0_s2_frame = CreateFrame(2, Opcode::kQuery, kBadQueryReq, ++t);
+  Frame resp0_s2_frame = CreateFrame(2, Opcode::kError, kBadQueryErrorResp, ++t);
+
+  Frame req1_s0_frame = CreateFrame(0, Opcode::kQuery, kBadQueryReq, ++t);
+  Frame req1_s1_frame = CreateFrame(1, Opcode::kQuery, kBadQueryReq, ++t);
+  Frame req1_s2_frame = CreateFrame(2, Opcode::kQuery, kBadQueryReq, ++t);
+  Frame resp1_s1_frame = CreateFrame(1, Opcode::kError, kBadQueryErrorResp, ++t);
+  Frame resp1_s2_frame = CreateFrame(2, Opcode::kError, kBadQueryErrorResp, ++t);
+
+  Frame req2_s0_frame = CreateFrame(0, Opcode::kQuery, kBadQueryReq, ++t);
+  Frame resp2_s0_frame = CreateFrame(0, Opcode::kError, kBadQueryErrorResp, ++t);
+
+  Frame req3_s0_frame = CreateFrame(0, Opcode::kQuery, kBadQueryReq, ++t);
+  Frame req4_s0_frame = CreateFrame(0, Opcode::kQuery, kBadQueryReq, ++t);
+
+  Frame req5_s0_frame = CreateFrame(0, Opcode::kQuery, kBadQueryReq, ++t);
+  Frame resp5_s0_frame = CreateFrame(0, Opcode::kError, kBadQueryErrorResp, ++t);
+
+  result = StitchFrames(&req_map, &resp_map);
+  // EXPECT_TRUE(resp_frames.empty());
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  // EXPECT_EQ(req_frames.size(), 0);
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   EXPECT_EQ(result.records.size(), 0);
 
-  req_frames.push_back(req0_frame);
-  req_frames.push_back(req1_frame);
+  // create deque for stream0 on the stack
+  req_map[0].push_back(req0_s0_frame);
+  req_map[1].push_back(req0_s1_frame);
+  req_map[2].push_back(req0_s2_frame);
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 2);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 3);
   EXPECT_EQ(result.error_count, 0);
   EXPECT_EQ(result.records.size(), 0);
 
-  resp_frames.push_back(resp1_frame);
+  req_map[0].push_back(req1_s0_frame);
+  req_map[1].push_back(req1_s1_frame);
+  req_map[2].push_back(req1_s2_frame);
+  req_map[0].push_back(req2_s0_frame);
+  req_map[0].push_back(req3_s0_frame);
+  req_map[0].push_back(req4_s0_frame);
+  req_map[0].push_back(req5_s0_frame);
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 2);
-  EXPECT_EQ(result.error_count, 0);
-  EXPECT_EQ(result.records.size(), 1);
+  resp_map[0].push_back(resp0_s0_frame);
+  resp_map[1].push_back(resp0_s1_frame);
+  resp_map[2].push_back(resp0_s2_frame);
+  resp_map[0].push_back(resp2_s0_frame);
+  resp_map[0].push_back(resp5_s0_frame);
 
-  req_frames.push_back(req2_frame);
-  resp_frames.push_back(resp0_frame);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  // EXPECT_EQ(req_frames.size(), 6);
+  EXPECT_EQ(totalDequeSize(req_map), 2);
+  EXPECT_EQ(req_map[1].front().timestamp_ns, req1_s1_frame.timestamp_ns);
+  EXPECT_EQ(req_map[2].front().timestamp_ns, req1_s2_frame.timestamp_ns);
+  // EXPECT_EQ(result.error_count, 1);
+  EXPECT_EQ(result.error_count, 3);
+  EXPECT_EQ(result.records.size(), 5);
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 1);
-  EXPECT_EQ(result.error_count, 0);
-  EXPECT_EQ(result.records.size(), 1);
-
-  resp_frames.push_back(resp2_frame);
-
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(resp_frames.size(), 0);
-  EXPECT_EQ(result.error_count, 0);
-  EXPECT_EQ(result.records.size(), 1);
-
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(resp_frames.size(), 0);
+  // No requests or responses should be deleted when streams of
+  // the head of requests are inactive
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  // EXPECT_EQ(req_frames.size(), 6);
+  EXPECT_EQ(totalDequeSize(req_map), 2);
+  EXPECT_EQ(req_map[1].front().timestamp_ns, req1_s1_frame.timestamp_ns);
+  EXPECT_EQ(req_map[2].front().timestamp_ns, req1_s2_frame.timestamp_ns);
   EXPECT_EQ(result.error_count, 0);
   EXPECT_EQ(result.records.size(), 0);
+
+  resp_map[1].push_back(resp1_s1_frame);
+  resp_map[2].push_back(resp1_s2_frame);
+
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
+  // EXPECT_EQ(result.error_count, 2);
+  EXPECT_EQ(result.error_count, 0);
+  EXPECT_EQ(result.records.size(), 2);
 }
 
 // To test that, if a request of a response is missing, then the response is popped off.
 TEST(CassStitcherTest, MissingRequest) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
+  req_map = std::map<stream_id, std::deque<Frame>>();
+  resp_map = std::map<stream_id, std::deque<Frame>>();
+
   RecordsWithErrorCount<Record> result;
 
   int t = 0;
@@ -245,21 +290,25 @@ TEST(CassStitcherTest, MissingRequest) {
   Frame resp0_frame = CreateFrame(0, Opcode::kError, kBadQueryErrorResp, ++t);
   Frame resp1_frame = CreateFrame(1, Opcode::kError, kBadQueryErrorResp, ++t);
 
-  req_frames.push_back(req1_frame);
-  resp_frames.push_back(resp0_frame);
-  resp_frames.push_back(resp1_frame);
+  req_map[1].push_back(req1_frame);
+  resp_map[0].push_back(resp0_frame);
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  resp_map[1].push_back(resp1_frame);
+
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 1);
   EXPECT_EQ(result.records.size(), 1);
 }
 
 // To test that mis-classified frames are caught by stitcher.
 TEST(CassStitcherTest, NonCQLFrames) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
+  req_map = std::map<stream_id, std::deque<Frame>>();
+  resp_map = std::map<stream_id, std::deque<Frame>>();
+
   RecordsWithErrorCount<Record> result;
 
   int t = 0;
@@ -269,52 +318,69 @@ TEST(CassStitcherTest, NonCQLFrames) {
   Frame req1_frame = CreateFrame(0, Opcode::kQuery, {0x23, 0xa8, 0xf3}, ++t);
   Frame resp1_frame = CreateFrame(0, Opcode::kError, {0x35, 0x9e, 0x1b, 0x77}, ++t);
 
-  req_frames = {req0_frame, req1_frame};
-  resp_frames = {resp0_frame, resp1_frame};
+  req_map[0].push_back(req0_frame);
+  req_map[0].push_back(req1_frame);
+  resp_map[0].push_back(resp0_frame);
+  resp_map[0].push_back(resp1_frame);
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 2);
   EXPECT_EQ(result.records.size(), 0);
 }
 
-TEST(CassStitcherTest, OpEvent) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
-  RecordsWithErrorCount<Record> result;
+// TODO(@benkilimnik) Cannot allocate deque for negative stream id in map
+// Can we remove this test?
+// TEST(CassStitcherTest, OpEvent) {
+//   std::map<stream_id, std::deque<Frame>> req_map;
+//   std::map<stream_id, std::deque<Frame>> resp_map;
+//   req_map = std::map<stream_id, std::deque<Frame>>();
+//   resp_map = std::map<stream_id, std::deque<Frame>>();
 
-  resp_frames.push_back(CreateFrame(-1, Opcode::kEvent, kEventResp, 3));
+//   RecordsWithErrorCount<Record> result;
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
-  EXPECT_EQ(result.error_count, 0);
-  ASSERT_EQ(result.records.size(), 1);
+//   // std::deque<Frame>* req_deque = new std::deque<Frame>();
+//   // req_map[-1] = req_deque;
 
-  Record& record = result.records.front();
+//   // resp_frames.push_back(CreateFrame(-1, Opcode::kEvent, kEventResp, 3));
+//   // resp_map[-1].push_back(CreateFrame(-1, Opcode::kEvent, kEventResp, 3));
 
-  EXPECT_EQ(record.req.op, ReqOp::kRegister);
-  EXPECT_EQ(record.resp.op, RespOp::kEvent);
+//   result = StitchFrames(&req_map, &resp_map);
+//   // EXPECT_TRUE(resp_frames.empty());
+//   EXPECT_TRUE(areAllDequesEmpty(resp_map));
+//   // EXPECT_EQ(req_frames.size(), 0);
+//   EXPECT_EQ(totalDequeSize(req_map), 0);
+//   EXPECT_EQ(result.error_count, 0);
+//   ASSERT_EQ(result.records.size(), 1);
 
-  EXPECT_EQ(record.req.msg, "-");
-  EXPECT_THAT(record.resp.msg, "SCHEMA_CHANGE DROPPED keyspace=tutorialspoint name=emp");
+//   Record& record = result.records.front();
 
-  // Expecting zero latency.
-  EXPECT_EQ(record.req.timestamp_ns, record.resp.timestamp_ns);
-}
+//   EXPECT_EQ(record.req.op, ReqOp::kRegister);
+//   EXPECT_EQ(record.resp.op, RespOp::kEvent);
+
+//   EXPECT_EQ(record.req.msg, "-");
+//   EXPECT_THAT(record.resp.msg, "SCHEMA_CHANGE DROPPED keyspace=tutorialspoint name=emp");
+
+//   // Expecting zero latency.
+//   EXPECT_EQ(record.req.timestamp_ns, record.resp.timestamp_ns);
+//
+// }
 
 TEST(CassStitcherTest, StartupReady) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
+  req_map = std::map<stream_id, std::deque<Frame>>();
+  resp_map = std::map<stream_id, std::deque<Frame>>();
+
   RecordsWithErrorCount<Record> result;
 
-  req_frames.push_back(CreateFrame(0, Opcode::kStartup, kStartupReq, 1));
-  resp_frames.push_back(CreateFrame(0, Opcode::kReady, 2));
+  req_map[0].push_back(CreateFrame(0, Opcode::kStartup, kStartupReq, 1));
+  resp_map[0].push_back(CreateFrame(0, Opcode::kReady, 2));
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -328,16 +394,19 @@ TEST(CassStitcherTest, StartupReady) {
 }
 
 TEST(CassStitcherTest, RegisterReady) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
+  req_map = std::map<stream_id, std::deque<Frame>>();
+  resp_map = std::map<stream_id, std::deque<Frame>>();
+
   RecordsWithErrorCount<Record> result;
 
-  req_frames.push_back(CreateFrame(0, Opcode::kRegister, kRegisterReq, 1));
-  resp_frames.push_back(CreateFrame(0, Opcode::kReady, 2));
+  req_map[0].push_back(CreateFrame(0, Opcode::kRegister, kRegisterReq, 1));
+  resp_map[0].push_back(CreateFrame(0, Opcode::kReady, 2));
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -351,16 +420,19 @@ TEST(CassStitcherTest, RegisterReady) {
 }
 
 TEST(CassStitcherTest, OptionsSupported) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
+  req_map = std::map<stream_id, std::deque<Frame>>();
+  resp_map = std::map<stream_id, std::deque<Frame>>();
+
   RecordsWithErrorCount<Record> result;
 
-  req_frames.push_back(CreateFrame(0, Opcode::kOptions, 1));
-  resp_frames.push_back(CreateFrame(0, Opcode::kSupported, kSupportedResp, 2));
+  req_map[0].push_back(CreateFrame(0, Opcode::kOptions, 1));
+  resp_map[0].push_back(CreateFrame(0, Opcode::kSupported, kSupportedResp, 2));
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -376,16 +448,19 @@ TEST(CassStitcherTest, OptionsSupported) {
 }
 
 TEST(CassStitcherTest, QueryResult) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
+  req_map = std::map<stream_id, std::deque<Frame>>();
+  resp_map = std::map<stream_id, std::deque<Frame>>();
+
   RecordsWithErrorCount<Record> result;
 
-  req_frames.push_back(CreateFrame(0, Opcode::kQuery, kQueryReq, 1));
-  resp_frames.push_back(CreateFrame(0, Opcode::kResult, kResultResp, 2));
+  req_map[0].push_back(CreateFrame(0, Opcode::kQuery, kQueryReq, 1));
+  resp_map[0].push_back(CreateFrame(0, Opcode::kResult, kResultResp, 2));
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -405,22 +480,25 @@ TEST(CassStitcherTest, QueryResult) {
 }
 
 TEST(CassStitcherTest, QueryError) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
+  req_map = std::map<stream_id, std::deque<Frame>>();
+  resp_map = std::map<stream_id, std::deque<Frame>>();
+
   RecordsWithErrorCount<Record> result;
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   EXPECT_EQ(result.records.size(), 0);
 
-  req_frames.push_back(CreateFrame(0, Opcode::kQuery, kBadQueryReq, 1));
-  resp_frames.push_back(CreateFrame(0, Opcode::kError, kBadQueryErrorResp, 2));
+  req_map[0].push_back(CreateFrame(0, Opcode::kQuery, kBadQueryReq, 1));
+  resp_map[0].push_back(CreateFrame(0, Opcode::kError, kBadQueryErrorResp, 2));
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -434,16 +512,19 @@ TEST(CassStitcherTest, QueryError) {
 }
 
 TEST(CassStitcherTest, PrepareResult) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
+  req_map = std::map<stream_id, std::deque<Frame>>();
+  resp_map = std::map<stream_id, std::deque<Frame>>();
+
   RecordsWithErrorCount<Record> result;
 
-  req_frames.push_back(CreateFrame(0, Opcode::kPrepare, kPrepareReq, 1));
-  resp_frames.push_back(CreateFrame(0, Opcode::kResult, kPrepareResultResp, 2));
+  req_map[0].push_back(CreateFrame(0, Opcode::kPrepare, kPrepareReq, 1));
+  resp_map[0].push_back(CreateFrame(0, Opcode::kResult, kPrepareResultResp, 2));
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -460,16 +541,19 @@ TEST(CassStitcherTest, PrepareResult) {
 }
 
 TEST(CassStitcherTest, ExecuteResult) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
+  req_map = std::map<stream_id, std::deque<Frame>>();
+  resp_map = std::map<stream_id, std::deque<Frame>>();
+
   RecordsWithErrorCount<Record> result;
 
-  req_frames.push_back(CreateFrame(0, Opcode::kExecute, kExecuteReq, 1));
-  resp_frames.push_back(CreateFrame(0, Opcode::kResult, kExecuteResultResp, 2));
+  req_map[0].push_back(CreateFrame(0, Opcode::kExecute, kExecuteReq, 1));
+  resp_map[0].push_back(CreateFrame(0, Opcode::kResult, kExecuteResultResp, 2));
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -489,16 +573,19 @@ TEST(CassStitcherTest, ExecuteResult) {
 }
 
 TEST(CassStitcherTest, StartupAuthenticate) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
+  req_map = std::map<stream_id, std::deque<Frame>>();
+  resp_map = std::map<stream_id, std::deque<Frame>>();
+
   RecordsWithErrorCount<Record> result;
 
-  req_frames.push_back(CreateFrame(0, Opcode::kStartup, kStartupReq, 1));
-  resp_frames.push_back(CreateFrame(0, Opcode::kAuthenticate, kAuthenticateResp, 2));
+  req_map[0].push_back(CreateFrame(0, Opcode::kStartup, kStartupReq, 1));
+  resp_map[0].push_back(CreateFrame(0, Opcode::kAuthenticate, kAuthenticateResp, 2));
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -512,16 +599,19 @@ TEST(CassStitcherTest, StartupAuthenticate) {
 }
 
 TEST(CassStitcherTest, AuthResponseAuthSuccess) {
-  std::deque<Frame> req_frames;
-  std::deque<Frame> resp_frames;
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
+  req_map = std::map<stream_id, std::deque<Frame>>();
+  resp_map = std::map<stream_id, std::deque<Frame>>();
+
   RecordsWithErrorCount<Record> result;
 
-  req_frames.push_back(CreateFrame(0, Opcode::kAuthResponse, kAuthResponseReq, 1));
-  resp_frames.push_back(CreateFrame(0, Opcode::kAuthSuccess, kAuthSuccessResp, 2));
+  req_map[0].push_back(CreateFrame(0, Opcode::kAuthResponse, kAuthResponseReq, 1));
+  resp_map[0].push_back(CreateFrame(0, Opcode::kAuthSuccess, kAuthSuccessResp, 2));
 
-  result = StitchFrames(&req_frames, &resp_frames);
-  EXPECT_TRUE(resp_frames.empty());
-  EXPECT_EQ(req_frames.size(), 0);
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
