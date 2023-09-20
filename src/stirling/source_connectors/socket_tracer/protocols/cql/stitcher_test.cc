@@ -166,13 +166,14 @@ constexpr uint8_t kSupportedResp[] = {
 
 // TODO(@benkilimnik): Previously used for negative stream id test. Remove or adapt with new map
 // interface). Asynchronous EVENT response from server. Content: SCHEMA_CHANGE DROPPED TABLE
-// tutorialspoint emp constexpr uint8_t kEventResp[] = {0x00, 0x0d, 0x53, 0x43, 0x48, 0x45, 0x4d,
-// 0x41, 0x5f, 0x43, 0x48,
-//                                   0x41, 0x4e, 0x47, 0x45, 0x00, 0x07, 0x44, 0x52, 0x4f, 0x50,
-//                                   0x50, 0x45, 0x44, 0x00, 0x05, 0x54, 0x41, 0x42, 0x4c, 0x45,
-//                                   0x00, 0x0e, 0x74, 0x75, 0x74, 0x6f, 0x72, 0x69, 0x61, 0x6c,
-//                                   0x73, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x00, 0x03, 0x65, 0x6d,
-//                                   0x70};
+// tutorialspoint emp 
+constexpr uint8_t kEventResp[] = {0x00, 0x0d, 0x53, 0x43, 0x48, 0x45, 0x4d,
+0x41, 0x5f, 0x43, 0x48,
+                                  0x41, 0x4e, 0x47, 0x45, 0x00, 0x07, 0x44, 0x52, 0x4f, 0x50,
+                                  0x50, 0x45, 0x44, 0x00, 0x05, 0x54, 0x41, 0x42, 0x4c, 0x45,
+                                  0x00, 0x0e, 0x74, 0x75, 0x74, 0x6f, 0x72, 0x69, 0x61, 0x6c,
+                                  0x73, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x00, 0x03, 0x65, 0x6d,
+                                  0x70};
 
 //-----------------------------------------------------------------------------
 // Test Cases
@@ -324,42 +325,32 @@ TEST(CassStitcherTest, NonCQLFrames) {
   EXPECT_EQ(result.records.size(), 0);
 }
 
-// TODO(@benkilimnik) Cannot allocate deque for negative stream id in map
-// Can we remove this test?
-// TEST(CassStitcherTest, OpEvent) {
-//   std::map<stream_id, std::deque<Frame>> req_map;
-//   std::map<stream_id, std::deque<Frame>> resp_map;
-//   req_map = std::map<stream_id, std::deque<Frame>>();
-//   resp_map = std::map<stream_id, std::deque<Frame>>();
+TEST(CassStitcherTest, OpEvent) {
+  std::map<stream_id, std::deque<Frame>> req_map;
+  std::map<stream_id, std::deque<Frame>> resp_map;
 
-//   RecordsWithErrorCount<Record> result;
+  RecordsWithErrorCount<Record> result;
 
-//   // std::deque<Frame>* req_deque = new std::deque<Frame>();
-//   // req_map[-1] = req_deque;
+  resp_map[1].push_back(CreateFrame(1, Opcode::kEvent, kEventResp, 3));
 
-//   // resp_frames.push_back(CreateFrame(-1, Opcode::kEvent, kEventResp, 3));
-//   // resp_map[-1].push_back(CreateFrame(-1, Opcode::kEvent, kEventResp, 3));
+  result = StitchFrames(&req_map, &resp_map);
+  EXPECT_TRUE(areAllDequesEmpty(resp_map));
+  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_EQ(result.error_count, 0);
+  ASSERT_EQ(result.records.size(), 1);
 
-//   result = StitchFrames(&req_map, &resp_map);
-//   // EXPECT_TRUE(resp_frames.empty());
-//   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-//   // EXPECT_EQ(req_frames.size(), 0);
-//   EXPECT_EQ(totalDequeSize(req_map), 0);
-//   EXPECT_EQ(result.error_count, 0);
-//   ASSERT_EQ(result.records.size(), 1);
+  Record& record = result.records.front();
 
-//   Record& record = result.records.front();
+  EXPECT_EQ(record.req.op, ReqOp::kRegister);
+  EXPECT_EQ(record.resp.op, RespOp::kEvent);
 
-//   EXPECT_EQ(record.req.op, ReqOp::kRegister);
-//   EXPECT_EQ(record.resp.op, RespOp::kEvent);
+  EXPECT_EQ(record.req.msg, "-");
+  EXPECT_THAT(record.resp.msg, "SCHEMA_CHANGE DROPPED keyspace=tutorialspoint name=emp");
 
-//   EXPECT_EQ(record.req.msg, "-");
-//   EXPECT_THAT(record.resp.msg, "SCHEMA_CHANGE DROPPED keyspace=tutorialspoint name=emp");
+  // Expecting zero latency.
+  EXPECT_EQ(record.req.timestamp_ns, record.resp.timestamp_ns);
 
-//   // Expecting zero latency.
-//   EXPECT_EQ(record.req.timestamp_ns, record.resp.timestamp_ns);
-//
-// }
+}
 
 TEST(CassStitcherTest, StartupReady) {
   std::map<stream_id, std::deque<Frame>> req_map;

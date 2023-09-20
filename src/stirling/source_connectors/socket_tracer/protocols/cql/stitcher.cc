@@ -383,13 +383,31 @@ RecordsWithErrorCount<Record> StitchFrames(
   for (auto it = responses->begin(); it != responses->end(); it++) {
     cass::stream_id stream_id = it->first;
     std::deque<cass::Frame>& resp_frames = it->second;
+
+    bool kEventHandled = false;
+    for (cass::Frame& resp_frame : resp_frames) {
+      // Event responses are special: they have no request.
+      if (resp_frame.hdr.opcode == Opcode::kEvent) {
+        kEventHandled = true;
+        StatusOr<Record> record_status = ProcessSolitaryResp(&resp_frame);
+        if (record_status.ok()) {
+          entries.push_back(record_status.ConsumeValueOrDie());
+        } else {
+          VLOG(1) << record_status.msg();
+          ++error_count;
+        }
+      }
+    }
+
     auto pos = requests->find(stream_id);
     if (pos == requests->end()) {
       VLOG(1) << absl::Substitute("Could not find any requests for stream = $0", stream_id);
       // if we don't find a matching request, we can't do anything with this response
       // so clean it up
       resp_frames.clear();
-      ++error_count;
+      if (!kEventHandled) {
+        ++error_count;
+      }
       continue;
     }
 
@@ -405,18 +423,6 @@ RecordsWithErrorCount<Record> StitchFrames(
     // go through the responses for this stream ID and check for requests
     for (cass::Frame& resp_frame : resp_frames) {
       latest_resp_ts = resp_frame.timestamp_ns;
-      // Event responses are special: they have no request.
-      if (resp_frame.hdr.opcode == Opcode::kEvent) {
-        StatusOr<Record> record_status = ProcessSolitaryResp(&resp_frame);
-        if (record_status.ok()) {
-          entries.push_back(record_status.ConsumeValueOrDie());
-        } else {
-          VLOG(1) << record_status.msg();
-          ++error_count;
-        }
-        continue;
-      }
-
       // This returns the first request timestamp that is JUST BEFORE the response timestamp
       // Upper bound returns the first request timestamps GREATER than the response timestamp; we
       // want to get the one right before
