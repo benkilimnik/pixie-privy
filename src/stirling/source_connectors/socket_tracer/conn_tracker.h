@@ -278,9 +278,10 @@ class ConnTracker : NotCopyMoveable {
     if constexpr (TProtocolTraits::stream_support ==
                   protocols::BaseProtocolTraits<TRecordType>::UseStream) {
       using TKey = typename TProtocolTraits::key_type;
-      // TODO(@benkilimnik): Consider populating the map earlier in DataStreamsToFrames i.e. in the
-      // event parser This might improve performance slightly, but pwill require significant
-      // refactoring.
+      // TODO(@benkilimnik): If many protocols end up using the map interface, it may be worth
+      // populating the map earlier in DataStreamsToFrames i.e. in the event parser. This might
+      // improve performance slightly, since we wouldn't have to iterate over the frames twice.
+      // However, it would require significant refactoring.
       std::map<TKey, std::deque<TFrameType>> requests;
       std::map<TKey, std::deque<TFrameType>> responses;
       for (auto& frame : req_frames) {
@@ -288,12 +289,10 @@ class ConnTracker : NotCopyMoveable {
         auto key = protocols::GetStreamID<TKey, TFrameType>(&frame);
         requests[key].push_back(frame);
       }
-
       for (auto& frame : resp_frames) {
         auto key = protocols::GetStreamID<TKey, TFrameType>(&frame);
         responses[key].push_back(frame);
       }
-
       if (requests.empty()) {
         requests[0] = std::deque<TFrameType>{};
       }
