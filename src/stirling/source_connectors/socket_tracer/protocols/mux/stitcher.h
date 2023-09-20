@@ -36,9 +36,9 @@ RecordsWithErrorCount<mux::Record> StitchFrames(std::deque<mux::Frame>* reqs,
 }  // namespace mux
 
 template <>
-inline RecordsWithErrorCount<mux::Record> StitchFrames(
-    std::deque<mux::Frame>* reqs,
-    std::deque<mux::Frame>* resps, NoState* /*state*/) {
+inline RecordsWithErrorCount<mux::Record> StitchFrames(std::deque<mux::Frame>* reqs,
+                                                       std::deque<mux::Frame>* resps,
+                                                       NoState* /*state*/) {
   return mux::StitchFrames(reqs, resps);
 }
 

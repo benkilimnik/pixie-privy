@@ -44,9 +44,9 @@ std::deque<nats::Message>::iterator ExportMessage(std::deque<nats::Message>::ite
 // +OK, -ERR messages are matched with earlier requests, and are ignored if no such requests exit.
 // PING and PONG messages are left for followup.
 template <>
-RecordsWithErrorCount<nats::Record> StitchFrames(
-    std::deque<nats::Message>* req_msgs,
-    std::deque<nats::Message>* resp_msgs, NoState* /* state */) {
+RecordsWithErrorCount<nats::Record> StitchFrames(std::deque<nats::Message>* req_msgs,
+                                                 std::deque<nats::Message>* resp_msgs,
+                                                 NoState* /* state */) {
   std::vector<nats::Record> records;
   auto req_iter = req_msgs->begin();
   auto resp_iter = resp_msgs->begin();

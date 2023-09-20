@@ -393,13 +393,10 @@ struct StateWrapper {
   std::monostate recv;
 };
 
-using correlation_id = uint16_t;
-
 struct ProtocolTraits : public BaseProtocolTraits<Record> {
   using frame_type = Packet;
   using record_type = Record;
   using state_type = StateWrapper;
-  using key_type = correlation_id;
 };
 
 }  // namespace kafka

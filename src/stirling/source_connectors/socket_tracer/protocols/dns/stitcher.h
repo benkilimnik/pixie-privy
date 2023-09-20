@@ -52,9 +52,9 @@ RecordsWithErrorCount<Record> StitchFrames(std::deque<Frame>* req_packets,
 }  // namespace dns
 
 template <>
-inline RecordsWithErrorCount<dns::Record> StitchFrames(
-    std::deque<dns::Frame>* req_packets,
-    std::deque<dns::Frame>* resp_packets, NoState* /* state */) {
+inline RecordsWithErrorCount<dns::Record> StitchFrames(std::deque<dns::Frame>* req_packets,
+                                                       std::deque<dns::Frame>* resp_packets,
+                                                       NoState* /* state */) {
   // DNS has no concept of stream id, so we use a single key.
   return dns::StitchFrames(req_packets, resp_packets, FLAGS_include_respless_dns_requests);
 }

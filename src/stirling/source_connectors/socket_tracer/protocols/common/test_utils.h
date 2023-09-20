@@ -68,25 +68,31 @@ std::vector<SocketDataEvent> CreateEvents(const std::vector<TStrType>& msgs) {
 }
 
 template <typename TKey, typename TFrameType>
-void initialize_map_deques(std::map<TKey, std::deque<TFrameType>*>* req_map,
-                           std::map<TKey, std::deque<TFrameType>*>* resp_map, size_t nkeys) {
+void initialize_map_deques(std::map<TKey, std::deque<TFrameType>>* req_map,
+                           std::map<TKey, std::deque<TFrameType>>* resp_map, size_t nkeys) {
   for (size_t i = 0; i < nkeys; ++i) {
-    std::deque<TFrameType>* req_deque = new std::deque<TFrameType>();
-    (*req_map)[i] = req_deque;
-    std::deque<TFrameType>* resp_deque = new std::deque<TFrameType>();
-    (*resp_map)[i] = resp_deque;
+    req_map[i] = std::deque<TFrameType>{};
+    resp_map[i] = std::deque<TFrameType>{};
   }
 }
 
 template <typename TKey, typename TFrameType>
-void free_map_deques(std::map<TKey, std::deque<TFrameType>*>* req_map,
-                     std::map<TKey, std::deque<TFrameType>*>* resp_map) {
-  for (auto& key_value_pair : *req_map) {
-    delete key_value_pair.second;
+bool areAllDequesEmpty(const std::map<TKey, std::deque<TFrameType>>& frame_map) {
+  for (const auto& pair : frame_map) {
+    if (!pair.second.empty()) {
+      return false;
+    }
   }
-  for (auto& key_value_pair : *resp_map) {
-    delete key_value_pair.second;
+  return true;
+}
+
+template <typename TKey, typename TFrameType>
+size_t totalDequeSize(const std::map<TKey, std::deque<TFrameType>>& frame_map) {
+  size_t total_size = 0;
+  for (const auto& pair : frame_map) {
+    total_size += pair.second.size();
   }
+  return total_size;
 }
 
 }  // namespace protocols

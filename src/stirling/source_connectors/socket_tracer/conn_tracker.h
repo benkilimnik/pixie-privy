@@ -259,7 +259,6 @@ class ConnTracker : NotCopyMoveable {
     using TRecordType = typename TProtocolTraits::record_type;
     using TFrameType = typename TProtocolTraits::frame_type;
     using TStateType = typename TProtocolTraits::state_type;
-    using TKey = typename TProtocolTraits::key_type;
 
     InitProtocolState<TStateType>();
 
@@ -276,41 +275,36 @@ class ConnTracker : NotCopyMoveable {
 
     // If this protocol doesn't support streams, we call StitchFrames with just the deque.
     // If it does, we populate a map of stream ID to deque.
-    if constexpr (TProtocolTraits::stream_support == protocols::BaseProtocolTraits<TRecordType>::UseStream) {
-      // TODO(@benkilimnik): Consider populating the map earlier in DataStreamsToFrames i.e. in the event parser
-      // This will require significant refactoring.
-      // Note: GetStreamID returns 0 by default if not specialized in protocol.
-      std::map<TKey, std::deque<TFrameType>*> requests;
-      std::map<TKey, std::deque<TFrameType>*> responses;
-      requests = std::map<TKey, std::deque<TFrameType>*>();
-      responses = std::map<TKey, std::deque<TFrameType>*>();
+    if constexpr (TProtocolTraits::stream_support ==
+                  protocols::BaseProtocolTraits<TRecordType>::UseStream) {
+      using TKey = typename TProtocolTraits::key_type;
+      // TODO(@benkilimnik): Consider populating the map earlier in DataStreamsToFrames i.e. in the
+      // event parser This might improve performance slightly, but pwill require significant
+      // refactoring.
+      std::map<TKey, std::deque<TFrameType>> requests;
+      std::map<TKey, std::deque<TFrameType>> responses;
       for (auto& frame : req_frames) {
+        // GetStreamID returns 0 by default if not specialized in protocol.
         auto key = protocols::GetStreamID<TKey, TFrameType>(&frame);
-        // If the key doesn't exist, create a new deque and add it to the map
-        if (requests.find(key) == requests.end()) {
-          requests[key] = new std::deque<TFrameType>;
-        }
-        requests[key]->push_back(frame);
+        requests[key].push_back(frame);
       }
+
       for (auto& frame : resp_frames) {
         auto key = protocols::GetStreamID<TKey, TFrameType>(&frame);
-        // If the key doesn't exist, create a new deque and add it to the map
-        if (responses.find(key) == responses.end()) {
-          responses[key] = new std::deque<TFrameType>;
-        }
-        responses[key]->push_back(frame);
+        responses[key].push_back(frame);
       }
-      // If either requests or responses are empty, create empty deque for stream 0
+
       if (requests.empty()) {
-        requests[0] = new std::deque<TFrameType>;
+        requests[0] = std::deque<TFrameType>{};
       }
       if (responses.empty()) {
-        responses[0] = new std::deque<TFrameType>;
+        responses[0] = std::deque<TFrameType>{};
       }
-      result = protocols::StitchFrames<TRecordType, TKey, TFrameType, TStateType>(&requests, &responses, state_ptr);
-    }
-    else {
-      result = protocols::StitchFrames<TRecordType, TFrameType, TStateType>(&req_frames, &resp_frames, state_ptr);
+      result = protocols::StitchFrames<TRecordType, TKey, TFrameType, TStateType>(
+          &requests, &responses, state_ptr);
+    } else {
+      result = protocols::StitchFrames<TRecordType, TFrameType, TStateType>(
+          &req_frames, &resp_frames, state_ptr);
     }
 
     CONN_TRACE(2) << absl::Substitute("records=$0", result.records.size());

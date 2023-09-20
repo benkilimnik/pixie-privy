@@ -32,9 +32,9 @@ namespace stirling {
 namespace protocols {
 
 template <>
-RecordsWithErrorCount<nats::Record> StitchFrames(
-    std::deque<nats::Message>* req_msgs,
-    std::deque<nats::Message>* resp_msgs, NoState* /* state */);
+RecordsWithErrorCount<nats::Record> StitchFrames(std::deque<nats::Message>* req_msgs,
+                                                 std::deque<nats::Message>* resp_msgs,
+                                                 NoState* /* state */);
 
 }  // namespace protocols
 }  // namespace stirling

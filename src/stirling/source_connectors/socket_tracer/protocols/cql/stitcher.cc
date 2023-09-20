@@ -375,8 +375,8 @@ StatusOr<Record> ProcessSolitaryResp(Frame* resp_frame) {
 //  - Stream values can be re-used, so sorting would have to consider times too.
 //  - Stream values need not be in any sequential order.
 RecordsWithErrorCount<Record> StitchFrames(
-    std::map<cass::stream_id, std::deque<cass::Frame>*>* requests,
-    std::map<cass::stream_id, std::deque<cass::Frame>*>* responses) {
+    std::map<cass::stream_id, std::deque<cass::Frame>>* requests,
+    std::map<cass::stream_id, std::deque<cass::Frame>>* responses) {
   std::vector<Record> entries;
   int error_count = 0;
 
@@ -384,20 +384,23 @@ RecordsWithErrorCount<Record> StitchFrames(
   // matching request
   for (auto it = responses->begin(); it != responses->end(); it++) {
     cass::stream_id stream_id = it->first;
-    std::deque<cass::Frame>& resp_frames = *(it->second);
+    LOG(INFO) << "Stream ID = " << stream_id;
+    std::deque<cass::Frame>& resp_frames = it->second;
     auto pos = requests->find(stream_id);
     if (pos == requests->end()) {
-      // no requests found
-      // log error and check next request
+      VLOG(1) << absl::Substitute("Could not find any requests for stream = $0", stream_id);
+      // if we don't find a matching request, we can't do anything with this response
+      // so clean it up
+      resp_frames.clear();
       ++error_count;
       continue;
     }
 
     // we found a potential set of requests for this stream ID
-    std::deque<cass::Frame>* req_frames = pos->second;
+    std::deque<cass::Frame>& req_frames = pos->second;
     std::deque<uint64_t> req_timestamps = std::deque<uint64_t>();
     // get just the timestamps for matching with responses
-    for (cass::Frame& req_frame : *req_frames) {
+    for (cass::Frame& req_frame : req_frames) {
       req_timestamps.push_back(req_frame.timestamp_ns);
     }
 
@@ -417,12 +420,6 @@ RecordsWithErrorCount<Record> StitchFrames(
         continue;
       }
 
-      if (req_timestamps.empty()) {
-        VLOG(1) << absl::Substitute("Did not find a request matching the response. Stream = $0",
-                                    resp_frame.hdr.stream);
-        ++error_count;
-        continue;
-      }
       // This returns the first request timestamp that is JUST BEFORE the response timestamp
       // Upper bound returns the first request timestamps GREATER than the response timestamp; we
       // want to get the one right before
@@ -438,7 +435,7 @@ RecordsWithErrorCount<Record> StitchFrames(
                       << resp_frame.ToString();
         continue;
       }
-      cass::Frame& req_frame = (*req_frames)[req_index];
+      cass::Frame& req_frame = req_frames[req_index];
       VLOG(2) << absl::Substitute("req_op=$0 msg=$1", magic_enum::enum_name(req_frame.hdr.opcode),
                                   req_frame.msg);
       StatusOr<Record> record_status = ProcessReqRespPair(&req_frame, &resp_frame);
@@ -452,9 +449,9 @@ RecordsWithErrorCount<Record> StitchFrames(
       req_frame.consumed = true;
     }
 
-    auto req_it = req_frames->begin();
-    auto delete_pos = req_frames->begin();
-    while (req_it != req_frames->end()) {
+    auto req_it = req_frames.begin();
+    auto delete_pos = req_frames.begin();
+    while (req_it != req_frames.end()) {
       auto& frame = *req_it;
       if (frame.consumed) {
       } else if (!frame.consumed && (frame.discarded || frame.timestamp_ns < latest_resp_ts)) {
@@ -471,8 +468,8 @@ RecordsWithErrorCount<Record> StitchFrames(
     // StitchFrames iterations once they bubble up to the front of the deque and form a contiguous
     // range with the consumed frames. This is done to avoid the bookeeping necessary to delete
     // multiple ranges of indices in the deque (which occur when responses are lost).
-    if (req_it != req_frames->end()) {
-      while (req_it != req_frames->end()) {
+    if (req_it != req_frames.end()) {
+      while (req_it != req_frames.end()) {
         auto& frame = *req_it;
         if (!frame.consumed && frame.timestamp_ns < latest_resp_ts) {
           frame.discarded = true;
@@ -480,35 +477,11 @@ RecordsWithErrorCount<Record> StitchFrames(
         req_it++;
       }
     } else {
-      delete_pos = req_frames->end();
+      delete_pos = req_frames.end();
     }
-    req_frames->erase(req_frames->begin(), delete_pos);
+    req_frames.erase(req_frames.begin(), delete_pos);
     resp_frames.clear();
   }
-
-  // TODO(@benkilimnik): should we free the deques if they're empty?
-  // This would necessicate more fine-grained memory management in the
-  // stitcher tests, but could improve overall performance.
-  // std::vector<cass::stream_id> ids_to_remove;
-  // for (const auto& [id, req_frames] : *requests) {
-  //   if (req_frames->empty()) {
-  //     delete req_frames;
-  //     ids_to_remove.push_back(id);
-  //   }
-  // }
-  // for (const auto& id : ids_to_remove) {
-  //   requests->erase(id);
-  // }
-  // ids_to_remove.clear();
-  // for (const auto& [id, resp_frames] : *responses) {
-  //   if (resp_frames->empty()) {
-  //     delete resp_frames;
-  //     ids_to_remove.push_back(id);
-  //   }
-  // }
-  // for (const auto& id : ids_to_remove) {
-  //   responses->erase(id);
-  // }
 
   return {entries, error_count};
 }

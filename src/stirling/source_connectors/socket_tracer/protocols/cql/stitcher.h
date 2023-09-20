@@ -39,15 +39,15 @@ namespace cass {
  * @param resp_frames: deque of all response frames.
  * @return A vector of entries to be appended to table store.
  */
-RecordsWithErrorCount<Record> StitchFrames(std::map<stream_id, std::deque<Frame>*>* req_frames,
-                                           std::map<stream_id, std::deque<Frame>*>* resp_frames);
+RecordsWithErrorCount<Record> StitchFrames(std::map<stream_id, std::deque<Frame>>* req_frames,
+                                           std::map<stream_id, std::deque<Frame>>* resp_frames);
 
 }  // namespace cass
 
 template <>
 inline RecordsWithErrorCount<cass::Record> StitchFrames(
-    std::map<cass::stream_id, std::deque<cass::Frame>*>* req_messages,
-    std::map<cass::stream_id, std::deque<cass::Frame>*>* res_messages, NoState* /* state */) {
+    std::map<cass::stream_id, std::deque<cass::Frame>>* req_messages,
+    std::map<cass::stream_id, std::deque<cass::Frame>>* res_messages, NoState* /* state */) {
   return cass::StitchFrames(req_messages, res_messages);
 }
 
