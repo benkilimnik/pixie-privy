@@ -429,7 +429,7 @@ RecordsWithErrorCount<Record> StitchFrames(
       // cleared during StitchFrames this will get cleaned up during the current iteration.
       if (stream_it + 1 == req_timestamps.begin()) {
         CTX_DCHECK(false) << "Unable to find request that is earlier than response: "
-                      << resp_frame.ToString();
+                          << resp_frame.ToString();
         continue;
       }
       cass::Frame& req_frame = req_frames[req_index];
