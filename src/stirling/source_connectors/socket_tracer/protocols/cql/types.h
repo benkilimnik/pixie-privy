@@ -176,6 +176,7 @@ struct ProtocolTraits : public BaseProtocolTraits<Record> {
   using record_type = Record;
   using state_type = NoState;
   using key_type = stream_id;
+  static constexpr StreamSupport stream_support = BaseProtocolTraits<Record>::UseStream;
 };
 
 }  // namespace cass

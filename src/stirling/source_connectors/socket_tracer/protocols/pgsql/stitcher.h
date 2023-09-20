@@ -57,12 +57,10 @@ RecordsWithErrorCount<Record> StitchFrames(std::deque<RegularMessage>* reqs,
 }  // namespace pgsql
 
 template <>
-inline RecordsWithErrorCount<pgsql::Record> StitchFrames(
-    std::map<pgsql::connection_id, std::deque<pgsql::RegularMessage>*>* req_messages,
-    std::map<pgsql::connection_id, std::deque<pgsql::RegularMessage>*>* res_messages,
-    pgsql::StateWrapper* state) {
-  // TODO(@benkilimnik): remove hard coded connection id once StitchFrames makes use of them.
-  return pgsql::StitchFrames((*req_messages)[0], (*res_messages)[0], &state->global);
+inline RecordsWithErrorCount<pgsql::Record> StitchFrames(std::deque<pgsql::RegularMessage>* reqs,
+                                                         std::deque<pgsql::RegularMessage>* resps,
+                                                         pgsql::StateWrapper* state) {
+  return pgsql::StitchFrames(reqs, resps, &state->global);
 }
 
 }  // namespace protocols

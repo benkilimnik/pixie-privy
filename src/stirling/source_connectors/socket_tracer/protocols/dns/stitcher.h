@@ -53,11 +53,10 @@ RecordsWithErrorCount<Record> StitchFrames(std::deque<Frame>* req_packets,
 
 template <>
 inline RecordsWithErrorCount<dns::Record> StitchFrames(
-    std::map<dns::stream_id, std::deque<dns::Frame>*>* req_messages,
-    std::map<dns::stream_id, std::deque<dns::Frame>*>* res_messages, NoState* /* state */) {
+    std::deque<dns::Frame>* req_packets,
+    std::deque<dns::Frame>* resp_packets, NoState* /* state */) {
   // DNS has no concept of stream id, so we use a single key.
-  return dns::StitchFrames((*req_messages)[0], (*res_messages)[0],
-                           FLAGS_include_respless_dns_requests);
+  return dns::StitchFrames(req_packets, resp_packets, FLAGS_include_respless_dns_requests);
 }
 
 }  // namespace protocols

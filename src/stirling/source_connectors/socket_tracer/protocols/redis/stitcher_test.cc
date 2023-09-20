@@ -57,8 +57,6 @@ auto EqualsRecord(const std::string& req_cmd, const std::string& req_payload,
                Field(&redis::Record::resp, Field(&redis::Message::payload, StrEq(resp_payload))));
 }
 
-using MessageMap = std::map<redis::stream_id, std::deque<redis::Message>*>;
-
 // Tests that the published messages are exported correctly.
 TEST(StitchFramesTest, PubMessagesExported) {
   std::deque<redis::Message> reqs;
@@ -69,13 +67,7 @@ TEST(StitchFramesTest, PubMessagesExported) {
 
   NoState no_state;
 
-  MessageMap req_messages;
-  MessageMap res_messages;
-  req_messages[0] = &reqs;
-  res_messages[0] = &resps;
-
-  RecordsWithErrorCount<redis::Record> res =
-      StitchFrames<redis::Record>(&req_messages, &res_messages, &no_state);
+  RecordsWithErrorCount<redis::Record> res = StitchFrames<redis::Record>(&reqs, &resps, &no_state);
   EXPECT_EQ(res.error_count, 0);
   EXPECT_THAT(res.records,
               ElementsAre(EqualsRecord(R"(PUSH PUB)", "", R"(["message", "foo", "test1"])"),
@@ -98,13 +90,7 @@ TEST(StitchFramesTest, ReplConfAckAndMutationCommands) {
 
   NoState no_state;
 
-  MessageMap req_messages;
-  MessageMap res_messages;
-  req_messages[0] = &reqs;
-  res_messages[0] = &resps;
-
-  RecordsWithErrorCount<redis::Record> res =
-      StitchFrames<redis::Record>(&req_messages, &res_messages, &no_state);
+  RecordsWithErrorCount<redis::Record> res = StitchFrames<redis::Record>(&reqs, &resps, &no_state);
   EXPECT_EQ(res.error_count, 0);
   EXPECT_THAT(res.records, ElementsAre(EqualsRecord("HSET", "hset_payload_0", ""),
                                        EqualsRecord("REPLCONF ACK", "repl_ack_payload_0", ""),

@@ -33,9 +33,9 @@ namespace stirling {
 namespace protocols {
 
 template <>
-inline RecordsWithErrorCount<redis::Record> StitchFrames(
-    std::map<redis::stream_id, std::deque<redis::Message>*>* req_msgs,
-    std::map<redis::stream_id, std::deque<redis::Message>*>* res_msgs, NoState* /* state */) {
+inline RecordsWithErrorCount<redis::Record> StitchFrames(std::deque<redis::Message>* req_messages,
+                                                         std::deque<redis::Message>* resp_messages,
+                                                         NoState* /* state */) {
   // NOTE: This cannot handle Redis pipelining if there is any missing message.
   // See https://redis.io/topics/pipelining for Redis pipelining.
   //
@@ -51,10 +51,6 @@ inline RecordsWithErrorCount<redis::Record> StitchFrames(
 
   redis::Message placeholder_message;
   placeholder_message.timestamp_ns = std::numeric_limits<int64_t>::max();
-
-  // TODO(@benkilimnik): remove hard coded stream id once StitchFrames makes use of them.
-  std::deque<redis::Message>* req_messages = (*req_msgs)[0];
-  std::deque<redis::Message>* resp_messages = (*res_msgs)[0];
 
   auto req_iter = req_messages->begin();
   auto resp_iter = resp_messages->begin();

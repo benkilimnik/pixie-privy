@@ -48,7 +48,6 @@ template <>
 inline RecordsWithErrorCount<cass::Record> StitchFrames(
     std::map<cass::stream_id, std::deque<cass::Frame>*>* req_messages,
     std::map<cass::stream_id, std::deque<cass::Frame>*>* res_messages, NoState* /* state */) {
-  // TODO(@benkilimnik): remove hard coded stream id once StitchFrames makes use of them.
   return cass::StitchFrames(req_messages, res_messages);
 }
 
