@@ -334,7 +334,7 @@ Status ProcessResp(Frame* resp_frame, Response* resp) {
 }
 
 StatusOr<Record> ProcessReqRespPair(Frame* req_frame, Frame* resp_frame) {
-  ECHECK_LT(req_frame->timestamp_ns, resp_frame->timestamp_ns);
+  CTX_ECHECK_LT(req_frame->timestamp_ns, resp_frame->timestamp_ns);
 
   Record r;
   PX_RETURN_IF_ERROR(ProcessReq(req_frame, &r.req));
