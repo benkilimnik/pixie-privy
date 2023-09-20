@@ -181,8 +181,6 @@ constexpr uint8_t kSupportedResp[] = {
 TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
   std::map<stream_id, std::deque<Frame>> req_map;
   std::map<stream_id, std::deque<Frame>> resp_map;
-  req_map = std::map<stream_id, std::deque<Frame>>();
-  resp_map = std::map<stream_id, std::deque<Frame>>();
 
   RecordsWithErrorCount<Record> result;
 
@@ -280,8 +278,6 @@ TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
 TEST(CassStitcherTest, MissingRequest) {
   std::map<stream_id, std::deque<Frame>> req_map;
   std::map<stream_id, std::deque<Frame>> resp_map;
-  req_map = std::map<stream_id, std::deque<Frame>>();
-  resp_map = std::map<stream_id, std::deque<Frame>>();
 
   RecordsWithErrorCount<Record> result;
 
@@ -306,8 +302,6 @@ TEST(CassStitcherTest, MissingRequest) {
 TEST(CassStitcherTest, NonCQLFrames) {
   std::map<stream_id, std::deque<Frame>> req_map;
   std::map<stream_id, std::deque<Frame>> resp_map;
-  req_map = std::map<stream_id, std::deque<Frame>>();
-  resp_map = std::map<stream_id, std::deque<Frame>>();
 
   RecordsWithErrorCount<Record> result;
 
@@ -370,8 +364,6 @@ TEST(CassStitcherTest, NonCQLFrames) {
 TEST(CassStitcherTest, StartupReady) {
   std::map<stream_id, std::deque<Frame>> req_map;
   std::map<stream_id, std::deque<Frame>> resp_map;
-  req_map = std::map<stream_id, std::deque<Frame>>();
-  resp_map = std::map<stream_id, std::deque<Frame>>();
 
   RecordsWithErrorCount<Record> result;
 
@@ -396,8 +388,6 @@ TEST(CassStitcherTest, StartupReady) {
 TEST(CassStitcherTest, RegisterReady) {
   std::map<stream_id, std::deque<Frame>> req_map;
   std::map<stream_id, std::deque<Frame>> resp_map;
-  req_map = std::map<stream_id, std::deque<Frame>>();
-  resp_map = std::map<stream_id, std::deque<Frame>>();
 
   RecordsWithErrorCount<Record> result;
 
@@ -422,8 +412,6 @@ TEST(CassStitcherTest, RegisterReady) {
 TEST(CassStitcherTest, OptionsSupported) {
   std::map<stream_id, std::deque<Frame>> req_map;
   std::map<stream_id, std::deque<Frame>> resp_map;
-  req_map = std::map<stream_id, std::deque<Frame>>();
-  resp_map = std::map<stream_id, std::deque<Frame>>();
 
   RecordsWithErrorCount<Record> result;
 
@@ -450,8 +438,6 @@ TEST(CassStitcherTest, OptionsSupported) {
 TEST(CassStitcherTest, QueryResult) {
   std::map<stream_id, std::deque<Frame>> req_map;
   std::map<stream_id, std::deque<Frame>> resp_map;
-  req_map = std::map<stream_id, std::deque<Frame>>();
-  resp_map = std::map<stream_id, std::deque<Frame>>();
 
   RecordsWithErrorCount<Record> result;
 
@@ -482,8 +468,6 @@ TEST(CassStitcherTest, QueryResult) {
 TEST(CassStitcherTest, QueryError) {
   std::map<stream_id, std::deque<Frame>> req_map;
   std::map<stream_id, std::deque<Frame>> resp_map;
-  req_map = std::map<stream_id, std::deque<Frame>>();
-  resp_map = std::map<stream_id, std::deque<Frame>>();
 
   RecordsWithErrorCount<Record> result;
 
@@ -514,8 +498,6 @@ TEST(CassStitcherTest, QueryError) {
 TEST(CassStitcherTest, PrepareResult) {
   std::map<stream_id, std::deque<Frame>> req_map;
   std::map<stream_id, std::deque<Frame>> resp_map;
-  req_map = std::map<stream_id, std::deque<Frame>>();
-  resp_map = std::map<stream_id, std::deque<Frame>>();
 
   RecordsWithErrorCount<Record> result;
 
@@ -543,8 +525,6 @@ TEST(CassStitcherTest, PrepareResult) {
 TEST(CassStitcherTest, ExecuteResult) {
   std::map<stream_id, std::deque<Frame>> req_map;
   std::map<stream_id, std::deque<Frame>> resp_map;
-  req_map = std::map<stream_id, std::deque<Frame>>();
-  resp_map = std::map<stream_id, std::deque<Frame>>();
 
   RecordsWithErrorCount<Record> result;
 
@@ -575,8 +555,6 @@ TEST(CassStitcherTest, ExecuteResult) {
 TEST(CassStitcherTest, StartupAuthenticate) {
   std::map<stream_id, std::deque<Frame>> req_map;
   std::map<stream_id, std::deque<Frame>> resp_map;
-  req_map = std::map<stream_id, std::deque<Frame>>();
-  resp_map = std::map<stream_id, std::deque<Frame>>();
 
   RecordsWithErrorCount<Record> result;
 
@@ -601,8 +579,6 @@ TEST(CassStitcherTest, StartupAuthenticate) {
 TEST(CassStitcherTest, AuthResponseAuthSuccess) {
   std::map<stream_id, std::deque<Frame>> req_map;
   std::map<stream_id, std::deque<Frame>> resp_map;
-  req_map = std::map<stream_id, std::deque<Frame>>();
-  resp_map = std::map<stream_id, std::deque<Frame>>();
 
   RecordsWithErrorCount<Record> result;
 
