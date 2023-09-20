@@ -296,9 +296,7 @@ TEST(CassStitcherTest, MissingRequest) {
   resp_map[1].push_back(resp1_frame);
 
   result = StitchFrames(&req_map, &resp_map);
-  // EXPECT_TRUE(resp_frames.empty());
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 0);
   EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 1);
   EXPECT_EQ(result.records.size(), 1);
@@ -320,17 +318,13 @@ TEST(CassStitcherTest, NonCQLFrames) {
   Frame req1_frame = CreateFrame(0, Opcode::kQuery, {0x23, 0xa8, 0xf3}, ++t);
   Frame resp1_frame = CreateFrame(0, Opcode::kError, {0x35, 0x9e, 0x1b, 0x77}, ++t);
 
-  // req_frames = {req0_frame, req1_frame};
   req_map[0].push_back(req0_frame);
   req_map[0].push_back(req1_frame);
-  // resp_frames = {resp0_frame, resp1_frame};
   resp_map[0].push_back(resp0_frame);
   resp_map[0].push_back(resp1_frame);
 
   result = StitchFrames(&req_map, &resp_map);
-  // EXPECT_TRUE(resp_frames.empty());
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 0);
   EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 2);
   EXPECT_EQ(result.records.size(), 0);
@@ -586,15 +580,11 @@ TEST(CassStitcherTest, StartupAuthenticate) {
 
   RecordsWithErrorCount<Record> result;
 
-  // req_frames.push_back(CreateFrame(0, Opcode::kStartup, kStartupReq, 1));
   req_map[0].push_back(CreateFrame(0, Opcode::kStartup, kStartupReq, 1));
-  // resp_frames.push_back(CreateFrame(0, Opcode::kAuthenticate, kAuthenticateResp, 2));
   resp_map[0].push_back(CreateFrame(0, Opcode::kAuthenticate, kAuthenticateResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  // EXPECT_TRUE(resp_frames.empty());
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 0);
   EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
@@ -616,15 +606,11 @@ TEST(CassStitcherTest, AuthResponseAuthSuccess) {
 
   RecordsWithErrorCount<Record> result;
 
-  // req_frames.push_back(CreateFrame(0, Opcode::kAuthResponse, kAuthResponseReq, 1));
   req_map[0].push_back(CreateFrame(0, Opcode::kAuthResponse, kAuthResponseReq, 1));
-  // resp_frames.push_back(CreateFrame(0, Opcode::kAuthSuccess, kAuthSuccessResp, 2));
   resp_map[0].push_back(CreateFrame(0, Opcode::kAuthSuccess, kAuthSuccessResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  // EXPECT_TRUE(resp_frames.empty());
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 0);
   EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
