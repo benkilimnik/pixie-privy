@@ -89,11 +89,12 @@ inline bool IsRespOpcode(Opcode opcode) {
   return resp_opcode.has_value();
 }
 
+using stream_id = uint16_t;
 struct FrameHeader {
   // Top bit is direction.
   uint8_t version;
   uint8_t flags;
-  uint16_t stream;
+  stream_id stream;
   Opcode opcode;
   int32_t length;
 };
@@ -167,8 +168,6 @@ struct Record {
     return absl::Substitute("req=[$0] resp=[$1]", req.ToString(), resp.ToString());
   }
 };
-
-using stream_id = uint16_t;
 
 struct ProtocolTraits : public BaseProtocolTraits<Record> {
   using frame_type = Frame;

@@ -48,7 +48,6 @@ template <>
 inline RecordsWithErrorCount<amqp::Record> StitchFrames(std::deque<amqp::Frame>* req_packets,
                                                         std::deque<amqp::Frame>* resp_packets,
                                                         NoState*) {
-  // TODO(@benkilimnik): remove hard coded channel id once StitchFrames makes use of them.
   return amqp::StitchFrames(req_packets, resp_packets);
 }
 

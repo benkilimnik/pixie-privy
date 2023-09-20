@@ -19,7 +19,6 @@
 #include "src/stirling/source_connectors/socket_tracer/protocols/cql/stitcher.h"
 
 #include <algorithm>
-#include <cwchar>
 #include <deque>
 #include <string>
 #include <utility>
@@ -384,7 +383,6 @@ RecordsWithErrorCount<Record> StitchFrames(
   // matching request
   for (auto it = responses->begin(); it != responses->end(); it++) {
     cass::stream_id stream_id = it->first;
-    LOG(INFO) << "Stream ID = " << stream_id;
     std::deque<cass::Frame>& resp_frames = it->second;
     auto pos = requests->find(stream_id);
     if (pos == requests->end()) {

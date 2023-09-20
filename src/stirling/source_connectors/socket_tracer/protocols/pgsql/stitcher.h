@@ -19,7 +19,6 @@
 #pragma once
 
 #include <deque>
-#include <map>
 #include <vector>
 
 #include "src/common/base/base.h"
