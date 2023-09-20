@@ -293,12 +293,6 @@ class ConnTracker : NotCopyMoveable {
         auto key = protocols::GetStreamID<TKey, TFrameType>(&frame);
         responses[key].push_back(frame);
       }
-      if (requests.empty()) {
-        requests[0] = std::deque<TFrameType>{};
-      }
-      if (responses.empty()) {
-        responses[0] = std::deque<TFrameType>{};
-      }
       result = protocols::StitchFrames<TRecordType, TKey, TFrameType, TStateType>(
           &requests, &responses, state_ptr);
     } else {
