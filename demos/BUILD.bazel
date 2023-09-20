@@ -31,16 +31,6 @@ pkg_tar(
     strip_prefix = "kafka",
 )
 
-# kustomize build
-# then put in new dr
-# add pkg_tar
-# if px demo deploy, consumes one of these
-
-# px CLI will fetch yamls and deploy them to cluster
-# bazel build //demos:px-###
-# copy to where run the python app
-# python -m http.server (point pixie CLI to this)
-
 pkg_tar(
     name = "px-python-demo",
     srcs = glob(["python-demo/*"]),
