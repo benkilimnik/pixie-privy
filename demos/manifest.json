@@ -49,5 +49,14 @@
 	"dependencies": {
             "cert-manager": true
         }
+    },
+    "px-python-demo": {
+      "description": "Test application that cycles through cassandra stream IDs to test the new map-based stitcher interface.",
+      "instructions": [
+        "Use the px/http_data script to view the traffic flowing from the demo app."
+      ],
+      "dependencies": {
+        "cert-manager": true
+      }
     }
 }

@@ -32,6 +32,13 @@ pkg_tar(
 )
 
 pkg_tar(
+    name = "px-python-demo",
+    srcs = glob(["python-demo/*"]),
+    extension = "tar.gz",
+    strip_prefix = "python-demo",
+)
+
+pkg_tar(
     name = "px-sock-shop",
     srcs = glob(["sock-shop/*"]),
     extension = "tar.gz",
@@ -56,6 +63,7 @@ ARCHIVES = [
     ":px-finagle",
     ":px-kafka",
     ":px-sock-shop",
+    ":px-python-demo",
     ":px-online-boutique",
     ":px-k8ssandra",
 ]
