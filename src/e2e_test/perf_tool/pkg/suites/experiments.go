@@ -127,6 +127,7 @@ func PythonCassandraExperiment(
 	}
 	e = addTags(e,
 		"workload/px-python-demo",
+		"parameter/default/",
 	)
 	return e
 }
