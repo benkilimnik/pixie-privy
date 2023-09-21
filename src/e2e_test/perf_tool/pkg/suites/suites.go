@@ -45,7 +45,7 @@ func nightlyExperimentSuite() map[string]*pb.ExperimentSpec {
 		"sock-shop":                           SockShopExperiment(defaultMetricPeriod, preDur, dur),
 		"online-boutique":                     OnlineBoutiqueExperiment(defaultMetricPeriod, preDur, dur),
 		"kafka":                               KafkaExperiment(defaultMetricPeriod, preDur, dur),
-		"px-python-demo":                      PythonCassandraExperiment(defaultMetricPeriod, preDur, 20 * time.Minute),
+		"px-python-demo":                      PythonCassandraExperiment(defaultMetricPeriod, preDur, dur),
 		"app-overhead/http-loadtest/100/3000": HTTPLoadApplicationOverheadExperiment(httpNumConns, 3000, defaultMetricPeriod),
 	}
 	for _, e := range exps {
