@@ -162,7 +162,7 @@ func PythonDemoWorkload() *pb.WorkloadSpec {
 				},
 			},
 		},
-		Healthchecks: HTTPHealthChecks("px-python-demo", false),
+		Healthchecks: HTTPHealthChecks("px-python-demo", true),
 	}
 }
 
