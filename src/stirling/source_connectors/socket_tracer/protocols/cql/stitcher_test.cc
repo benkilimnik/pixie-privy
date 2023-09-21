@@ -207,9 +207,7 @@ TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
   Frame resp5_s0_frame = CreateFrame(0, Opcode::kError, kBadQueryErrorResp, ++t);
 
   result = StitchFrames(&req_map, &resp_map);
-  // EXPECT_TRUE(resp_frames.empty());
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 0);
   EXPECT_EQ(totalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   EXPECT_EQ(result.records.size(), 0);
@@ -241,11 +239,9 @@ TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
 
   result = StitchFrames(&req_map, &resp_map);
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 6);
   EXPECT_EQ(totalDequeSize(req_map), 2);
   EXPECT_EQ(req_map[1].front().timestamp_ns, req1_s1_frame.timestamp_ns);
   EXPECT_EQ(req_map[2].front().timestamp_ns, req1_s2_frame.timestamp_ns);
-  // EXPECT_EQ(result.error_count, 1);
   EXPECT_EQ(result.error_count, 3);
   EXPECT_EQ(result.records.size(), 5);
 
@@ -253,7 +249,6 @@ TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
   // the head of requests are inactive
   result = StitchFrames(&req_map, &resp_map);
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  // EXPECT_EQ(req_frames.size(), 6);
   EXPECT_EQ(totalDequeSize(req_map), 2);
   EXPECT_EQ(req_map[1].front().timestamp_ns, req1_s1_frame.timestamp_ns);
   EXPECT_EQ(req_map[2].front().timestamp_ns, req1_s2_frame.timestamp_ns);
@@ -266,7 +261,6 @@ TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
   result = StitchFrames(&req_map, &resp_map);
   EXPECT_TRUE(areAllDequesEmpty(resp_map));
   EXPECT_EQ(totalDequeSize(req_map), 0);
-  // EXPECT_EQ(result.error_count, 2);
   EXPECT_EQ(result.error_count, 0);
   EXPECT_EQ(result.records.size(), 2);
 }
