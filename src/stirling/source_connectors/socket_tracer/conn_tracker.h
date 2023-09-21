@@ -295,6 +295,20 @@ class ConnTracker : NotCopyMoveable {
       }
       result = protocols::StitchFrames<TRecordType, TKey, TFrameType, TStateType>(
           &requests, &responses, state_ptr);
+      
+      // update req_frames and resp_frames to match maps requests and responses
+      req_frames.clear();
+      resp_frames.clear();
+      for (auto& [_, frames] : requests) {
+        for (auto& frame : frames) {
+          req_frames.push_back(frame);
+        }
+      }
+      for (auto& [_, frames] : responses) {
+        for (auto& frame : frames) {
+          resp_frames.push_back(frame);
+        }
+      }
     } else {
       result = protocols::StitchFrames<TRecordType, TFrameType, TStateType>(
           &req_frames, &resp_frames, state_ptr);
