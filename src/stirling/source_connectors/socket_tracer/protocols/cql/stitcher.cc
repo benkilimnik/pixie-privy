@@ -393,7 +393,7 @@ RecordsWithErrorCount<Record> StitchFrames(
         if (record_status.ok()) {
           entries.push_back(record_status.ConsumeValueOrDie());
         } else {
-          VLOG(1) << record_status.msg();
+          VLOG(1) << record_status.ToString();
           ++error_count;
         }
       }
