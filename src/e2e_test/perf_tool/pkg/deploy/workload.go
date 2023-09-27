@@ -20,7 +20,6 @@ package deploy
 
 import (
 	"context"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -30,7 +29,6 @@ import (
 	"px.dev/pixie/src/e2e_test/perf_tool/pkg/deploy/checks"
 	"px.dev/pixie/src/e2e_test/perf_tool/pkg/deploy/steps"
 	"px.dev/pixie/src/e2e_test/perf_tool/pkg/pixie"
-	"px.dev/pixie/src/utils/shared/k8s"
 )
 
 // Workload is the interface for workloads that get deployed to the experiment cluster.
@@ -145,16 +143,20 @@ func (w *workloadImpl) WaitForHealthCheck(ctx context.Context, clusterCtx *clust
 
 // Close stops the workload.
 func (w *workloadImpl) Close() error {
-	for ns := range w.namespacesToDelete {
-		log.WithField("workload", w.name).WithField("namespace", ns).Trace("deleting workload namespace")
-		od := k8s.ObjectDeleter{
-			Namespace:  ns,
-			Clientset:  w.clusterCtx.Clientset(),
-			RestConfig: w.clusterCtx.RestConfig(),
-			Timeout:    5 * time.Minute,
-		}
-		return od.DeleteNamespace()
-	}
+	// on px demo deploy step, skip this
+	// for ns := range w.namespacesToDelete {
+	// 	log.WithField("workload", w.name).WithField("namespace", ns).Trace("deleting workload namespace")
+	// 	od := k8s.ObjectDeleter{
+	// 		Namespace:  ns,
+	// 		Clientset:  w.clusterCtx.Clientset(),
+	// 		RestConfig: w.clusterCtx.RestConfig(),
+	// 		Timeout:    5 * time.Minute,
+	// 	}
+	// 	return od.DeleteNamespace()
+	// }
+	// TODO: keep track of demos created, run demo delete for demo's that use CRDs (k8ssandra, python-demo)
+
+	// try running demo delete manually after perf tool runs (should still be around)
 	w.namespacesToDelete = make(map[string]bool)
 	return nil
 }

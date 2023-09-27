@@ -141,6 +141,29 @@ func SockShopWorkload() *pb.WorkloadSpec {
 		Healthchecks: HTTPHealthChecks("px-sock-shop", true),
 	}
 }
+func K8ssandraWorkload() *pb.WorkloadSpec {
+	return &pb.WorkloadSpec{
+		Name: "px-python-demo",
+		DeploySteps: []*pb.DeployStep{
+			{
+				DeployType: &pb.DeployStep_Px{
+					Px: &pb.PxCLIDeploy{
+						Args: []string{
+							"demo",
+							"deploy",
+							"px-k8ssandra",
+						},
+						Namespaces: []string{
+							"px-k8ssandra",
+						},
+					},
+				},
+			},
+		},
+		Healthchecks: HTTPHealthChecks("px-k8ssandra", true),
+	}
+}
+
 func PythonDemoWorkload() *pb.WorkloadSpec {
 	return &pb.WorkloadSpec{
 		Name: "px-python-demo",
