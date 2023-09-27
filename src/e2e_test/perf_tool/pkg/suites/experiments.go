@@ -82,6 +82,56 @@ func HTTPLoadTestExperiment(
 	return e
 }
 
+// Perf test for px-python-demo, to test performance of new map interface with high streamID usage
+func PythonCassandraExperiment(
+	metricPeriod time.Duration,
+	predeployDur time.Duration,
+	dur time.Duration,
+) *pb.ExperimentSpec {
+	e := &pb.ExperimentSpec{
+		VizierSpec: VizierWorkload(),
+		WorkloadSpecs: []*pb.WorkloadSpec{
+			PythonDemoWorkload(),
+		},
+		MetricSpecs: []*pb.MetricSpec{
+			ProcessStatsMetrics(metricPeriod),
+			// Stagger the second query a little bit because of query stability issues.
+			HeapMetrics(metricPeriod + (2 * time.Second)),
+		},
+		RunSpec: &pb.RunSpec{
+			Actions: []*experimentpb.ActionSpec{
+				{
+					Type: experimentpb.START_VIZIER,
+				},
+				{
+					Type: experimentpb.START_METRIC_RECORDERS,
+				},
+				{
+					Type:     experimentpb.BURNIN,
+					Duration: types.DurationProto(predeployDur),
+				},
+				{
+					Type: experimentpb.START_WORKLOADS,
+				},
+				{
+					Type:     experimentpb.RUN,
+					Duration: types.DurationProto(dur),
+				},
+				{
+					// Make sure metric recorders are stopped before vizier/workloads.
+					Type: experimentpb.STOP_METRIC_RECORDERS,
+				},
+			},
+		},
+		ClusterSpec: DefaultCluster,
+	}
+	e = addTags(e,
+		"workload/px-python-demo",
+		"parameter/default/",
+	)
+	return e
+}
+
 // SockShopExperiment is an experiment that runs all of sock shop as a workload.
 func SockShopExperiment(
 	metricPeriod time.Duration,
