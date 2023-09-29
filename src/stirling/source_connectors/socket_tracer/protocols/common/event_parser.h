@@ -96,9 +96,9 @@ struct ParseResult {
  *
  * @return ParseResult with locations where parseable frames were found in the source buffer.
  */
-template <typename TFrameType, typename TStateType = NoState>
+template <typename TKey, typename TFrameType, typename TStateType = NoState>
 ParseResult ParseFrames(message_type_t type, DataStreamBuffer* data_stream_buffer,
-                        std::deque<TFrameType>* frames, bool resync = false,
+                        std::map<TKey, std::deque<TFrameType>>* frames, bool resync = false,
                         TStateType* state = nullptr) {
   std::string_view buf = data_stream_buffer->Head();
 
@@ -120,13 +120,11 @@ ParseResult ParseFrames(message_type_t type, DataStreamBuffer* data_stream_buffe
     buf.remove_prefix(start_pos);
   }
 
-  // Grab size before we start, so we know where the new parsed frames are.
-  const size_t prev_size = frames->size();
-
   // Parse and append new frames to the frames vector.
-  ParseResult result = ParseFramesLoop(type, buf, frames, state);
+  std::deque<TFrameType> new_frames = std::deque<TFrameType>();
+  ParseResult result = ParseFramesLoop(type, buf, &new_frames, state);
 
-  VLOG(1) << absl::Substitute("Parsed $0 new frames", frames->size() - prev_size);
+  VLOG(1) << absl::Substitute("Parsed $0 new frames", new_frames.size());
 
   // Match timestamps with the parsed frames.
   for (size_t i = 0; i < result.frame_positions.size(); ++i) {
@@ -134,7 +132,7 @@ ParseResult ParseFrames(message_type_t type, DataStreamBuffer* data_stream_buffe
     f.start += start_pos;
     f.end += start_pos;
 
-    auto& msg = (*frames)[prev_size + i];
+    auto& msg = new_frames[i];
     StatusOr<uint64_t> timestamp_ns_status =
         data_stream_buffer->GetTimestamp(data_stream_buffer->position() + f.end);
     LOG_IF(ERROR, !timestamp_ns_status.ok()) << timestamp_ns_status.ToString();
@@ -142,6 +140,12 @@ ParseResult ParseFrames(message_type_t type, DataStreamBuffer* data_stream_buffe
   }
   result.end_position += start_pos;
 
+  // Parse frames into map
+  for (auto& frame : new_frames) {
+    // GetStreamID returns 0 by default if not implemented in protocol.
+    TKey key = GetStreamID<TKey, TFrameType>(&frame);
+    (*frames)[key].push_back(frame);
+  }
   return result;
 }
 

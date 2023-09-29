@@ -19,6 +19,7 @@
 #pragma once
 
 #include <deque>
+#include <map>
 #include <variant>
 
 #include "src/stirling/source_connectors/socket_tracer/protocols/amqp/types_gen.h"
@@ -39,17 +40,18 @@ namespace protocols {
 
 // clang-format off
 // PROTOCOL_LIST: Requires update on new protocols.
+// Note: stream_id is set to 0 for protocols that use a single stream / have no notion of streams.
 using FrameDequeVariant = std::variant<std::monostate,
-                                       std::deque<cass::Frame>,
-                                       std::deque<http::Message>,
-                                       std::deque<mux::Frame>,
-                                       std::deque<mysql::Packet>,
-                                       std::deque<pgsql::RegularMessage>,
-                                       std::deque<dns::Frame>,
-                                       std::deque<redis::Message>,
-                                       std::deque<kafka::Packet>,
-                                       std::deque<nats::Message>,
-                                       std::deque<amqp::Frame>>;
+                                       std::map<cass::stream_id, std::deque<cass::Frame>>,
+                                       std::map<http::stream_id, std::deque<http::Message>>,
+                                       std::map<mux::stream_id, std::deque<mux::Frame>>,
+                                       std::map<mysql::connection_id, std::deque<mysql::Packet>>,
+                                       std::map<pgsql::connection_id, std::deque<pgsql::RegularMessage>>,
+                                       std::map<dns::stream_id, std::deque<dns::Frame>>,
+                                       std::map<redis::stream_id, std::deque<redis::Message>>,
+                                       std::map<kafka::correlation_id, std::deque<kafka::Packet>>,
+                                       std::map<nats::stream_id, std::deque<nats::Message>>,
+                                       std::map<amqp::channel_id, std::deque<amqp::Frame>>>;
 // clang-format off
 
 }  // namespace protocols
