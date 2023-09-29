@@ -16,7 +16,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <asm-generic/errno.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <map>
