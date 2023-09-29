@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * SPDX-License-Identifier: Apache-2.0 */ \
+ * SPDX-License-Identifier: Apache-2.0 */
+
 #pragma once
 
 #include <deque>
@@ -139,6 +140,7 @@ RecordsWithErrorCount<TRecordType> StitchFrames(std::deque<TFrameType>* requests
  * StitchFrames is the entry point of stitcher for all protocols. It loops through the responses,
  * matches them with the corresponding requests, and returns stitched request & response pairs.
  * For protocols that support streams, we use a map of stream ID to frames.
+ *
  * @param requests: map of stream ID to deque of request frames.
  * @param responses: map of stream ID to deque of response frames.
  * @return A vector of entries to be appended to table store.
