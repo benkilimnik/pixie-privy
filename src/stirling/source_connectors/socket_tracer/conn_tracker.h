@@ -42,6 +42,7 @@
 #include "src/stirling/source_connectors/socket_tracer/socket_trace_bpf_tables.h"
 // Include all specializations of the StitchFrames() template specializations for all protocols.
 #include "src/stirling/source_connectors/socket_tracer/protocols/stitchers.h"
+// #include "src/stirling/source_connectors/socket_tracer/protocols/cql/parse.h"
 #include "src/stirling/utils/stat_counter.h"
 
 DECLARE_bool(treat_loopback_as_in_cluster);
@@ -286,22 +287,26 @@ class ConnTracker : NotCopyMoveable {
       for (auto& frame : req_frames) {
         // GetStreamID returns 0 by default if not specialized in protocol.
         auto key = protocols::GetStreamID<TKey, TFrameType>(&frame);
-        requests[key].push_back(frame);
+        requests[key].push_back(std::move(frame));
       }
       for (auto& frame : resp_frames) {
         auto key = protocols::GetStreamID<TKey, TFrameType>(&frame);
-        responses[key].push_back(frame);
+        responses[key].push_back(std::move(frame));
       }
       result = protocols::StitchFrames<TRecordType, TKey, TFrameType, TStateType>(
           &requests, &responses, state_ptr);
-
-      // update req_frames and resp_frames to match maps requests and responses
-      // TODO(@benkilimnik): Remove once we convert parsing code to use a map of streams.
+      // TODO(@benkilimnik): Update req and resp frame deques to match maps for now. Populate maps
+      // during parsing in a future PR.
       req_frames.clear();
-      resp_frames.clear();
       for (auto& [_, frames] : requests) {
         for (auto& frame : frames) {
-          req_frames.push_back(frame);
+          req_frames.push_back(std::move(frame));
+        }
+      }
+      resp_frames.clear();
+      for (auto& [_, frames] : responses) {
+        for (auto& frame : frames) {
+          resp_frames.push_back(std::move(frame));
         }
       }
     } else {
