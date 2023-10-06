@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <absl/container/flat_hash_map.h>
 #include <any>
 #include <deque>
 #include <list>
@@ -280,8 +281,8 @@ class ConnTracker : NotCopyMoveable {
       using TKey = typename TProtocolTraits::key_type;
       // TODO(@benkilimnik): For now, we populate the map using the parsed req and resp deques.
       // In a future PR, we should parse the map earlier in the event parser.
-      std::map<TKey, std::deque<TFrameType>> requests;
-      std::map<TKey, std::deque<TFrameType>> responses;
+      absl::flat_hash_map<TKey, std::deque<TFrameType>> requests;
+      absl::flat_hash_map<TKey, std::deque<TFrameType>> responses;
       for (auto& frame : req_frames) {
         // GetStreamID returns 0 by default if not specialized in protocol.
         auto key = protocols::GetStreamID<TKey, TFrameType>(&frame);

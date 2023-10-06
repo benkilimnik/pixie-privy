@@ -373,15 +373,29 @@ StatusOr<Record> ProcessSolitaryResp(Frame* resp_frame) {
 //  - Stream values can be re-used, so sorting would have to consider times too.
 //  - Stream values need not be in any sequential order.
 RecordsWithErrorCount<Record> StitchFrames(
-    std::map<cass::stream_id, std::deque<cass::Frame>>* requests,
-    std::map<cass::stream_id, std::deque<cass::Frame>>* responses) {
+    absl::flat_hash_map<cass::stream_id_t, std::deque<cass::Frame>>* requests,
+    absl::flat_hash_map<cass::stream_id_t, std::deque<cass::Frame>>* responses) {
   std::vector<Record> entries;
   int error_count = 0;
 
+  // TODO: record time for loop with different maps
+  // 1. std::map
+  // 2. absl::
+
+  // use the python demo that loops through streams
+  // consider using prometheus to log this data
+
+// One thing to note is that the order in which records for a particular stream 
+// are appended to the result vector is not guaranteed.
+// Even if the map was sorted, for protocols like Mongo, the key could be any number, 
+// so we'd iterate over it in an arbitrary order. Within a particular transaction/stream, 
+// order by timestamp is preserved. But each transaction would show up in any order.
+
   // iterate through all deques of responses associated with a specific streamID and find the
   // matching request
+  // for (auto& [stream_id, resp_dequeue] : responses) {
   for (auto it = responses->begin(); it != responses->end(); it++) {
-    cass::stream_id stream_id = it->first;
+    cass::stream_id_t stream_id = it->first;
     std::deque<cass::Frame>& resp_frames = it->second;
 
     bool kEventHandled = false;
@@ -391,7 +405,7 @@ RecordsWithErrorCount<Record> StitchFrames(
         kEventHandled = true;
         StatusOr<Record> record_status = ProcessSolitaryResp(&resp_frame);
         if (record_status.ok()) {
-          entries.push_back(record_status.ConsumeValueOrDie());
+          entries.push_back(record_status.ValueOrDie());
         } else {
           VLOG(1) << record_status.ToString();
           ++error_count;
@@ -429,13 +443,12 @@ RecordsWithErrorCount<Record> StitchFrames(
       auto stream_it =
           std::upper_bound(req_timestamps.begin(), req_timestamps.end(), resp_frame.timestamp_ns) -
           1;
-      int req_index = stream_it - req_timestamps.begin();
+      const size_t req_index = stream_it - req_timestamps.begin();
       // Responses should always have a more recent timestamp than the first request. If this
       // condition is triggered we should not attempt to match this frame. Since responses are
       // cleared during StitchFrames this will get cleaned up during the current iteration.
       if (stream_it + 1 == req_timestamps.begin()) {
-        CTX_DCHECK(false) << "Unable to find request that is earlier than response: "
-                          << resp_frame.ToString();
+        VLOG(1) << "Warning: Unable to find request that is earlier than response: " << resp_frame.ToString();
         continue;
       }
       cass::Frame& req_frame = req_frames[req_index];
@@ -452,39 +465,32 @@ RecordsWithErrorCount<Record> StitchFrames(
       req_frame.consumed = true;
     }
 
-    auto req_it = req_frames.begin();
-    auto delete_pos = req_frames.begin();
-    while (req_it != req_frames.end()) {
-      auto& frame = *req_it;
-      if (frame.consumed) {
-      } else if (!frame.consumed && (frame.discarded || frame.timestamp_ns < latest_resp_ts)) {
-        error_count++;
-      } else {
-        // marking the first request that is not consumed as the delete position
-        delete_pos = req_it;
-        break;
-      }
-      req_it++;
-    }
-
-    // Mark requests as discarded that will never match. These frames will be deleted in future
-    // StitchFrames iterations once they bubble up to the front of the deque and form a contiguous
-    // range with the consumed frames. This is done to avoid the bookeeping necessary to delete
-    // multiple ranges of indices in the deque (which occur when responses are lost).
-    if (req_it != req_frames.end()) {
-      while (req_it != req_frames.end()) {
-        auto& frame = *req_it;
-        if (!frame.consumed && frame.timestamp_ns < latest_resp_ts) {
-          frame.discarded = true;
+    size_t delete_idx = req_frames.size();
+    bool found_unconsumed = false;
+    for (const auto& [idx, frame] : Enumerate(req_frames)) {
+        if (frame.consumed) {
+            continue; 
         }
-        req_it++;
-      }
-    } else {
-      delete_pos = req_frames.end();
+        // Mark requests as discarded that will never match. These frames will be deleted in future
+        // StitchFrames iterations once they bubble up to the front of the deque and form a contiguous
+        // range with the consumed frames. This is done to avoid the bookeeping necessary to delete
+        // multiple ranges of indices in the deque (which occur when responses are lost).
+        if (frame.discarded || frame.timestamp_ns < latest_resp_ts) {
+            error_count++;
+            frame.discarded = true;
+        } else if (!found_unconsumed) {
+            delete_idx = idx;
+            found_unconsumed = true;
+            break;
+        }
     }
-    req_frames.erase(req_frames.begin(), delete_pos);
+    req_frames.erase(req_frames.begin(), req_frames.begin() + delete_idx);
     resp_frames.clear();
   }
+
+  // Sort the entries in the result vector to ensure correct ordering of transactions (i.e. streams).
+  // Sort in descending order of timestamp (earliest records come first)
+  // sort(entries.begin(), entries.end(), greater<int>()); 
 
   return {entries, error_count};
 }

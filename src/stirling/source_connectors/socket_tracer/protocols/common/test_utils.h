@@ -19,7 +19,7 @@
 #pragma once
 
 #include <deque>
-#include <map>
+#include <absl/container/flat_hash_map.h>
 #include <string>
 #include <vector>
 
@@ -68,7 +68,7 @@ std::vector<SocketDataEvent> CreateEvents(const std::vector<TStrType>& msgs) {
 }
 
 template <typename TKey, typename TFrameType>
-bool areAllDequesEmpty(const std::map<TKey, std::deque<TFrameType>>& frame_map) {
+bool areAllDequesEmpty(const absl::flat_hash_map<TKey, std::deque<TFrameType>>& frame_map) {
   for (const auto& pair : frame_map) {
     if (!pair.second.empty()) {
       return false;
@@ -78,7 +78,7 @@ bool areAllDequesEmpty(const std::map<TKey, std::deque<TFrameType>>& frame_map) 
 }
 
 template <typename TKey, typename TFrameType>
-size_t totalDequeSize(const std::map<TKey, std::deque<TFrameType>>& frame_map) {
+size_t totalDequeSize(const absl::flat_hash_map<TKey, std::deque<TFrameType>>& frame_map) {
   size_t total_size = 0;
   for (const auto& pair : frame_map) {
     total_size += pair.second.size();

@@ -175,8 +175,8 @@ constexpr uint8_t kEventResp[] = {0x00, 0x0d, 0x53, 0x43, 0x48, 0x45, 0x4d, 0x41
 //-----------------------------------------------------------------------------
 
 TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
@@ -266,8 +266,8 @@ TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
 
 // To test that, if a request of a response is missing, then the response is popped off.
 TEST(CassStitcherTest, MissingRequest) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
@@ -290,8 +290,8 @@ TEST(CassStitcherTest, MissingRequest) {
 
 // To test that mis-classified frames are caught by stitcher.
 TEST(CassStitcherTest, NonCQLFrames) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
@@ -315,8 +315,8 @@ TEST(CassStitcherTest, NonCQLFrames) {
 }
 
 TEST(CassStitcherTest, OpEvent) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
@@ -341,8 +341,8 @@ TEST(CassStitcherTest, OpEvent) {
 }
 
 TEST(CassStitcherTest, StartupReady) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
@@ -365,8 +365,8 @@ TEST(CassStitcherTest, StartupReady) {
 }
 
 TEST(CassStitcherTest, RegisterReady) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
@@ -389,8 +389,8 @@ TEST(CassStitcherTest, RegisterReady) {
 }
 
 TEST(CassStitcherTest, OptionsSupported) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
@@ -415,8 +415,8 @@ TEST(CassStitcherTest, OptionsSupported) {
 }
 
 TEST(CassStitcherTest, QueryResult) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
@@ -445,8 +445,8 @@ TEST(CassStitcherTest, QueryResult) {
 }
 
 TEST(CassStitcherTest, QueryError) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
@@ -475,8 +475,8 @@ TEST(CassStitcherTest, QueryError) {
 }
 
 TEST(CassStitcherTest, PrepareResult) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
@@ -502,8 +502,8 @@ TEST(CassStitcherTest, PrepareResult) {
 }
 
 TEST(CassStitcherTest, ExecuteResult) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
@@ -532,8 +532,8 @@ TEST(CassStitcherTest, ExecuteResult) {
 }
 
 TEST(CassStitcherTest, StartupAuthenticate) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
@@ -556,8 +556,8 @@ TEST(CassStitcherTest, StartupAuthenticate) {
 }
 
 TEST(CassStitcherTest, AuthResponseAuthSuccess) {
-  std::map<stream_id, std::deque<Frame>> req_map;
-  std::map<stream_id, std::deque<Frame>> resp_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> req_map;
+  absl::flat_hash_map<stream_id_t, std::deque<Frame>> resp_map;
 
   RecordsWithErrorCount<Record> result;
 
