@@ -407,7 +407,7 @@ RecordsWithErrorCount<Record> StitchFrames(
     }
 
     // we found a potential set of requests for this stream ID
-    std::deque<cass::Frame>& req_frames = pos->second;
+    std::deque<cass::Frame>& req_deque = pos->second;
 
     uint64_t latest_resp_ts = 0;
     // go through the responses for this stream ID and check for requests
@@ -416,16 +416,16 @@ RecordsWithErrorCount<Record> StitchFrames(
       // This returns the first request timestamp that is JUST BEFORE the response timestamp
       // Upper bound returns the first request timestamps GREATER than the response timestamp; we
       // want to get the one right before
-      auto stream_it =
-          std::upper_bound(
-              req_frames.begin(), req_frames.end(), resp_frame.timestamp_ns,
-              [](const uint64_t ts, const cass::Frame& frame) { return ts < frame.timestamp_ns; }) -
-          1;
+      auto stream_it = std::upper_bound(req_deque.begin(), req_deque.end(), resp_frame.timestamp_ns,
+                                        [](const uint64_t ts, const cass::Frame& frame) {
+                                          return ts < frame.timestamp_ns;
+                                        }) -
+                       1;
 
       // Responses should always have a more recent timestamp than the first request. If this
       // condition is triggered we should not attempt to match this frame. Since responses are
       // cleared during StitchFrames this will get cleaned up during the current iteration.
-      if (stream_it == req_frames.begin() && stream_it->timestamp_ns > resp_frame.timestamp_ns) {
+      if (stream_it == req_deque.begin() && stream_it->timestamp_ns > resp_frame.timestamp_ns) {
         VLOG(1) << "Warning: Unable to find request that is earlier than response: "
                 << resp_frame.ToString();
         continue;
@@ -446,9 +446,9 @@ RecordsWithErrorCount<Record> StitchFrames(
       req_frame.consumed = true;
     }
 
-    size_t delete_idx = req_frames.size();
+    size_t delete_idx = req_deque.size();
     bool found_unconsumed = false;
-    for (const auto& [idx, frame] : Enumerate(req_frames)) {
+    for (const auto& [idx, frame] : Enumerate(req_deque)) {
       if (frame.consumed) {
         continue;
       }
@@ -465,7 +465,7 @@ RecordsWithErrorCount<Record> StitchFrames(
         break;
       }
     }
-    req_frames.erase(req_frames.begin(), req_frames.begin() + delete_idx);
+    req_deque.erase(req_deque.begin(), req_deque.begin() + delete_idx);
     resp_deque.clear();
   }
 
