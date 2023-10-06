@@ -42,7 +42,6 @@
 #include "src/stirling/source_connectors/socket_tracer/socket_trace_bpf_tables.h"
 // Include all specializations of the StitchFrames() template specializations for all protocols.
 #include "src/stirling/source_connectors/socket_tracer/protocols/stitchers.h"
-// #include "src/stirling/source_connectors/socket_tracer/protocols/cql/parse.h"
 #include "src/stirling/utils/stat_counter.h"
 
 DECLARE_bool(treat_loopback_as_in_cluster);
