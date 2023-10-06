@@ -40,8 +40,9 @@ namespace cass {
  * @param resp_frames: deque of all response frames.
  * @return A vector of entries to be appended to table store.
  */
-RecordsWithErrorCount<Record> StitchFrames(absl::flat_hash_map<stream_id_t, std::deque<Frame>>* req_frames,
-                                           absl::flat_hash_map<stream_id_t, std::deque<Frame>>* resp_frames);
+RecordsWithErrorCount<Record> StitchFrames(
+    absl::flat_hash_map<stream_id_t, std::deque<Frame>>* req_frames,
+    absl::flat_hash_map<stream_id_t, std::deque<Frame>>* resp_frames);
 
 }  // namespace cass
 
