@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <absl/container/flat_hash_map.h>
 #include <deque>
 #include <map>
 #include <string>
@@ -39,16 +40,18 @@ namespace cass {
  * @param resp_frames: deque of all response frames.
  * @return A vector of entries to be appended to table store.
  */
-RecordsWithErrorCount<Record> StitchFrames(std::deque<Frame>* req_frames,
-                                           std::deque<Frame>* resp_frames);
+RecordsWithErrorCount<Record> StitchFrames(
+    absl::flat_hash_map<stream_id_t, std::deque<Frame>>* req_frames,
+    absl::flat_hash_map<stream_id_t, std::deque<Frame>>* resp_frames);
 
 }  // namespace cass
 
 template <>
-inline RecordsWithErrorCount<cass::Record> StitchFrames(std::deque<cass::Frame>* req_frames,
-                                                        std::deque<cass::Frame>* resp_frames,
-                                                        NoState* /* state */) {
-  return cass::StitchFrames(req_frames, resp_frames);
+inline RecordsWithErrorCount<cass::Record> StitchFrames(
+    absl::flat_hash_map<cass::stream_id_t, std::deque<cass::Frame>>* req_messages,
+    absl::flat_hash_map<cass::stream_id_t, std::deque<cass::Frame>>* res_messages,
+    NoState* /* state */) {
+  return cass::StitchFrames(req_messages, res_messages);
 }
 
 }  // namespace protocols

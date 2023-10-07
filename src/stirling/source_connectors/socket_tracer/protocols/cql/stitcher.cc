@@ -18,6 +18,7 @@
 
 #include "src/stirling/source_connectors/socket_tracer/protocols/cql/stitcher.h"
 
+#include <algorithm>
 #include <deque>
 #include <string>
 #include <utility>
@@ -343,9 +344,7 @@ StatusOr<Record> ProcessReqRespPair(Frame* req_frame, Frame* resp_frame) {
   return r;
 }
 
-StatusOr<Record> ProcessSolitaryResp(Frame* resp_frame) {
-  Record r;
-
+Status ProcessSolitaryResp(Frame* resp_frame, Record* r) {
   // For now, Event is the only supported solitary response.
   // If this ever changes, the code below needs to be adapted.
   CTX_DCHECK(resp_frame->hdr.opcode == Opcode::kEvent);
@@ -353,15 +352,13 @@ StatusOr<Record> ProcessSolitaryResp(Frame* resp_frame) {
   // Make a fake request to go along with the response.
   // - Use REGISTER op, since that was what set up the events in the first place.
   // - Use response timestamp, so any calculated latencies are reported as 0.
-  r.req.op = ReqOp::kRegister;
-  r.req.msg = "-";
-  r.req.timestamp_ns = resp_frame->timestamp_ns;
+  r->req.op = ReqOp::kRegister;
+  r->req.msg = "-";
+  r->req.timestamp_ns = resp_frame->timestamp_ns;
 
   // A little inefficient because it will go through a switch statement again,
   // when we actually know the op. But keep it this way for consistency.
-  PX_RETURN_IF_ERROR(ProcessResp(resp_frame, &r.resp));
-
-  return r;
+  return ProcessResp(resp_frame, &r->resp);
 }
 
 // Currently StitchFrames() uses a response-led matching algorithm.
@@ -372,76 +369,114 @@ StatusOr<Record> ProcessSolitaryResp(Frame* resp_frame) {
 //  - Request and response deques are likely (confirm?) to be mostly ordered.
 //  - Stream values can be re-used, so sorting would have to consider times too.
 //  - Stream values need not be in any sequential order.
-RecordsWithErrorCount<Record> StitchFrames(std::deque<Frame>* req_frames,
-                                           std::deque<Frame>* resp_frames) {
+RecordsWithErrorCount<Record> StitchFrames(
+    absl::flat_hash_map<cass::stream_id_t, std::deque<cass::Frame>>* requests,
+    absl::flat_hash_map<cass::stream_id_t, std::deque<cass::Frame>>* responses) {
   std::vector<Record> entries;
   int error_count = 0;
 
-  for (auto& resp_frame : *resp_frames) {
-    bool found_match = false;
+  // iterate through all deques of responses associated with a specific streamID and find the
+  // matching request
+  for (auto& [stream_id, resp_deque] : *responses) {
+    bool kEventHandled = false;
+    for (cass::Frame& resp_frame : resp_deque) {
+      // Event responses are special: they have no request.
+      if (resp_frame.hdr.opcode == Opcode::kEvent) {
+        kEventHandled = true;
+        Record record;
+        Status record_status = ProcessSolitaryResp(&resp_frame, &record);
+        if (record_status.ok()) {
+          entries.push_back(std::move(record));
+        } else {
+          VLOG(1) << record_status.ToString();
+          ++error_count;
+        }
+      }
+    }
 
-    // Event responses are special: they have no request.
-    if (resp_frame.hdr.opcode == Opcode::kEvent) {
-      StatusOr<Record> record_status = ProcessSolitaryResp(&resp_frame);
-      if (record_status.ok()) {
-        entries.push_back(record_status.ConsumeValueOrDie());
-      } else {
-        VLOG(1) << record_status.msg();
+    auto pos = requests->find(stream_id);
+    if (pos == requests->end()) {
+      VLOG(1) << absl::Substitute("Could not find any requests for stream = $0", stream_id);
+      // if we don't find a matching request, we can't do anything with this response
+      // so clean it up
+      resp_deque.clear();
+      if (!kEventHandled) {
         ++error_count;
       }
       continue;
     }
 
-    // Search for matching req frame
-    for (auto& req_frame : *req_frames) {
-      if (resp_frame.hdr.stream == req_frame.hdr.stream) {
-        VLOG(2) << absl::Substitute("req_op=$0 msg=$1", magic_enum::enum_name(req_frame.hdr.opcode),
-                                    req_frame.msg);
+    // we found a potential set of requests for this stream ID
+    std::deque<cass::Frame>& req_deque = pos->second;
 
-        StatusOr<Record> record_status = ProcessReqRespPair(&req_frame, &resp_frame);
-        if (record_status.ok()) {
-          entries.push_back(record_status.ConsumeValueOrDie());
-        } else {
-          VLOG(1) << record_status.ToString();
-          ++error_count;
-        }
+    uint64_t latest_resp_ts = 0;
+    // go through the responses for this stream ID and check for requests
+    for (cass::Frame& resp_frame : resp_deque) {
+      latest_resp_ts = resp_frame.timestamp_ns;
+      // This returns the first request timestamp that is JUST BEFORE the response timestamp
+      // Upper bound returns the first request timestamps GREATER than the response timestamp; we
+      // want to get the one right before
+      auto stream_it = std::upper_bound(req_deque.begin(), req_deque.end(), resp_frame.timestamp_ns,
+                                        [](const uint64_t ts, const cass::Frame& frame) {
+                                          return ts < frame.timestamp_ns;
+                                        }) -
+                       1;
 
-        // Found a match, so remove both request and response.
-        // We don't remove request frames on the fly, however,
-        // because it could otherwise cause unnecessary churn/copying in the deque.
-        // This is due to the fact that responses can come out-of-order.
-        // Just mark the request as consumed, and clean-up when they reach the head of the queue.
-        // Note that responses are always head-processed, so they don't require this optimization.
-        found_match = true;
-        req_frame.consumed = true;
+      // Responses should always have a more recent timestamp than the first request. If this
+      // condition is triggered we should not attempt to match this frame. Since responses are
+      // cleared during StitchFrames this will get cleaned up during the current iteration.
+      if (stream_it == req_deque.begin() && stream_it->timestamp_ns > resp_frame.timestamp_ns) {
+        VLOG(1) << "Warning: Unable to find request that is earlier than response: "
+                << resp_frame.ToString();
+        continue;
+      }
+
+      cass::Frame& req_frame = *stream_it;  // dereference the iterator to get the frame
+
+      VLOG(2) << absl::Substitute("req_op=$0 msg=$1", magic_enum::enum_name(req_frame.hdr.opcode),
+                                  req_frame.msg);
+      StatusOr<Record> record_status = ProcessReqRespPair(&req_frame, &resp_frame);
+      if (record_status.ok()) {
+        entries.push_back(record_status.ConsumeValueOrDie());
+      } else {
+        VLOG(1) << record_status.ToString();
+        ++error_count;
+      }
+      // Record that the req and response pair are consumed
+      req_frame.consumed = true;
+    }
+
+    size_t delete_idx = req_deque.size();
+    bool found_unconsumed = false;
+    for (const auto& [idx, frame] : Enumerate(req_deque)) {
+      if (frame.consumed) {
+        continue;
+      }
+      // Mark requests as discarded that will never match. These frames will be deleted in future
+      // StitchFrames iterations once they bubble up to the front of the deque and form a contiguous
+      // range with the consumed frames. This is done to avoid the bookeeping necessary to delete
+      // multiple ranges of indices in the deque (which occur when responses are lost).
+      if (frame.discarded || frame.timestamp_ns < latest_resp_ts) {
+        error_count++;
+        frame.discarded = true;
+      } else if (!found_unconsumed) {
+        delete_idx = idx;
+        found_unconsumed = true;
         break;
       }
     }
-
-    if (!found_match) {
-      VLOG(1) << absl::Substitute("Did not find a request matching the response. Stream = $0",
-                                  resp_frame.hdr.stream);
-      ++error_count;
-    }
-
-    // Clean-up consumed frames at the head.
-    // Do this inside the resp loop to aggressively clean-out req_frames whenever a frame consumed.
-    // Should speed up the req_frames search for the next iteration.
-    auto it = req_frames->begin();
-    while (it != req_frames->end()) {
-      if (!(*it).consumed) {
-        break;
-      }
-      it++;
-    }
-    req_frames->erase(req_frames->begin(), it);
-
-    // TODO(oazizi): Consider removing requests that are too old, otherwise a lost response can mean
-    // the are never processed. This would result in a memory leak until the more drastic connection
-    // tracker clean-up mechanisms kick in.
+    req_deque.erase(req_deque.begin(), req_deque.begin() + delete_idx);
+    resp_deque.clear();
   }
 
-  resp_frames->clear();
+  // The order in which records for a particular stream are appended to the result vector is not
+  // guaranteed. Even if the map was ordered, the stream_ids may not be monotonically increasing.
+  // Within a particular stream, frames are ordered by timestamp, but transactions for different
+  // streams could be appended in any order. As a result, we sort the entries in descending order
+  // (most recent records come first). For CQL, we do response-led sorting.
+  std::sort(entries.begin(), entries.end(), [](const Record& a, const Record& b) {
+    return a.resp.timestamp_ns > b.resp.timestamp_ns;
+  });
 
   return {entries, error_count};
 }

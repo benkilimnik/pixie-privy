@@ -18,8 +18,12 @@
 
 #pragma once
 
+#include <deque>
+#include <map>
 #include <string>
 #include <vector>
+
+#include <absl/container/flat_hash_map.h>
 
 #include "src/common/base/base.h"
 #include "src/stirling/source_connectors/socket_tracer/bcc_bpf_intf/socket_trace.hpp"
@@ -63,6 +67,25 @@ std::vector<SocketDataEvent> CreateEvents(const std::vector<TStrType>& msgs) {
     pos += msgs[i].size();
   }
   return events;
+}
+
+template <typename TKey, typename TFrameType>
+bool areAllDequesEmpty(const absl::flat_hash_map<TKey, std::deque<TFrameType>>& frame_map) {
+  for (const auto& pair : frame_map) {
+    if (!pair.second.empty()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+template <typename TKey, typename TFrameType>
+size_t totalDequeSize(const absl::flat_hash_map<TKey, std::deque<TFrameType>>& frame_map) {
+  size_t total_size = 0;
+  for (const auto& pair : frame_map) {
+    total_size += pair.second.size();
+  }
+  return total_size;
 }
 
 }  // namespace protocols
