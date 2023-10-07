@@ -40,9 +40,6 @@ template <>
 size_t FindFrameBoundary<cass::Frame>(message_type_t type, std::string_view buf, size_t start_pos,
                                       NoState* state);
 
-template <>
-cass::stream_id_t GetStreamID(cass::Frame* frame);
-
 }  // namespace protocols
 }  // namespace stirling
 }  // namespace px
