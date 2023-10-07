@@ -277,9 +277,7 @@ class DataStream : NotCopyMoveable {
   static void EraseExpiredFrames(
       std::chrono::time_point<std::chrono::steady_clock> expiry_timestamp,
       absl::flat_hash_map<TKey, std::deque<TFrameType>>* frames) {
-    for (auto it = frames->begin(); it != frames->end(); it++) {
-      // auto stream = it->first;
-      auto& deque = it->second;
+    for (auto& [key, deque] : *frames) {
       auto iter = deque.begin();
       for (; iter != deque.end(); ++iter) {
         auto frame_timestamp = std::chrono::time_point<std::chrono::steady_clock>(
@@ -291,7 +289,6 @@ class DataStream : NotCopyMoveable {
           break;
         }
       }
-
       deque.erase(deque.begin(), iter);
     }
   }
