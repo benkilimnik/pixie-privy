@@ -206,8 +206,8 @@ TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
   Frame resp5_s0_frame = CreateFrame(0, Opcode::kError, kBadQueryErrorResp, ++t);
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   EXPECT_EQ(result.records.size(), 0);
 
@@ -217,8 +217,8 @@ TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
   req_map[2].push_back(req0_s2_frame);
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 3);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 3);
   EXPECT_EQ(result.error_count, 0);
   EXPECT_EQ(result.records.size(), 0);
 
@@ -237,8 +237,8 @@ TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
   resp_map[0].push_back(resp5_s0_frame);
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 2);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 2);
   EXPECT_EQ(req_map[1].front().timestamp_ns, req1_s1_frame.timestamp_ns);
   EXPECT_EQ(req_map[2].front().timestamp_ns, req1_s2_frame.timestamp_ns);
   EXPECT_EQ(result.error_count, 3);
@@ -247,8 +247,8 @@ TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
   // No requests or responses should be deleted when streams of
   // the head of requests are inactive
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 2);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 2);
   EXPECT_EQ(req_map[1].front().timestamp_ns, req1_s1_frame.timestamp_ns);
   EXPECT_EQ(req_map[2].front().timestamp_ns, req1_s2_frame.timestamp_ns);
   EXPECT_EQ(result.error_count, 0);
@@ -258,8 +258,8 @@ TEST(CassStitcherTest, OutOfOrderMatchingWithMissingResponses) {
   resp_map[2].push_back(resp1_s2_frame);
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   EXPECT_EQ(result.records.size(), 2);
 }
@@ -282,8 +282,8 @@ TEST(CassStitcherTest, MissingRequest) {
   resp_map[1].push_back(resp1_frame);
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 1);
   EXPECT_EQ(result.records.size(), 1);
 }
@@ -308,8 +308,8 @@ TEST(CassStitcherTest, NonCQLFrames) {
   resp_map[0].push_back(resp1_frame);
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 2);
   EXPECT_EQ(result.records.size(), 0);
 }
@@ -323,8 +323,8 @@ TEST(CassStitcherTest, OpEvent) {
   resp_map[1].push_back(CreateFrame(1, Opcode::kEvent, kEventResp, 3));
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -350,8 +350,8 @@ TEST(CassStitcherTest, StartupReady) {
   resp_map[0].push_back(CreateFrame(0, Opcode::kReady, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -374,8 +374,8 @@ TEST(CassStitcherTest, RegisterReady) {
   resp_map[0].push_back(CreateFrame(0, Opcode::kReady, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -398,8 +398,8 @@ TEST(CassStitcherTest, OptionsSupported) {
   resp_map[0].push_back(CreateFrame(0, Opcode::kSupported, kSupportedResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -424,8 +424,8 @@ TEST(CassStitcherTest, QueryResult) {
   resp_map[0].push_back(CreateFrame(0, Opcode::kResult, kResultResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -451,8 +451,8 @@ TEST(CassStitcherTest, QueryError) {
   RecordsWithErrorCount<Record> result;
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   EXPECT_EQ(result.records.size(), 0);
 
@@ -460,8 +460,8 @@ TEST(CassStitcherTest, QueryError) {
   resp_map[0].push_back(CreateFrame(0, Opcode::kError, kBadQueryErrorResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -484,8 +484,8 @@ TEST(CassStitcherTest, PrepareResult) {
   resp_map[0].push_back(CreateFrame(0, Opcode::kResult, kPrepareResultResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -511,8 +511,8 @@ TEST(CassStitcherTest, ExecuteResult) {
   resp_map[0].push_back(CreateFrame(0, Opcode::kResult, kExecuteResultResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -541,8 +541,8 @@ TEST(CassStitcherTest, StartupAuthenticate) {
   resp_map[0].push_back(CreateFrame(0, Opcode::kAuthenticate, kAuthenticateResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 
@@ -565,8 +565,8 @@ TEST(CassStitcherTest, AuthResponseAuthSuccess) {
   resp_map[0].push_back(CreateFrame(0, Opcode::kAuthSuccess, kAuthSuccessResp, 2));
 
   result = StitchFrames(&req_map, &resp_map);
-  EXPECT_TRUE(areAllDequesEmpty(resp_map));
-  EXPECT_EQ(totalDequeSize(req_map), 0);
+  EXPECT_TRUE(AreAllDequesEmpty(resp_map));
+  EXPECT_EQ(TotalDequeSize(req_map), 0);
   EXPECT_EQ(result.error_count, 0);
   ASSERT_EQ(result.records.size(), 1);
 

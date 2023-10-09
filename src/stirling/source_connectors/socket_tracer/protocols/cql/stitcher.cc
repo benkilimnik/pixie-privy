@@ -378,11 +378,11 @@ RecordsWithErrorCount<Record> StitchFrames(
   // iterate through all deques of responses associated with a specific streamID and find the
   // matching request
   for (auto& [stream_id, resp_deque] : *responses) {
-    bool kEventHandled = false;
+    bool event_handled = false;
     for (cass::Frame& resp_frame : resp_deque) {
       // Event responses are special: they have no request.
       if (resp_frame.hdr.opcode == Opcode::kEvent) {
-        kEventHandled = true;
+        event_handled = true;
         Record record;
         Status record_status = ProcessSolitaryResp(&resp_frame, &record);
         if (record_status.ok()) {
@@ -400,7 +400,7 @@ RecordsWithErrorCount<Record> StitchFrames(
       // if we don't find a matching request, we can't do anything with this response
       // so clean it up
       resp_deque.clear();
-      if (!kEventHandled) {
+      if (!event_handled) {
         ++error_count;
       }
       continue;
@@ -447,7 +447,6 @@ RecordsWithErrorCount<Record> StitchFrames(
     }
 
     size_t delete_idx = req_deque.size();
-    bool found_unconsumed = false;
     for (const auto& [idx, frame] : Enumerate(req_deque)) {
       if (frame.consumed) {
         continue;
@@ -459,9 +458,8 @@ RecordsWithErrorCount<Record> StitchFrames(
       if (frame.discarded || frame.timestamp_ns < latest_resp_ts) {
         error_count++;
         frame.discarded = true;
-      } else if (!found_unconsumed) {
+      } else {
         delete_idx = idx;
-        found_unconsumed = true;
         break;
       }
     }
