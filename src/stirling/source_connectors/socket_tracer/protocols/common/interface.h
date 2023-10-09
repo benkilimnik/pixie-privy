@@ -144,7 +144,7 @@ RecordsWithErrorCount<TRecordType> StitchFrames(std::deque<TFrameType>* requests
  * @param responses: map of stream ID to deque of response frames.
  * @return A vector of entries to be appended to table store.
  */
-template <typename TKey, typename TRecordType, typename TFrameType, typename TStateType>
+template <typename TRecordType, typename TKey, typename TFrameType, typename TStateType>
 RecordsWithErrorCount<TRecordType> StitchFrames(
     absl::flat_hash_map<TKey, std::deque<TFrameType>>* requests,
     absl::flat_hash_map<TKey, std::deque<TFrameType>>* responses, TStateType* state);

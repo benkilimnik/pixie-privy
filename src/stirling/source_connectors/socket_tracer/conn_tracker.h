@@ -277,9 +277,10 @@ class ConnTracker : NotCopyMoveable {
 
     // If this protocol doesn't support streams, we call StitchFrames with the deque at stream 0.
     // If it does, we pass it the full map of stream ID to deque of frames.
+    // TODO(@benkilimnik): Eventually, we should migrate all of the protocols to use the map.
     if constexpr (TProtocolTraits::stream_support ==
                   protocols::BaseProtocolTraits<TRecordType>::UseStream) {
-      result = protocols::StitchFrames<TKey, TRecordType, TFrameType, TStateType>(
+      result = protocols::StitchFrames<TRecordType, TKey, TFrameType, TStateType>(
           &req_frames, &resp_frames, state_ptr);
     } else {
       result = protocols::StitchFrames<TRecordType, TFrameType, TStateType>(
