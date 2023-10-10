@@ -467,15 +467,6 @@ RecordsWithErrorCount<Record> StitchFrames(
     resp_deque.clear();
   }
 
-  // The order in which records for a particular stream are appended to the result vector is not
-  // guaranteed. Even if the map was ordered, the stream_ids may not be monotonically increasing.
-  // Within a particular stream, frames are ordered by timestamp, but transactions for different
-  // streams could be appended in any order. As a result, we sort the entries in descending order
-  // (most recent records come first). For CQL, we do response-led sorting.
-  std::sort(entries.begin(), entries.end(), [](const Record& a, const Record& b) {
-    return a.resp.timestamp_ns > b.resp.timestamp_ns;
-  });
-
   return {entries, error_count};
 }
 
