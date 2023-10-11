@@ -19,6 +19,7 @@
 #include "src/stirling/source_connectors/socket_tracer/protocols/cql/stitcher.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <deque>
 #include <string>
 #include <utility>
@@ -410,17 +411,18 @@ RecordsWithErrorCount<Record> StitchFrames(
     std::deque<cass::Frame>& req_deque = pos->second;
 
     uint64_t latest_resp_ts = 0;
+    auto req_deque_begin_iter = req_deque.begin();
     // go through the responses for this stream ID and check for requests
     for (cass::Frame& resp_frame : resp_deque) {
       latest_resp_ts = resp_frame.timestamp_ns;
-      // This returns the first request timestamp that is JUST BEFORE the response timestamp
-      // Upper bound returns the first request timestamps GREATER than the response timestamp; we
-      // want to get the one right before
-      auto stream_it = std::upper_bound(req_deque.begin(), req_deque.end(), resp_frame.timestamp_ns,
-                                        [](const uint64_t ts, const cass::Frame& frame) {
-                                          return ts < frame.timestamp_ns;
-                                        }) -
-                       1;
+      // Find the first request timestamp that is strictly greater than the response timestamp.
+      // Then decrement the iterator to get the request timestamp that is just before the response timestamp.
+      auto stream_it =
+          std::upper_bound(
+              req_deque_begin_iter, req_deque.end(), resp_frame.timestamp_ns,
+              [](const uint64_t ts, const cass::Frame& frame) { return ts < frame.timestamp_ns; }) -
+          1;
+      req_deque_begin_iter = stream_it;
 
       // Responses should always have a more recent timestamp than the first request. If this
       // condition is triggered we should not attempt to match this frame. Since responses are
@@ -446,25 +448,19 @@ RecordsWithErrorCount<Record> StitchFrames(
       req_frame.consumed = true;
     }
 
-    size_t delete_idx = req_deque.size();
-    for (const auto& [idx, frame] : Enumerate(req_deque)) {
-      if (frame.consumed) {
-        continue;
+    // Loop through req_deque and stop at the first request that isn't consumed
+    // and has a timestamp newer than the latest response's timestamp.
+    auto erase_until_iter = req_deque.begin();
+    while (erase_until_iter != req_deque.end() &&
+           (erase_until_iter->consumed || erase_until_iter->timestamp_ns < latest_resp_ts)) {
+      if (!erase_until_iter->consumed) {
+        error_count++;  // This is an unmatched (discarded) request.
       }
-      // Mark requests as discarded that will never match. These frames will be deleted in future
-      // StitchFrames iterations once they bubble up to the front of the deque and form a contiguous
-      // range with the consumed frames. This is done to avoid the bookeeping necessary to delete
-      // multiple ranges of indices in the deque (which occur when responses are lost).
-      if (frame.discarded || frame.timestamp_ns < latest_resp_ts) {
-        error_count++;
-        frame.discarded = true;
-      } else {
-        delete_idx = idx;
-        break;
-      }
+      ++erase_until_iter;
     }
-    req_deque.erase(req_deque.begin(), req_deque.begin() + delete_idx);
-    resp_deque.clear();
+
+    req_deque.erase(req_deque.begin(), erase_until_iter);  // Erase consumed or unmatched requests.
+    resp_deque.clear();                                    // Clear all processed responses.
   }
 
   return {entries, error_count};
