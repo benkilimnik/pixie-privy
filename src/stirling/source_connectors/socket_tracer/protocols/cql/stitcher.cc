@@ -416,7 +416,8 @@ RecordsWithErrorCount<Record> StitchFrames(
     for (cass::Frame& resp_frame : resp_deque) {
       latest_resp_ts = resp_frame.timestamp_ns;
       // Find the first request timestamp that is strictly greater than the response timestamp.
-      // Then decrement the iterator to get the request timestamp that is just before the response timestamp.
+      // Then decrement the iterator to get the request timestamp that is just before the response
+      // timestamp.
       auto stream_it =
           std::upper_bound(
               req_deque_begin_iter, req_deque.end(), resp_frame.timestamp_ns,
