@@ -335,14 +335,13 @@ Status ProcessResp(Frame* resp_frame, Response* resp) {
   }
 }
 
-StatusOr<Record> ProcessReqRespPair(Frame* req_frame, Frame* resp_frame) {
+Status ProcessReqRespPair(Frame* req_frame, Frame* resp_frame, Record* r) {
   CTX_ECHECK_LT(req_frame->timestamp_ns, resp_frame->timestamp_ns);
 
-  Record r;
-  PX_RETURN_IF_ERROR(ProcessReq(req_frame, &r.req));
-  PX_RETURN_IF_ERROR(ProcessResp(resp_frame, &r.resp));
+  PX_RETURN_IF_ERROR(ProcessReq(req_frame, &r->req));
+  PX_RETURN_IF_ERROR(ProcessResp(resp_frame, &r->resp));
 
-  return r;
+  return Status::OK();
 }
 
 Status ProcessSolitaryResp(Frame* resp_frame, Record* r) {
@@ -438,9 +437,10 @@ RecordsWithErrorCount<Record> StitchFrames(
 
       VLOG(2) << absl::Substitute("req_op=$0 msg=$1", magic_enum::enum_name(req_frame.hdr.opcode),
                                   req_frame.msg);
-      StatusOr<Record> record_status = ProcessReqRespPair(&req_frame, &resp_frame);
+      Record record;
+      Status record_status = ProcessReqRespPair(&req_frame, &resp_frame, &record);
       if (record_status.ok()) {
-        entries.push_back(record_status.ConsumeValueOrDie());
+        entries.push_back(std::move(record));
       } else {
         VLOG(1) << record_status.ToString();
         ++error_count;
