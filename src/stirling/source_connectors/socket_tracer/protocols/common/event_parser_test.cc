@@ -94,7 +94,6 @@ TEST_F(EventParserTest, BasicProtocolParsing) {
   EXPECT_EQ(res.end_position, 44);
 
   std::vector<uint64_t> timestamps;
-  // change to loop over map of streams to deque of frames
   for (const auto& stream : word_frames) {
     for (const auto& frame : stream.second) {
       timestamps.push_back(frame.timestamp_ns);
