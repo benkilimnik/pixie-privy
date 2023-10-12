@@ -79,6 +79,10 @@ ParseState ParseFrame(message_type_t type, std::string_view* buf, Frame* result)
   result->msg = buf->substr(kFrameHeaderLength, result->hdr.length);
   buf->remove_prefix(kFrameHeaderLength + result->hdr.length);
 
+  // On response, we append the stream to state
+  // if (type == message_type_t::kResponse) {
+  //   state->ordered_streams.push_back(result->hdr.stream);
+  // }
   return ParseState::kSuccess;
 }
 }  // namespace cass
