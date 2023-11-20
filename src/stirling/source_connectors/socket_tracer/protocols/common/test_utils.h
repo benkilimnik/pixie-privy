@@ -39,8 +39,9 @@ class DataStreamBufferTestWrapper {
 
   DataStreamBufferTestWrapper() : data_buffer_(kDataBufferSize, kMaxGapSize, kAllowBeforeGapSize) {}
 
-  void AddEvent(const SocketDataEvent& event) {
-    data_buffer_.Add(event.attr.pos, event.msg, event.attr.timestamp_ns);
+  void AddEvent(const SocketDataEvent& event, chunk_t chunk_type = chunk_t::kFullyFormed,
+                size_t gap_size = 0) {
+    data_buffer_.Add(event.attr.pos, event.msg, event.attr.timestamp_ns, chunk_type, gap_size);
   }
 
   void AddEvents(const std::vector<SocketDataEvent>& events) {

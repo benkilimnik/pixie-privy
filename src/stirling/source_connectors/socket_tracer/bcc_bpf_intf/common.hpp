@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "common.h"
 #include "src/stirling/source_connectors/socket_tracer/bcc_bpf_intf/common.hpp"
 
 #include <algorithm>

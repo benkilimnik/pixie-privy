@@ -49,9 +49,12 @@ class FixedSizeContiguousBuffer : public NotCopyable {
   uint8_t* Data();
   size_t Size() const;
   size_t Capacity() const;
+  ChunkInfo GetChunkInfo();
+  void SetChunkInfo(size_t size, chunk_t incomplete_chunk, size_t chunk_start, size_t gap_size);
 
  private:
   uint8_t* data_;
+  struct ChunkInfo chunk_info_ = ChunkInfo(0);
   size_t capacity_;
   size_t offset_ = 0;
 };
@@ -68,7 +71,10 @@ class LazyContiguousDataStreamBufferImpl : public DataStreamBufferImpl {
   explicit LazyContiguousDataStreamBufferImpl(size_t max_capacity)
       : LazyContiguousDataStreamBufferImpl(max_capacity, 0, 0) {}
 
-  void Add(size_t pos, std::string_view data, uint64_t timestamp) override;
+  void Add(size_t pos, std::string_view data, uint64_t timestamp,
+           chunk_t incomplete_chunk = chunk_t::kFullyFormed, size_t gap_size = 0) override;
+
+  ChunkInfo GetChunkInfoForHead() override;
 
   std::string_view Head() override;
 
@@ -97,6 +103,9 @@ class LazyContiguousDataStreamBufferImpl : public DataStreamBufferImpl {
   struct Event {
     uint64_t timestamp;
     std::string data;
+    chunk_t incomplete_chunk;
+    // should be 0 if incomplete_chunk == kFullyFormed
+    size_t gap_size;
 
     // Only allow moving events.
     Event(Event&&) = default;
@@ -128,7 +137,9 @@ class LazyContiguousDataStreamBufferImpl : public DataStreamBufferImpl {
   size_t head_position_ = 0;
   std::unique_ptr<FixedSizeContiguousBuffer> head_;
   std::map<size_t, uint64_t> head_pos_to_ts_;
+  uint64_t prev_timestamp_ = 0;
 
+  // chunk start to Event
   std::map<size_t, Event> events_;
   size_t events_size_ = 0;
 };

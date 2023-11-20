@@ -59,9 +59,23 @@ uint8_t* FixedSizeContiguousBuffer::Data() {
 
 size_t FixedSizeContiguousBuffer::Size() const { return capacity_ - offset_; }
 size_t FixedSizeContiguousBuffer::Capacity() const { return capacity_; }
+// void FixedSizeContiguousBuffer::SetChunkInfo(size_t size, chunk_t incomplete_chunk,
+//                                              size_t incomplete_chunk_start, size_t gap_size) {
+//   struct ChunkInfo new_chunk_info(size, incomplete_chunk, incomplete_chunk_start, gap_size);
+//   chunk_info_ = std::move(new_chunk_info);
+// }
+ChunkInfo FixedSizeContiguousBuffer::GetChunkInfo() { return chunk_info_; }
 
-void LazyContiguousDataStreamBufferImpl::Add(size_t pos, std::string_view data,
-                                             uint64_t timestamp) {
+ChunkInfo LazyContiguousDataStreamBufferImpl::GetChunkInfoForHead() {
+  if (head_ == nullptr) {
+    return ChunkInfo(0);
+    // return empty_chunk_info;
+  }
+  return head_->GetChunkInfo();
+}
+
+void LazyContiguousDataStreamBufferImpl::Add(size_t pos, std::string_view data, uint64_t timestamp,
+                                             chunk_t incomplete_chunk, size_t gap_size) {
   if (data.size() == 0) {
     // Ignore empty events.
     return;
@@ -80,7 +94,7 @@ void LazyContiguousDataStreamBufferImpl::Add(size_t pos, std::string_view data,
   }
 
   events_size_ += data.size();
-  auto event = Event{timestamp, std::string(data)};
+  auto event = Event{timestamp, std::string(data), incomplete_chunk, gap_size};
   events_.emplace(pos, std::move(event));
 }
 
@@ -146,15 +160,46 @@ void LazyContiguousDataStreamBufferImpl::MergeContiguousEventsIntoHead() {
   auto new_buffer = std::make_unique<FixedSizeContiguousBuffer>(new_buffer_size);
   size_t offset = 0;
   if (head_ != nullptr) {
+    // if head exists, copy over its data to the new head buffer
     memcpy(new_buffer->Data(), head_->Data(), head_->Size());
     offset += head_->Size();
   }
 
   it = events_.begin();
+  // end_it stopped at the first non-contiguous event (at the end of current head)
   while (it != end_it) {
     size_t event_size = it->second.data.size();
+    // allocate space for the event in the head buffer, copying over data
     memcpy(new_buffer->Data() + offset, it->second.data.data(), event_size);
+    // Ensure that the event timestamps are monotonically increasing for a given contiguous head
+    if (prev_timestamp_ > 0 && it->second.timestamp < prev_timestamp_) {
+      LOG(WARNING) << absl::Substitute(
+          "Detected non-monotonically increasing timestamp $0. Adjusting to previous timestamp + "
+          "1: $1",
+          it->second.timestamp, prev_timestamp_ + 1);
+      it->second.timestamp = prev_timestamp_ + 1;
+    }
+    prev_timestamp_ = it->second.timestamp;
     head_pos_to_ts_.emplace(it->first, it->second.timestamp);
+    // if (head_ != nullptr) {
+    //   // If next chunk is a filler, preserve the original gap reason, start, and size for our
+    //   metrics
+    //   // LOG(WARNING) << "head_ incomplete_chunk: " << head_->GetChunkInfo().incomplete_chunk;
+    //   if (it->second.incomplete_chunk != chunk_t::kFiller) {
+    //     // it->first is the incomplete chunk start
+    //     head_->SetChunkInfo(event_size, it->second.incomplete_chunk, it->first,
+    //     it->second.gap_size);
+    //   }
+    // }
+    // else {
+    //   LOG(WARNING) << absl::Substitute("head_ is null, but we are merging events into it. "
+    //                                     "event_size: $0, incomplete_chunk: $1,
+    //                                     incomplete_chunk_start: $2, gap_size: $3", event_size,
+    //                                     it->second.incomplete_chunk, it->first,
+    //                                     it->second.gap_size);
+    //   new_buffer->SetChunkInfo(event_size, it->second.incomplete_chunk, it->first,
+    //   it->second.gap_size);
+    // }
     offset += event_size;
     events_size_ -= event_size;
     it = events_.erase(it);
@@ -165,6 +210,11 @@ void LazyContiguousDataStreamBufferImpl::MergeContiguousEventsIntoHead() {
 }
 
 std::string_view LazyContiguousDataStreamBufferImpl::Head() {
+  // Assuming that Head() only gets called once per sampling/parsing iteration
+  // and ParseFramesLoop processes the entire head buffer before the next call to Head()
+  // the incomplete chunk start should be unset here and only set if one of the events
+  // we attempt to merge into head tells us there is an upcoming gap (due to an incomplete chunk
+  // from bpf)
   if (IsHeadAndEventsMergeable()) {
     MergeContiguousEventsIntoHead();
   }

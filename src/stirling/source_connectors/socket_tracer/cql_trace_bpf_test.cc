@@ -21,6 +21,7 @@
 
 #include <string>
 
+#include <prometheus/text_serializer.h>
 #include "src/common/base/base.h"
 #include "src/common/exec/exec.h"
 #include "src/common/testing/testing.h"
@@ -467,6 +468,11 @@ TEST_F(CQLTraceTest, cqlsh_capture) {
                     EqCassRecord(kRecord13), EqCassRecord(kRecord14), EqCassRecord(kRecord15),
                     EqCassRecord(kRecord16), EqCassRecord(kRecord17), EqCassRecord(kRecord18)));
   }
+
+  auto& registry = GetMetricsRegistry();  // retrieves global var keeping metrics
+  auto metrics = registry.Collect();      // samples all metrics
+  auto metrics_text = prometheus::TextSerializer().Serialize(metrics);  // serializes to text
+  LOG(WARNING) << absl::Substitute("with metric text: $0", metrics_text);
 }
 
 }  // namespace stirling

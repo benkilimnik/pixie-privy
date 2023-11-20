@@ -39,6 +39,7 @@ using ::testing::Pair;
 
 // This test parser is a simple comma-separated value splitter.
 
+using stream_id_t = uint16_t;
 struct TestFrame : public FrameBase {
   std::string msg;
 
@@ -47,7 +48,7 @@ struct TestFrame : public FrameBase {
 
 template <>
 ParseState ParseFrame(message_type_t /* type */, std::string_view* buf, TestFrame* frame,
-                      NoState* /*state*/) {
+                      NoState* /*state*/, bool /*lazy_parsing_enabled*/) {
   size_t pos = buf->find(",");
   if (pos == buf->npos) {
     return ParseState::kNeedsMoreData;
@@ -69,7 +70,7 @@ class EventParserTest : public DataStreamBufferTestWrapper, public ::testing::Te
 
 // Use test protocol to test basics of EventParser.
 TEST_F(EventParserTest, BasicProtocolParsing) {
-  std::deque<TestFrame> word_frames;
+  absl::flat_hash_map<stream_id_t, std::deque<TestFrame>> word_frames;
 
   // clang-format off
   std::vector<std::string> event_messages = {
@@ -93,8 +94,10 @@ TEST_F(EventParserTest, BasicProtocolParsing) {
   EXPECT_EQ(res.end_position, 44);
 
   std::vector<uint64_t> timestamps;
-  for (const auto& frame : word_frames) {
-    timestamps.push_back(frame.timestamp_ns);
+  for (const auto& stream : word_frames) {
+    for (const auto& frame : stream.second) {
+      timestamps.push_back(frame.timestamp_ns);
+    }
   }
   EXPECT_THAT(timestamps, ElementsAre(0, 1, 1, 2, 3, 4));
 }

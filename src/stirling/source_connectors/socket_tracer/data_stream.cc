@@ -19,6 +19,8 @@
 #include <gflags/gflags.h>
 #include <utility>
 
+#include "protocols/common/data_stream_buffer.h"
+#include "src/stirling/source_connectors/socket_tracer/bcc_bpf_intf/socket_trace.hpp"
 #include "src/stirling/source_connectors/socket_tracer/data_stream.h"
 #include "src/stirling/source_connectors/socket_tracer/metrics.h"
 #include "src/stirling/source_connectors/socket_tracer/protocols/types.h"
@@ -47,12 +49,13 @@ namespace px {
 namespace stirling {
 
 void DataStream::AddData(std::unique_ptr<SocketDataEvent> event) {
+  // Note that msg.size() includes filler \0 bytes under certain circumstances. See socket_trace.hpp
+  // for details.
   LOG_IF(WARNING, event->attr.msg_size > event->msg.size() && !event->msg.empty())
       << absl::Substitute("Message truncated, original size: $0, transferred size: $1",
                           event->attr.msg_size, event->msg.size());
-
-  data_buffer_.Add(event->attr.pos, event->msg, event->attr.timestamp_ns);
-
+  data_buffer_.Add(event->attr.pos, event->msg, event->attr.timestamp_ns,
+                   event->attr.incomplete_chunk, event->attr.bytes_missed);
   has_new_events_ = true;
 }
 
@@ -69,9 +72,9 @@ void DataStream::AddData(std::unique_ptr<SocketDataEvent> event) {
 // To be robust to lost events, which are not necessarily aligned to parseable entity boundaries,
 // ProcessBytesToFrames() will invoke a call to ParseFrames() with a stream recovery argument when
 // necessary.
-template <typename TFrameType, typename TStateType = protocols::NoState>
+template <typename TKey, typename TFrameType, typename TStateType = protocols::NoState>
 void DataStream::ProcessBytesToFrames(message_type_t type, TStateType* state) {
-  auto& typed_messages = Frames<TFrameType>();
+  auto& typed_messages = Frames<TKey, TFrameType>();
 
   // TODO(oazizi): Convert to ECHECK once we have more confidence.
   LOG_IF(WARNING, IsEOS()) << "DataStream reaches EOS, no more data to process.";
@@ -111,27 +114,79 @@ void DataStream::ProcessBytesToFrames(message_type_t type, TStateType* state) {
 
   while (keep_processing && !data_buffer_.empty()) {
     size_t contiguous_bytes = data_buffer_.Head().size();
+    auto chunk_info = data_buffer_.GetChunkInfoForHead();
 
-    // Now parse the raw data.
-    parse_result =
-        protocols::ParseFrames(type, &data_buffer_, &typed_messages, IsSyncRequired(), state);
-    if (contiguous_bytes != data_buffer_.size()) {
-      // We weren't able to submit all bytes, which means we ran into a missing event.
-      // We don't expect missing events to arrive in the future, so just cut our losses.
-      // Drop all events up to this point, and then try to resume.
+    // Now parse the raw data. We parse one contiguous head per call.
+    parse_result = protocols::ParseFrames(type, &data_buffer_, &typed_messages, IsSyncRequired(),
+                                          state, lazy_parsing_enabled_);
+
+    if (contiguous_bytes != data_buffer_.size() ||
+        (lazy_parsing_enabled_ && parse_result.state == ParseState::kMetadataComplete &&
+         chunk_info.HasIncompleteChunks())) {
+      // We weren't able to submit all bytes in the data stream buffer, which means we ran into a
+      // missing event (i.e. an unfilled gap that made the buffer non-contiguous. One call to
+      // ParseFrames only processes the first contiguous head). We don't expect missing events to
+      // arrive in the future, so just cut our losses. Drop all events up to this point, and then
+      // try to resume parsing for the next contiguous section.
+
+      // A special case in which we also want to drop the contiguous head is if lazy
+      // parsing is enabled, the head is incomplete (i.e. has a gap), and we parsed a partial frame.
+      // In that case we parsed as far as possible leading up to the gap and discard the rest of the
+      // bytes.
       data_buffer_.RemovePrefix(contiguous_bytes);
       data_buffer_.Trim();
 
       keep_processing = (parse_result.state != ParseState::kEOS);
     } else {
-      // We had a contiguous stream, with no missing events.
-      // Erase bytes that have been fully processed.
-      // If anything was processed at all, reset stuck count.
+      // We had a contiguous stream (head), with no missing events. Erase bytes that have been fully
+      // processed from the buffer. If anything was processed at all, reset stuck count. If
+      // end_position = 0, we either need to wait for more data or encountered an invalid frame, in
+      // which case we discard the head.
       if (parse_result.end_position != 0) {
         data_buffer_.RemovePrefix(parse_result.end_position);
       }
 
       keep_processing = false;
+    }
+    if (parse_result.state == ParseState::kInvalid ||
+        parse_result.state == ParseState::kNeedsMoreData ||
+        parse_result.state == ParseState::kMetadataComplete) {
+      if (chunk_info.HasIncompleteChunks()) {
+        // We attribute all bytes lost (invalid frames) in an incomplete head to the presence of a
+        // gap from bpf (whether filled with null bytes or not). If lazy parsing it turned on, each
+        // head contains at most one gap. If lazy parsing is turned off, there can be multiple
+        // filled gaps in a head.
+        //
+        // incomplete_event     event                incomplete_event
+        // v                    v                    v
+        // _________________________________         ______________________
+        // |         |          |          |         |         |          |
+        // |         |          |          |         |         |          |
+        // |         |          |          |         |         |          |
+        // |         |    gap   |          |         |         |    gap   |
+        // |         |  filled  |          |   OR    |         |          |
+        // |         |   with   |          |         |         |          |
+        // |         |    \0    |          |         |         |          |
+        // |         |          |          |         |         |          |
+        // |_________|__________|__________|         |_________|__________|
+        //
+        // Note that theoretically there could be other reasons for parsing failure in a head with
+        // incomplete events, but that is unlikely.
+        // We compute the bytes rendered unparseable as the bytes in this contiguous head - bytes
+        // successfully parsed before the gap - total gap size(s) (should be non-zero if filled) If
+        // lazy parsing is turned on, we need not subtract the gap size because filling gaps with
+        // null bytes is turned off.
+        // TODO(benkilimnik): our metric currently only lists the most recent incomplete chunk
+        // reason. With filler events plugging gaps, multiple incomplete chunks can be present in a
+        // head. We should update the metric to account for all incomplete chunks in this contiguous
+        // section.
+        size_t filled_gap_size = lazy_parsing_enabled_ ? 0 : chunk_info.TotalGapSize();
+        SocketTracerMetrics::GetProtocolMetrics(
+            protocol_, ssl_source_, chunk_info.MostRecentIncompleteChunkInfo().incomplete_chunk,
+            lazy_parsing_enabled_)
+            .unparseable_bytes_before_gap.Increment(contiguous_bytes - parse_result.frame_bytes -
+                                                    filled_gap_size);
+      }
     }
 
     stat_valid_frames_ += parse_result.frame_positions.size();
@@ -162,12 +217,19 @@ void DataStream::ProcessBytesToFrames(message_type_t type, TStateType* state) {
     data_buffer_.RemovePrefix(data_buffer_.size());
     UpdateLastProgressTime();
   }
-
   // Keep track of "lost" data in prometheus. "lost" data includes any gaps in the data stream as
   // well as data that wasn't able to be successfully parsed.
   ssize_t num_bytes_advanced = data_buffer_.position() - last_processed_pos_;
   if (num_bytes_advanced > 0 && static_cast<size_t>(num_bytes_advanced) > frame_bytes) {
+    // Note that if lazy_parsing is turned on, num_bytes_advanced may not sometimes not be an
+    // accurate indicator of bytes lost for protocol parsers that have been modified to support lazy
+    // parsing. This is because the parser may have advanced the data_buffer_ position even if the
+    // event parser does not push partial frames when lazy parsing is on (if there is no gap) and
+    // therefore does not include partial frame bytes in its parse_result.frame_bytes. However, this
+    // should be a relatively rare case.
     size_t bytes_lost = num_bytes_advanced - frame_bytes;
+    // Note that data_loss = gaps + total unparsable data
+    // but data_loss != gaps (incomplete chunks) + data rendered unparsable due to gap.
     SocketTracerMetrics::GetProtocolMetrics(protocol_, ssl_source_)
         .data_loss_bytes.Increment(bytes_lost);
   }
@@ -180,30 +242,36 @@ void DataStream::ProcessBytesToFrames(message_type_t type, TStateType* state) {
 }
 
 // PROTOCOL_LIST: Requires update on new protocols.
-template void
-DataStream::ProcessBytesToFrames<protocols::http::Message, protocols::http::StateWrapper>(
+template void DataStream::ProcessBytesToFrames<
+    protocols::http::stream_id_t, protocols::http::Message, protocols::http::StateWrapper>(
     message_type_t type, protocols::http::StateWrapper* state);
-template void DataStream::ProcessBytesToFrames<protocols::mux::Frame, protocols::NoState>(
-    message_type_t type, protocols::NoState* state);
-template void
-DataStream::ProcessBytesToFrames<protocols::mysql::Packet, protocols::mysql::StateWrapper>(
+template void DataStream::ProcessBytesToFrames<protocols::mux::stream_id_t, protocols::mux::Frame,
+                                               protocols::NoState>(message_type_t type,
+                                                                   protocols::NoState* state);
+template void DataStream::ProcessBytesToFrames<
+    protocols::mysql::connection_id_t, protocols::mysql::Packet, protocols::mysql::StateWrapper>(
     message_type_t type, protocols::mysql::StateWrapper* state);
-template void DataStream::ProcessBytesToFrames<protocols::cass::Frame, protocols::NoState>(
+template void DataStream::ProcessBytesToFrames<protocols::cass::stream_id_t, protocols::cass::Frame,
+                                               protocols::NoState>(message_type_t type,
+                                                                   protocols::NoState* state);
+template void DataStream::ProcessBytesToFrames<
+    protocols::pgsql::connection_id_t, protocols::pgsql::RegularMessage,
+    protocols::pgsql::StateWrapper>(message_type_t type, protocols::pgsql::StateWrapper* state);
+template void DataStream::ProcessBytesToFrames<protocols::dns::stream_id_t, protocols::dns::Frame,
+                                               protocols::NoState>(message_type_t type,
+                                                                   protocols::NoState* state);
+template void DataStream::ProcessBytesToFrames<protocols::redis::stream_id_t,
+                                               protocols::redis::Message, protocols::NoState>(
     message_type_t type, protocols::NoState* state);
-template void
-DataStream::ProcessBytesToFrames<protocols::pgsql::RegularMessage, protocols::pgsql::StateWrapper>(
-    message_type_t type, protocols::pgsql::StateWrapper* state);
-template void DataStream::ProcessBytesToFrames<protocols::dns::Frame, protocols::NoState>(
-    message_type_t type, protocols::NoState* state);
-template void DataStream::ProcessBytesToFrames<protocols::redis::Message, protocols::NoState>(
-    message_type_t type, protocols::NoState* state);
-template void
-DataStream::ProcessBytesToFrames<protocols::kafka::Packet, protocols::kafka::StateWrapper>(
+template void DataStream::ProcessBytesToFrames<
+    protocols::kafka::correlation_id_t, protocols::kafka::Packet, protocols::kafka::StateWrapper>(
     message_type_t type, protocols::kafka::StateWrapper* state);
-template void DataStream::ProcessBytesToFrames<protocols::nats::Message, protocols::NoState>(
+template void DataStream::ProcessBytesToFrames<protocols::nats::stream_id_t,
+                                               protocols::nats::Message, protocols::NoState>(
     message_type_t type, protocols::NoState* state);
-template void DataStream::ProcessBytesToFrames<protocols::amqp::Frame, protocols::NoState>(
-    message_type_t type, protocols::NoState* state);
+template void DataStream::ProcessBytesToFrames<protocols::amqp::channel_id, protocols::amqp::Frame,
+                                               protocols::NoState>(message_type_t type,
+                                                                   protocols::NoState* state);
 void DataStream::Reset() {
   data_buffer_.Reset();
   has_new_events_ = false;

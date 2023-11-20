@@ -42,6 +42,7 @@
 #include "src/stirling/bpf_tools/utils.h"
 #include "src/stirling/source_connectors/socket_tracer/bcc_bpf_intf/go_grpc_types.hpp"
 #include "src/stirling/source_connectors/socket_tracer/bcc_bpf_intf/socket_trace.hpp"
+#include "src/stirling/source_connectors/socket_tracer/common.h"
 #include "src/stirling/source_connectors/socket_tracer/conn_stats.h"
 #include "src/stirling/source_connectors/socket_tracer/proto/sock_event.pb.h"
 #include "src/stirling/source_connectors/socket_tracer/protocols/http/utils.h"
@@ -172,6 +173,16 @@ DEFINE_bool(
     stirling_debug_tls_sources, gflags::BoolFromEnv("PX_DEBUG_TLS_SOURCES", false),
     "If true, stirling will add additional prometheus metrics regarding the traced tls sources");
 
+DEFINE_bool(stirling_enable_lazy_parsing, gflags::BoolFromEnv("PX_ENABLE_LAZY_PARSING", true),
+            "If true, stirling will stop filling incomplete events from bpf with dummy data to "
+            "minimize gaps in the data stream buffer "
+            "and instead parse as far as possible up until the gap. This reduces our memory "
+            "footprint by removing filler allocations, "
+            "but requires that the underlying protocol parsers are modified to handle incomplete "
+            "events containing partial frames. "
+            "Protocols that support lazy parsing are provided in kLazyParsingProtocols. If a "
+            "protocol is not present, it is not supported.");
+
 OBJ_STRVIEW(socket_trace_bcc_script, socket_trace);
 
 namespace px {
@@ -197,6 +208,11 @@ constexpr char openssl_tls_source_metric[] = "openssl_tls_source_debug";
 constexpr char openssl_tls_source_help[] =
     "Records the number of times a protocol was traced along with additional debugging information";
 
+constexpr char incomplete_chunk_metric[] = "incomplete_chunk_gap_bytes";
+constexpr char incomplete_chunk_help[] =
+    "Records the number of times a chunk was incomplete due to a gap, the reason for this, and how "
+    "many bytes were missed";
+
 SocketTraceConnector::SocketTraceConnector(std::string_view source_name)
     : BCCSourceConnector(source_name, kTables),
       conn_stats_(&conn_trackers_mgr_),
@@ -204,6 +220,8 @@ SocketTraceConnector::SocketTraceConnector(std::string_view source_name)
           BuildCounterFamily(openssl_mismatched_fds_metric, openssl_mismatched_fds_help)),
       openssl_trace_tls_source_counter_family_(
           BuildCounterFamily(openssl_tls_source_metric, openssl_tls_source_help)),
+      incomplete_chunk_counter_family_(
+          BuildCounterFamily(incomplete_chunk_metric, incomplete_chunk_help)),
       uprobe_mgr_(&this->BCC()) {
   proc_parser_ = std::make_unique<system::ProcParser>();
   InitProtocolTransferSpecs();
@@ -721,6 +739,9 @@ void SocketTraceConnector::CheckTracerState() {
   }
 }
 
+using stream_id_t = protocols::http::stream_id_t;
+using message_t = protocols::http::Message;
+
 void SocketTraceConnector::TransferDataImpl(ConnectorContext* ctx) {
   set_iteration_time(now_fn_());
 
@@ -786,9 +807,9 @@ void SocketTraceConnector::TransferDataImpl(ConnectorContext* ctx) {
     } else {
       // If there's no transfer function, then the tracker should not be holding any data.
       // http::ProtocolTraits is used as a placeholder; the frames deque is expected to be
-      // std::monotstate.
-      ECHECK(conn_tracker->send_data().Empty<protocols::http::Message>());
-      ECHECK(conn_tracker->recv_data().Empty<protocols::http::Message>());
+      // std::monostate.
+      DCHECK((conn_tracker->send_data().Empty<stream_id_t, message_t>()));
+      DCHECK((conn_tracker->recv_data().Empty<stream_id_t, message_t>()));
     }
 
     conn_tracker->IterationPostTick();
@@ -850,7 +871,12 @@ void SocketTraceConnector::HandleDataEvent(void* cb_cookie, void* data, int data
   // we create a filler event instead. This is important to Kafka, for example,
   // where the sendfile data is in the payload and the protocol parser can still succeed
   // as long as it is properly accounted for.
-  std::unique_ptr<SocketDataEvent> filler_event_ptr = data_event_ptr->ExtractFillerEvent();
+  std::unique_ptr<SocketDataEvent> filler_event_ptr;
+  // if lazy parsing is enabled and this protocol supports it, then we skip creating a filler event
+  // for gaps.
+  if (!LazyParsingEnabled(data_event_ptr->attr.protocol)) {
+    filler_event_ptr = data_event_ptr->ExtractFillerEvent();
+  }
 
   if (header_event_ptr) {
     connector->AcceptDataEvent(std::move(header_event_ptr));
@@ -1023,6 +1049,22 @@ void SocketTraceConnector::AcceptDataEvent(std::unique_ptr<SocketDataEvent> even
   stats_.Increment(StatKey::kPollSocketDataEventAttrSize, sizeof(event->attr));
   stats_.Increment(StatKey::kPollSocketDataEventDataSize, event->msg.size());
 
+  if (event->attr.incomplete_chunk != kFullyFormed) {
+    // Track bytes_missed in the perf buffer representing the size of gaps caused by
+    // incomplete events from bpf.
+    bool lazy_parsing =
+        FLAGS_stirling_enable_lazy_parsing &&
+        (kLazyParsingProtocols.find(event->attr.protocol) != kLazyParsingProtocols.end());
+    std::map<std::string, std::string> labels = {
+        {"name", incomplete_chunk_metric},
+        {"incomplete_reason", std::string(magic_enum::enum_name(event->attr.incomplete_chunk))},
+        {"protocol", std::string(magic_enum::enum_name(event->attr.protocol))},
+        {"direction", std::string(magic_enum::enum_name(event->attr.direction))},
+        {"lazy_parsing_enabled", lazy_parsing ? "true" : "false"}};
+    incomplete_chunk_counter_family_.Add(labels).Increment(event->attr.bytes_missed);
+  } else {
+    DCHECK_EQ(event->attr.bytes_missed, 0);
+  }
   ConnTracker& tracker = GetOrCreateConnTracker(event->attr.conn_id);
   tracker.AddDataEvent(std::move(event));
 }
@@ -1629,12 +1671,13 @@ template <typename TProtocolTraits>
 void SocketTraceConnector::TransferStream(ConnectorContext* ctx, ConnTracker* tracker,
                                           DataTable* data_table) {
   using TFrameType = typename TProtocolTraits::frame_type;
+  using TKey = typename TProtocolTraits::key_type;
 
   VLOG(3) << absl::StrCat("Connection\n", DebugString<TProtocolTraits>(*tracker, ""));
 
   // Make sure the tracker's frames containers have been properly initialized.
   // This is a nop if the containers are already of the right type.
-  tracker->InitFrames<TFrameType>();
+  tracker->InitFrames<TKey, TFrameType>();
 
   if (data_table != nullptr && tracker->state() == ConnTracker::State::kTransferring) {
     // ProcessToRecords() parses raw events and produces messages in format that are expected by

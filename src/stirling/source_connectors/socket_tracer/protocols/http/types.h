@@ -72,10 +72,10 @@ struct Message : public FrameBase {
   std::string ToString() const override {
     return absl::Substitute(
         "[type=$0 minor_version=$1 headers=[$2] req_method=$3 "
-        "req_path=$4 resp_status=$5 resp_message=$6 body=$7]",
+        "req_path=$4 resp_status=$5 resp_message=$6 body=$7 timestamp=$8]",
         magic_enum::enum_name(type), minor_version,
         absl::StrJoin(headers, ",", absl::PairFormatter(":")), req_method, req_path, resp_status,
-        resp_message, body);
+        resp_message, body, timestamp_ns);
   }
 };
 
@@ -102,6 +102,14 @@ struct Record {
 
 struct State {
   bool conn_closed = false;
+  // Signal to the http protocol parser to parse lazily.
+  // Currently used only when we know that a contiguous section of the data stream buffer
+  // (the head passed to the parser) ends with a gap due to an incomplete event from bpf.
+  // Note that the http parser consumes bytes from the input buffer when parsing a partial frame
+  // even if it is not pushed in the event parser. To preserve the behavior of kNeedsMoreData
+  // for non-incomplete heads where we expect more data to arrive, we implement this flag in
+  // conjunction with tracking whether a head contains a gap.
+  bool lazy_parsing_enabled = false;
 };
 
 struct StateWrapper {
@@ -110,10 +118,12 @@ struct StateWrapper {
   std::monostate recv;
 };
 
+using stream_id_t = uint16_t;
 struct ProtocolTraits : public BaseProtocolTraits<Record> {
   using frame_type = Message;
   using record_type = Record;
   using state_type = StateWrapper;
+  using key_type = stream_id_t;
 };
 
 }  // namespace http
