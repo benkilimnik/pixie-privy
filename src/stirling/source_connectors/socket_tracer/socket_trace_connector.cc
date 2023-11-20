@@ -173,7 +173,7 @@ DEFINE_bool(
     stirling_debug_tls_sources, gflags::BoolFromEnv("PX_DEBUG_TLS_SOURCES", false),
     "If true, stirling will add additional prometheus metrics regarding the traced tls sources");
 
-DEFINE_bool(stirling_enable_lazy_parsing, gflags::BoolFromEnv("PX_ENABLE_LAZY_PARSING", true),
+DEFINE_bool(stirling_enable_lazy_parsing, gflags::BoolFromEnv("PX_ENABLE_LAZY_PARSING", false),
             "If true, stirling will stop filling incomplete events from bpf with dummy data to "
             "minimize gaps in the data stream buffer "
             "and instead parse as far as possible up until the gap. This reduces our memory "
