@@ -419,9 +419,10 @@ void ConnTracker::Disable(std::string_view reason) {
 
   state_ = State::kDisabled;
   disable_reason_ = reason;
-  // LOG(WARNING) << absl::Substitute("Resetting DataStream buffers. Disabling connection dest=$0:$1 reason=$2",
-  //                                  open_info_.remote_addr.AddrStr(), open_info_.remote_addr.port(),
-  //                                  reason);
+  // LOG(WARNING) << absl::Substitute("Resetting DataStream buffers. Disabling connection dest=$0:$1
+  // reason=$2",
+  //                                  open_info_.remote_addr.AddrStr(),
+  //                                  open_info_.remote_addr.port(), reason);
   Reset();
 }
 

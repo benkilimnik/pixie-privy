@@ -92,9 +92,19 @@ ParseState ParseFrame(message_type_t type, std::string_view* buf, mongodb::Frame
 }
 
 template <>
-size_t FindFrameBoundary<mongodb::Frame>(message_type_t, std::string_view, size_t, NoState*) {
+size_t FindFrameBoundary<mongodb::Frame>(message_type_t, std::string_view, size_t,
+                                         mongodb::StateWrapper*) {
   // Not implemented.
   return std::string::npos;
+}
+
+template <>
+mongodb::stream_id_t GetStreamID(mongodb::Frame* frame) {
+  if (frame->response_to == 0) {
+    return frame->request_id;
+  }
+
+  return frame->response_to;
 }
 
 }  // namespace protocols

@@ -69,9 +69,10 @@ inline bool operator==(const StartEndPos& lhs, const StartEndPos& rhs) {
 }
 
 // A ParseResult returns a vector of parsed frames, and also some position markers.
+template <typename TKey>
 struct ParseResult {
   // Positions of frame start and end positions in the source buffer.
-  std::vector<StartEndPos> frame_positions;
+  absl::flat_hash_map<TKey, std::vector<StartEndPos>> frame_positions;
   // Position of where parsing ended consuming the source buffer.
   // This is total bytes successfully consumed.
   size_t end_position;
@@ -100,10 +101,10 @@ struct ParseResult {
  * @return ParseResult with locations where parseable frames were found in the source buffer.
  */
 template <typename TKey, typename TFrameType, typename TStateType = NoState>
-ParseResult ParseFrames(message_type_t type, DataStreamBuffer* data_stream_buffer,
-                        absl::flat_hash_map<TKey, std::deque<TFrameType>>* frames,
-                        bool resync = false, TStateType* state = nullptr,
-                        bool lazy_parsing_enabled = false) {
+ParseResult<TKey> ParseFrames(message_type_t type, DataStreamBuffer* data_stream_buffer,
+                              absl::flat_hash_map<TKey, std::deque<TFrameType>>* frames,
+                              bool resync = false, TStateType* state = nullptr,
+                              bool lazy_parsing_enabled = false) {
   std::string_view buf = data_stream_buffer->Head();
   ChunkInfo chunk_info = data_stream_buffer->GetChunkInfoForHead();
 
@@ -125,33 +126,44 @@ ParseResult ParseFrames(message_type_t type, DataStreamBuffer* data_stream_buffe
     buf.remove_prefix(start_pos);
   }
 
-  // Parse and append new frames to the frames vector.
-  std::deque<TFrameType> new_frames = std::deque<TFrameType>();
-  ParseResult result =
-      ParseFramesLoop(type, buf, &new_frames, state, chunk_info, lazy_parsing_enabled);
+  // Maintain a map of previous sizes.
+  absl::flat_hash_map<TKey, size_t> prev_sizes;
+  for (const auto& [stream_id, deque] : *frames) {
+    prev_sizes[stream_id] = deque.size();
+  }
 
-  VLOG(1) << absl::Substitute("Parsed $0 new frames", new_frames.size());
+  // Parse and append new frames to the map of stream ID to deque of frames
+  ParseResult<TKey> result =
+      ParseFramesLoop(type, buf, frames, state, chunk_info, lazy_parsing_enabled);
+
+  // Compute the number of newly parsed frames for each stream
+  size_t total_new_frames = 0;
+  for (const auto& [stream_id, positions] : result.frame_positions) {
+    total_new_frames += positions.size();
+    if (prev_sizes.find(stream_id) != prev_sizes.end()) {
+      total_new_frames -= prev_sizes[stream_id];
+    }
+  }
+  VLOG(1) << absl::Substitute("Parsed $0 new frames", total_new_frames);
 
   // Match timestamps with the parsed frames.
-  for (size_t i = 0; i < result.frame_positions.size(); ++i) {
-    auto& f = result.frame_positions[i];
-    f.start += start_pos;
-    f.end += start_pos;
+  for (auto& [stream_id, positions] : result.frame_positions) {
+    size_t offset = prev_sizes[stream_id];  // Retrieve the initial offset for this stream_id
 
-    auto& msg = new_frames[i];
-    StatusOr<uint64_t> timestamp_ns_status =
-        data_stream_buffer->GetTimestamp(data_stream_buffer->position() + f.end);
-    LOG_IF(ERROR, !timestamp_ns_status.ok()) << timestamp_ns_status.ToString();
-    msg.timestamp_ns = timestamp_ns_status.ValueOr(0);
+    for (auto& f : positions) {
+      f.start += start_pos;
+      f.end += start_pos;
+
+      // Retrieve the message using the current offset
+      auto& msg = (*frames)[stream_id][offset];
+      offset++;
+      StatusOr<uint64_t> timestamp_ns_status =
+          data_stream_buffer->GetTimestamp(data_stream_buffer->position() + f.end);
+      LOG_IF(ERROR, !timestamp_ns_status.ok()) << timestamp_ns_status.ToString();
+      msg.timestamp_ns = timestamp_ns_status.ValueOr(0);
+    }
   }
   result.end_position += start_pos;
-
-  // Parse frames into map
-  for (auto& frame : new_frames) {
-    // GetStreamID returns 0 by default if not implemented in protocol.
-    TKey key = GetStreamID<TKey, TFrameType>(&frame);
-    (*frames)[key].push_back(std::move(frame));
-  }
   return result;
 }
 
@@ -169,11 +181,12 @@ ParseResult ParseFrames(message_type_t type, DataStreamBuffer* data_stream_buffe
  * @return ParseResult with locations where parseable frames were found in the source buffer.
  */
 // TODO(oazizi): Convert tests to use ParseFrames() instead of ParseFramesLoop().
-template <typename TFrameType, typename TStateType = NoState>
-ParseResult ParseFramesLoop(message_type_t type, std::string_view buf,
-                            std::deque<TFrameType>* frames, TStateType* state = nullptr,
-                            ChunkInfo chunk_info = ChunkInfo(), bool lazy_parsing_enabled = false) {
-  std::vector<StartEndPos> frame_positions;
+template <typename TKey, typename TFrameType, typename TStateType = NoState>
+ParseResult<TKey> ParseFramesLoop(message_type_t type, std::string_view buf,
+                                  absl::flat_hash_map<TKey, std::deque<TFrameType>>* frames,
+                                  TStateType* state = nullptr, ChunkInfo chunk_info = ChunkInfo(),
+                                  bool lazy_parsing_enabled = false) {
+  absl::flat_hash_map<TKey, std::vector<StartEndPos>> frame_positions;
   const size_t buf_size = buf.size();
   ParseState s = ParseState::kSuccess;
   size_t bytes_processed = 0;
@@ -255,12 +268,13 @@ ParseResult ParseFramesLoop(message_type_t type, std::string_view buf,
     size_t end_position = bytes_processed - 1;
 
     if (push) {
-      frame_positions.push_back({start_position, end_position});
-      // Doesn't include partial frames unless lazy parsing is enabled
-      // because we don't push partial frames if lazy parsing is disabled to avoid masking other
-      // errors
+      // GetStreamID returns 0 by default if not implemented in protocol.
+      TKey key = GetStreamID<TKey, TFrameType>(&frame);
+      frame_positions[key].push_back({start_position, end_position});
+      (*frames)[key].push_back(std::move(frame));
+      // Doesn't include partial frames unless lazy parsing is enabled because we
+      // don't push partial frames if lazy parsing is disabled to avoid masking other errors
       frame_bytes += (end_position - start_position) + 1;
-      frames->push_back(std::move(frame));
     }
 
     if (s == ParseState::kMetadataComplete && lazy_parsing_enabled) {
@@ -273,7 +287,8 @@ ParseResult ParseFramesLoop(message_type_t type, std::string_view buf,
       DCHECK(buf.empty());
     }
   }
-  return ParseResult{std::move(frame_positions), bytes_processed, s, invalid_count, frame_bytes};
+  return ParseResult<TKey>{std::move(frame_positions), bytes_processed, s, invalid_count,
+                           frame_bytes};
 }
 
 }  // namespace protocols
