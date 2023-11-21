@@ -122,7 +122,7 @@ struct IncompleteChunkInfo {
   }
 
   ~IncompleteChunkInfo() {
-    VLOG(1) << absl::Substitute(
+    LOG(WARNING) << absl::Substitute(
         "IncompleteChunkInfo destructor called for incomplete chunk of type $0, gap located at "
         "[$1, $2] with $3 bytes of unparseable data before the gap",
         incomplete_chunk, gap_start, gap_start + gap_size, unparseable_bytes_before_gap);

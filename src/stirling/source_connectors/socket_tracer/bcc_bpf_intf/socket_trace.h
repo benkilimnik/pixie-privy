@@ -173,15 +173,16 @@ enum chunk_t {
   // perf_submit_wrapper
   kExceededChunkLimitAndMaxMsgSize = 4,
   // process_syscall_sendfile
-  kSendFileExceededMaxFillerSize = 5,
+  kSendFile = 5,
+  kSendFileExceededMaxFillerSize = 6,
   // filler event (populated in socket_trace.hpp) with size bytes_missed
   // TODO(@benkilimnik): eventually we should remove the filler event
-  // and use lazy parsing.
-  kFiller = 6,
+  // and use lazy parsing across the board.
+  kFiller = 7,
   // gap we tried to fill was larger than max filler size (kMaxFilledSizeBytes, currently 1MB)
-  kIncompleteFiller = 7,
-  kHeaderEvent = 8,
-  kUnknownGapReason = 9,
+  kIncompleteFiller = 8,
+  kHeaderEvent = 9,
+  kUnknownGapReason = 10,
 };
 
 struct socket_data_event_t {

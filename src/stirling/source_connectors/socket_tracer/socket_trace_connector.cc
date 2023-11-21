@@ -32,6 +32,7 @@
 #include <google/protobuf/util/delimited_message_util.h>
 #include <magic_enum.hpp>
 
+#include "bcc_bpf_intf/socket_trace.h"
 #include "src/common/base/base.h"
 #include "src/common/base/utils.h"
 #include "src/common/json/json.h"
@@ -881,7 +882,7 @@ void SocketTraceConnector::HandleDataEvent(void* cb_cookie, void* data, int data
   if (header_event_ptr) {
     connector->AcceptDataEvent(std::move(header_event_ptr));
   }
-  if (data_event_ptr && !data_event_ptr->msg.empty()) {
+  if ((data_event_ptr && !data_event_ptr->msg.empty()) || data_event_ptr->attr.incomplete_chunk == kSendFile) {
     connector->AcceptDataEvent(std::move(data_event_ptr));
   }
   if (filler_event_ptr) {

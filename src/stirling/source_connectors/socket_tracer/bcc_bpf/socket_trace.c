@@ -937,6 +937,12 @@ static __inline void process_syscall_sendfile(struct pt_regs* ctx, uint64_t id,
       // if we exceed the max filler size (1MB), we'll create a gap in the data stream buffer
       event->attr.incomplete_chunk = kSendFileExceededMaxFillerSize;
     }
+    else {
+      // If we don't exceed max filler size for this sendfile, we record a complete
+      // kSendFile to keep track of in our metrics. If filler is enabled (lazy parsing off)
+      // we will allocate a filler event in user space to fill the gap left by an empty sendfile.
+      event->attr.incomplete_chunk = kSendFile; 
+    }
     event->attr.bytes_missed = bytes_count;
     event->attr.msg_size = bytes_count;
     event->attr.msg_buf_size = 0;

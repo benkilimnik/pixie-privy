@@ -32,6 +32,7 @@
 #include <absl/strings/numbers.h>
 #include <magic_enum.hpp>
 
+#include "bcc_bpf_intf/socket_trace.h"
 #include "src/common/base/inet_utils.h"
 #include "src/common/system/proc_pid_path.h"
 #include "src/common/system/socket_info.h"
@@ -418,7 +419,9 @@ void ConnTracker::Disable(std::string_view reason) {
 
   state_ = State::kDisabled;
   disable_reason_ = reason;
-
+  // LOG(WARNING) << absl::Substitute("Resetting DataStream buffers. Disabling connection dest=$0:$1 reason=$2",
+  //                                  open_info_.remote_addr.AddrStr(), open_info_.remote_addr.port(),
+  //                                  reason);
   Reset();
 }
 

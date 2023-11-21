@@ -151,6 +151,7 @@ struct SocketDataEvent {
     // iovec into account, ommitting the rest of the iovecs which could not be submitted.
     // As a result, we need to use bytes_missed to determine the size of the filler event.
     if (attr.bytes_missed > 0) {
+      LOG(WARNING) << absl::Substitute("Adding filler event for incomplete_chunk: $0, bytes_missed: $1", magic_enum::enum_name(attr.incomplete_chunk), attr.bytes_missed);
 
       // Limit the size so we don't have huge allocations.
       constexpr uint32_t kMaxFilledSizeBytes = 1 * 1024 * 1024;

@@ -521,8 +521,9 @@ TEST_F(SocketTraceBPFTest, LargeMessages) {
   EXPECT_EQ(server_tracker->recv_data().data_buffer().Head(), kHTTPReqMsg1);
   std::string server_send_data(server_tracker->send_data().data_buffer().Head());
   if (LazyParsingEnabled(traffic_protocol_t::kProtocolHTTP)) {
+    // TODO(@benkilimnik): This will need updating if we raise our chunk limit.
     // with lazy parsing, we do not pad with filler and thus save ourselves from allocating 8273
-    // null bytes.
+    // null bytes. Gap reason is kExceededChunkLimitAndMaxMsgSize.
     EXPECT_THAT(server_send_data.size(), 122880);
   } else {
     EXPECT_THAT(server_send_data.size(), 131153);
@@ -604,7 +605,11 @@ TEST_F(SocketTraceBPFTest, SendFile) {
       records[kHTTPRespBodyIdx]->Get<types::StringValue>(1)};
 
   const std::string kHTTPRespMsgContentAsFiller(kHTTPRespMsgContent.size(), 0);
-  EXPECT_THAT(responses, Contains(kHTTPRespMsgContentAsFiller));
+  // With lazy parsing, we do not pad with filler and thus save ourselves from allocating null
+  // bytes. Gap reason is kSendFile.
+  if (!LazyParsingEnabled(traffic_protocol_t::kProtocolHTTP)) {
+    EXPECT_THAT(responses, Contains(kHTTPRespMsgContentAsFiller));
+  }
   EXPECT_THAT(responses, Contains(kHTTPRespMsgContent));
 }
 

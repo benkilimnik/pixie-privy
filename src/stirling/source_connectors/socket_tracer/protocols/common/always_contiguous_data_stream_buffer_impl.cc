@@ -95,6 +95,25 @@ void AlwaysContiguousDataStreamBufferImpl::AddNewChunk(size_t pos, size_t size,
     --l_iter;
   }
 
+  if (incomplete_chunk == chunk_t::kSendFile) {
+    // SendFile is a special case where the data is not actually in the buffer.
+    // We just need to update the chunk_info metadata for closest chunk so that the filler
+    // event is processed properly (if lazy parsing is off).
+    // If pos is at the end of l_iter, then we need to update r_iter's chunk_info.
+    DCHECK_EQ(size, 0); // SendFile events should have size 0 because we don't track them in bpf
+    DCHECK_GE(gap_size, 0); // SendFile events should have a non-zero gap size
+    DCHECK_EQ(l_iter->first + l_iter->second.size, pos);
+    VLOG(1) << absl::Substitute("l_iter is [$0, $1]", l_iter->first, l_iter->first + l_iter->second.size);
+    VLOG(1) << absl::Substitute("pos is at the end of l_iter, so updating l_iter's chunk_info");
+    // pos is at the end of l_iter, so update l_iter's chunk_info.
+    l_iter->second.AddIncompleteChunkInfo(IncompleteChunkInfo(incomplete_chunk, pos, gap_size, pos));
+    VLOG(1) << absl::Substitute("l_iter now has incomplete_chunk: $0, at [$1, $2]",
+                                      l_iter->second.MostRecentIncompleteChunkInfo().incomplete_chunk,
+                                      l_iter->second.MostRecentIncompleteChunkInfo().gap_start,
+                                      l_iter->second.MostRecentIncompleteChunkInfo().gap_start + l_iter->second.MostRecentIncompleteChunkInfo().gap_size);
+    return;
+  }
+
   // Does this chunk fuse with the chunk on the left of it?
   bool left_fuse = (l_iter != chunks_.end() && l_iter->first + l_iter->second.size == pos);
   // Does this chunk fuse with the chunk on the right of it?
@@ -329,6 +348,9 @@ void AlwaysContiguousDataStreamBufferImpl::Add(size_t pos, std::string_view data
 
   if (CheckOverlap(pos, data.size())) {
     // This chunk overlaps with an existing chunk. Don't add the new chunk.
+    LOG(WARNING) << absl::Substitute(
+        "Not adding chunk at pos $0, size $1, because it overlaps with an existing chunk.",
+        pos, data.size());
     return;
   }
 

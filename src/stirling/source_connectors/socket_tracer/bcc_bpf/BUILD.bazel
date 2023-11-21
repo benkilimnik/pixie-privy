@@ -57,7 +57,7 @@ pl_bpf_cc_resource(
         "@platforms//cpu:aarch64": ["TARGET_ARCH_AARCH64"],
         "@platforms//cpu:x86_64": [
             "TARGET_ARCH_X86_64",
-            "BPF_DEBUG",
+            # "BPF_DEBUG",
         ],
     }),
     deps = [

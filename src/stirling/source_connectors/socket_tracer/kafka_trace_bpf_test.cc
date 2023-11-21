@@ -23,6 +23,7 @@
 
 #include <absl/strings/str_replace.h>
 
+#include <prometheus/text_serializer.h>
 #include "src/common/base/base.h"
 #include "src/common/exec/exec.h"
 #include "src/common/testing/test_utils/container_runner.h"
@@ -303,6 +304,10 @@ TEST_F(KafkaTraceTest, kafka_capture) {
     EXPECT_THAT(records, Contains(EqKafkaTraceRecord(kListOffsetsRecord)));
     EXPECT_THAT(records, Contains(EqKafkaTraceRecord(kFetchRecord)));
   }
+auto& registry = GetMetricsRegistry();  // retrieves global var keeping metrics
+auto metrics = registry.Collect();      // samples all metrics
+auto metrics_text = prometheus::TextSerializer().Serialize(metrics);  // serializes to text
+LOG(WARNING) << absl::Substitute("with metric text: $0", metrics_text);
 }
 
 }  // namespace stirling
