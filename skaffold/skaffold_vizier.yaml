@@ -61,7 +61,7 @@ profiles:
   - op: add
     path: /build/artifacts/context=./bazel/args
     value:
-    - --compilation_mode=dbg 
+    - --compilation_mode=dbg
     - --spawn_strategy=local
 - name: opt
   patches:
