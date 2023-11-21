@@ -61,13 +61,21 @@ profiles:
   - op: add
     path: /build/artifacts/context=./bazel/args
     value:
-    - --compilation_mode=dbg
+    - --compilation_mode=dbg 
+    - --spawn_strategy=local
 - name: opt
   patches:
   - op: add
     path: /build/artifacts/context=./bazel/args
     value:
     - --compilation_mode=opt
+    - --spawn_strategy=local
+- name: local
+  patches:
+  - op: add
+    path: /build/artifacts/context=./bazel/args
+    value:
+    - --spawn_strategy=local
 - name: heap
   patches:
   - op: add
