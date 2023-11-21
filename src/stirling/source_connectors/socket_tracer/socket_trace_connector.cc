@@ -458,8 +458,8 @@ Status SocketTraceConnector::InitBPF() {
   if (kernel.version >= 5 || (kernel.version == 5 && kernel.major_rev >= 1)) {
     // Kernels >= 5.1 have higher BPF instruction limits (1 million for verifier).
     // This enables a 21x increase to our loop and chunk limits
-    loop_limit = 882;
-    chunk_limit = 84;
+    // loop_limit = 882;
+    // chunk_limit = 84;
     LOG(INFO) << absl::Substitute(
         "Kernel version greater than V5.1 detected ($0), raised loop limit to $1 and chunk limit "
         "to $2",
