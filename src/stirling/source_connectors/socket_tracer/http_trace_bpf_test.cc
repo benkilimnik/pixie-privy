@@ -18,6 +18,7 @@
 
 #include <filesystem>
 
+#include <prometheus/text_serializer.h>
 #include "src/common/testing/testing.h"
 #include "src/stirling/core/data_table.h"
 #include "src/stirling/source_connectors/socket_tracer/socket_trace_connector.h"
@@ -144,6 +145,10 @@ TEST_F(GoHTTPTraceTest, LargePostMessage) {
           "AYORsUfUMApsVgzHblmYYtEjVgwfFbbGGcnqbaEREunUZjQXmZOtaRLUtmYgmSVYB... [TRUNCATED]"));
   EXPECT_THAT(record_batch[kHTTPReqBodySizeIdx]->Get<types::Int64Value>(target_record_idx).val,
               131096);
+  auto& registry = GetMetricsRegistry();  // retrieves global var keeping metrics
+  auto metrics = registry.Collect();      // samples all metrics
+  auto metrics_text = prometheus::TextSerializer().Serialize(metrics);  // serializes to text
+  LOG(WARNING) << absl::Substitute("with metric text: $0", metrics_text);
 }
 
 struct TraceRoleTestParam {
@@ -185,6 +190,10 @@ TEST_P(TraceRoleTest, VerifyRecordsCount) {
 
   EXPECT_THAT(client_record_ids, SizeIs(param.client_records_count));
   EXPECT_THAT(server_record_ids, SizeIs(param.server_records_count));
+  auto& registry = GetMetricsRegistry();  // retrieves global var keeping metrics
+  auto metrics = registry.Collect();      // samples all metrics
+  auto metrics_text = prometheus::TextSerializer().Serialize(metrics);  // serializes to text
+  LOG(WARNING) << absl::Substitute("with metric text: $0", metrics_text);
 }
 
 INSTANTIATE_TEST_SUITE_P(AllTraceRoles, TraceRoleTest,

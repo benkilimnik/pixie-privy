@@ -18,6 +18,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <prometheus/text_serializer.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -184,6 +185,10 @@ TEST_P(GRPCTraceTest, CaptureRPCTraceRecord) {
             rb[kHTTPContentTypeIdx]->Get<types::Int64Value>(idx).val);
 
   EXPECT_EQ(rb[kHTTPRespBodyIdx]->Get<types::StringValue>(idx).string(), R"(1: "Hello PixieLabs")");
+  auto& registry = GetMetricsRegistry();  // retrieves global var keeping metrics
+  auto metrics = registry.Collect();      // samples all metrics
+  auto metrics_text = prometheus::TextSerializer().Serialize(metrics);  // serializes to text
+  LOG(WARNING) << absl::Substitute("with metric text: $0", metrics_text);
 }
 
 INSTANTIATE_TEST_SUITE_P(SecurityModeTest, GRPCTraceTest,
@@ -270,6 +275,10 @@ TEST_F(PyGRPCTraceTest, VerifyTraceRecords) {
   EXPECT_EQ(0, rb[kHTTPMinorVersionIdx]->Get<types::Int64Value>(idx).val);
   EXPECT_EQ(static_cast<uint64_t>(HTTPContentType::kGRPC),
             rb[kHTTPContentTypeIdx]->Get<types::Int64Value>(idx).val);
+  auto& registry = GetMetricsRegistry();  // retrieves global var keeping metrics
+  auto metrics = registry.Collect();      // samples all metrics
+  auto metrics_text = prometheus::TextSerializer().Serialize(metrics);  // serializes to text
+  LOG(WARNING) << absl::Substitute("with metric text: $0", metrics_text);
 }
 
 }  // namespace stirling

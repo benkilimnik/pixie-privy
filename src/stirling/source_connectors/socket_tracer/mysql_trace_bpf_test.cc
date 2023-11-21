@@ -23,6 +23,7 @@
 
 #include <absl/strings/str_replace.h>
 
+#include <prometheus/text_serializer.h>
 #include "src/common/base/base.h"
 #include "src/common/exec/exec.h"
 #include "src/common/fs/fs_wrapper.h"
@@ -514,6 +515,10 @@ TEST_F(MySQLTraceTest, mysql_capture) {
                   UnorderedElementsAreArray(expected_matchers.begin(), expected_matchers.end()));
     }
   }
+  auto& registry = GetMetricsRegistry();  // retrieves global var keeping metrics
+  auto metrics = registry.Collect();      // samples all metrics
+  auto metrics_text = prometheus::TextSerializer().Serialize(metrics);  // serializes to text
+  LOG(WARNING) << absl::Substitute("with metric text: $0", metrics_text);
 }
 
 }  // namespace stirling

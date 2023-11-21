@@ -66,6 +66,7 @@ func VizierWorkload() *pb.WorkloadSpec {
 						SkaffoldPath: "skaffold/skaffold_vizier.yaml",
 						SkaffoldArgs: []string{
 							"-p", "opt",
+							// "-p", "local",
 						},
 					},
 				},
