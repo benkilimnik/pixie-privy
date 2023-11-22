@@ -37,6 +37,10 @@ enum class ParseState {
   // Input buffer may be partially consumed and the parsed output element is not fully populated.
   kNeedsMoreData,
 
+  // Header/Metadata parsing succeeded, but the payload is partial.
+  // We have enough for stitching.
+  kMetadataComplete,
+
   // The parse succeeded, but the data is ignored.
   // Input buffer is consumed, but the parsed output element is invalid.
   kIgnored,
@@ -51,6 +55,27 @@ enum class ParseState {
   // Input buffer is consumed, and the parsed output element is valid.
   kSuccess,
 };
+
+inline std::string ParseStateToString(ParseState state) {
+  switch (state) {
+    case ParseState::kUnknown:
+      return "kUnknown";
+    case ParseState::kInvalid:
+      return "kInvalid";
+    case ParseState::kNeedsMoreData:
+      return "kNeedsMoreData";
+    case ParseState::kMetadataComplete:
+      return "kMetadataComplete";
+    case ParseState::kIgnored:
+      return "kIgnored";
+    case ParseState::kEOS:
+      return "kEOS";
+    case ParseState::kSuccess:
+      return "kSuccess";
+    default:
+      return "Unknown ParseState";  // Handle any other cases
+  }
+}
 
 inline ParseState TranslateStatus(const Status& status) {
   if (error::IsNotFound(status) || error::IsResourceUnavailable(status)) {

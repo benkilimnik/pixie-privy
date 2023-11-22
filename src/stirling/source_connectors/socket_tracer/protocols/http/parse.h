@@ -35,7 +35,7 @@ namespace protocols {
  */
 template <>
 ParseState ParseFrame(message_type_t type, std::string_view* buf, http::Message* frame,
-                      http::StateWrapper* state);
+                      http::StateWrapper* state, bool lazy_parsing_enabled);
 
 template <>
 size_t FindFrameBoundary<http::Message>(message_type_t type, std::string_view buf, size_t start_pos,
