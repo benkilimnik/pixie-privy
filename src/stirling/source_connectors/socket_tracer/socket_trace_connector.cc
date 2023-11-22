@@ -43,6 +43,7 @@
 #include "src/stirling/bpf_tools/utils.h"
 #include "src/stirling/source_connectors/socket_tracer/bcc_bpf_intf/go_grpc_types.hpp"
 #include "src/stirling/source_connectors/socket_tracer/bcc_bpf_intf/socket_trace.hpp"
+#include "src/stirling/source_connectors/socket_tracer/common.h"
 #include "src/stirling/source_connectors/socket_tracer/conn_stats.h"
 #include "src/stirling/source_connectors/socket_tracer/proto/sock_event.pb.h"
 #include "src/stirling/source_connectors/socket_tracer/protocols/http/utils.h"
@@ -1038,12 +1039,14 @@ void SocketTraceConnector::AcceptDataEvent(std::unique_ptr<SocketDataEvent> even
 
   if (event->attr.incomplete_chunk != kFullyFormed) {
     // Track bytes_missed in the perf buffer representing the size of gaps caused by
-    // incomplete events from bpf. Also keeps track of filler and header events.
+    // incomplete events from bpf.
+    bool lazy_parsing = LazyParsingEnabled(event->attr.protocol);
     std::map<std::string, std::string> labels = {
         {"name", incomplete_chunk_metric},
         {"incomplete_reason", std::string(magic_enum::enum_name(event->attr.incomplete_chunk))},
         {"protocol", std::string(magic_enum::enum_name(event->attr.protocol))},
-        {"direction", std::string(magic_enum::enum_name(event->attr.direction))}};
+        {"direction", std::string(magic_enum::enum_name(event->attr.direction))},
+        {"lazy_parsing_enabled", lazy_parsing ? "true" : "false"}};
     incomplete_chunk_counter_family_.Add(labels).Increment(event->attr.bytes_missed);
   } else {
     DCHECK_EQ(event->attr.bytes_missed, 0);
