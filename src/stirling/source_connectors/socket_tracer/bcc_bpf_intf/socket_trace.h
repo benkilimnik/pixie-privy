@@ -233,7 +233,7 @@ struct socket_data_event_t {
     // a way that we create a gap. Should be 0 if incomplete_chunk enum is kFullyFormed.
     uint32_t bytes_missed;
 
-    // Reason for incomplete chunk.
+    // Reason for incomplete chunk, if present.
     enum chunk_t incomplete_chunk;
 
     // Whether to prepend length header to the buffer for messages first inferred as Kafka. MySQL
