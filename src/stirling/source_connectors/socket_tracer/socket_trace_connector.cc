@@ -32,6 +32,7 @@
 #include <google/protobuf/util/delimited_message_util.h>
 #include <magic_enum.hpp>
 
+#include "bcc_bpf_intf/socket_trace.h"
 #include "src/common/base/base.h"
 #include "src/common/base/utils.h"
 #include "src/common/json/json.h"
@@ -200,6 +201,11 @@ constexpr char openssl_tls_source_metric[] = "openssl_tls_source_debug";
 constexpr char openssl_tls_source_help[] =
     "Records the number of times a protocol was traced along with additional debugging information";
 
+constexpr char incomplete_chunk_metric[] = "incomplete_chunk_gap_bytes";
+constexpr char incomplete_chunk_help[] =
+    "Records the number of times a chunk was incomplete due to a gap, the reason for this, and how "
+    "many bytes were missed";
+
 SocketTraceConnector::SocketTraceConnector(std::string_view source_name)
     : BCCSourceConnector(source_name, kTables),
       conn_stats_(&conn_trackers_mgr_),
@@ -207,6 +213,8 @@ SocketTraceConnector::SocketTraceConnector(std::string_view source_name)
           BuildCounterFamily(openssl_mismatched_fds_metric, openssl_mismatched_fds_help)),
       openssl_trace_tls_source_counter_family_(
           BuildCounterFamily(openssl_tls_source_metric, openssl_tls_source_help)),
+      incomplete_chunk_counter_family_(
+          BuildCounterFamily(incomplete_chunk_metric, incomplete_chunk_help)),
       uprobe_mgr_(&this->BCC()) {
   proc_parser_ = std::make_unique<system::ProcParser>();
   InitProtocolTransferSpecs();
@@ -1028,6 +1036,18 @@ void SocketTraceConnector::AcceptDataEvent(std::unique_ptr<SocketDataEvent> even
   stats_.Increment(StatKey::kPollSocketDataEventAttrSize, sizeof(event->attr));
   stats_.Increment(StatKey::kPollSocketDataEventDataSize, event->msg.size());
 
+  if (event->attr.incomplete_chunk != kFullyFormed) {
+    // Track bytes_missed in the perf buffer representing the size of gaps caused by
+    // incomplete events from bpf. Also keeps track of filler and header events.
+    std::map<std::string, std::string> labels = {
+        {"name", incomplete_chunk_metric},
+        {"incomplete_reason", std::string(magic_enum::enum_name(event->attr.incomplete_chunk))},
+        {"protocol", std::string(magic_enum::enum_name(event->attr.protocol))},
+        {"direction", std::string(magic_enum::enum_name(event->attr.direction))}};
+    incomplete_chunk_counter_family_.Add(labels).Increment(event->attr.bytes_missed);
+  } else {
+    DCHECK_EQ(event->attr.bytes_missed, 0);
+  }
   ConnTracker& tracker = GetOrCreateConnTracker(event->attr.conn_id);
   tracker.AddDataEvent(std::move(event));
 }
