@@ -37,7 +37,7 @@
 // This keeps instruction count below BPF's limit of 4096 per probe.
 #define LOOP_LIMIT 42
 #define PROTOCOL_VEC_LIMIT 3
-#define MAX_FILLER_SIZE (1 * 1024 * 1024)
+#define MAX_FILLER_SIZE (1 * 1024 * 1024) // 1MiB, taken from socket_trace.hpp
 
 const int32_t kInvalidFD = -1;
 
