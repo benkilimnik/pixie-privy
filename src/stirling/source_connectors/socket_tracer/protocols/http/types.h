@@ -102,14 +102,6 @@ struct Record {
 
 struct State {
   bool conn_closed = false;
-  // Signal to the http protocol parser to parse lazily.
-  // Currently used only when we know that a contiguous section of the data stream buffer
-  // (the head passed to the parser) ends with a gap due to an incomplete event from bpf.
-  // Note that the http parser consumes bytes from the input buffer when parsing a partial frame
-  // even if it is not pushed in the event parser. To preserve the behavior of kNeedsMoreData
-  // for non-incomplete heads where we expect more data to arrive, we implement this flag in
-  // conjunction with tracking whether a head contains a gap.
-  bool lazy_parsing_enabled = false;
 };
 
 struct StateWrapper {
