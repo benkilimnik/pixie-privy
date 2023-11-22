@@ -19,8 +19,6 @@
 #include <gflags/gflags.h>
 #include <utility>
 
-#include "protocols/common/data_stream_buffer.h"
-#include "src/stirling/source_connectors/socket_tracer/bcc_bpf_intf/socket_trace.hpp"
 #include "src/stirling/source_connectors/socket_tracer/data_stream.h"
 #include "src/stirling/source_connectors/socket_tracer/metrics.h"
 #include "src/stirling/source_connectors/socket_tracer/protocols/types.h"
@@ -52,7 +50,9 @@ void DataStream::AddData(std::unique_ptr<SocketDataEvent> event) {
   LOG_IF(WARNING, event->attr.msg_size > event->msg.size() && !event->msg.empty())
       << absl::Substitute("Message truncated, original size: $0, transferred size: $1",
                           event->attr.msg_size, event->msg.size());
+
   data_buffer_.Add(event->attr.pos, event->msg, event->attr.timestamp_ns);
+
   has_new_events_ = true;
 }
 
