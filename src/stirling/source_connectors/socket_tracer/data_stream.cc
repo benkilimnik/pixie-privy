@@ -49,13 +49,10 @@ namespace px {
 namespace stirling {
 
 void DataStream::AddData(std::unique_ptr<SocketDataEvent> event) {
-  // Note that msg.size() includes filler \0 bytes under certain circumstances. See socket_trace.hpp
-  // for details.
   LOG_IF(WARNING, event->attr.msg_size > event->msg.size() && !event->msg.empty())
       << absl::Substitute("Message truncated, original size: $0, transferred size: $1",
                           event->attr.msg_size, event->msg.size());
-  data_buffer_.Add(event->attr.pos, event->msg, event->attr.timestamp_ns,
-                   event->attr.incomplete_chunk, event->attr.bytes_missed);
+  data_buffer_.Add(event->attr.pos, event->msg, event->attr.timestamp_ns);
   has_new_events_ = true;
 }
 
@@ -116,25 +113,22 @@ void DataStream::ProcessBytesToFrames(message_type_t type, TStateType* state) {
     size_t contiguous_bytes = data_buffer_.Head().size();
     auto chunk_info = data_buffer_.GetChunkInfoForHead();
 
-    // Now parse the raw data. We parse one contiguous head per call.
+    // Now parse the raw data.
     parse_result =
         protocols::ParseFrames(type, &data_buffer_, &typed_messages, IsSyncRequired(), state);
 
     if (contiguous_bytes != data_buffer_.size()) {
-      // We weren't able to submit all bytes in the data stream buffer, which means we ran into a
-      // missing event (i.e. an unfilled gap that made the buffer non-contiguous. One call to
-      // ParseFrames only processes the first contiguous head). We don't expect missing events to
-      // arrive in the future, so just cut our losses. Drop all events up to this point, and then
-      // try to resume parsing for the next contiguous section.
+      // We weren't able to submit all bytes, which means we ran into a missing event.
+      // We don't expect missing events to arrive in the future, so just cut our losses.
+      // Drop all events up to this point, and then try to resume.
       data_buffer_.RemovePrefix(contiguous_bytes);
       data_buffer_.Trim();
 
       keep_processing = (parse_result.state != ParseState::kEOS);
     } else {
-      // We had a contiguous stream (head), with no missing events. Erase bytes that have been fully
-      // processed from the buffer. If anything was processed at all, reset stuck count. If
-      // end_position = 0, we either need to wait for more data or encountered an invalid frame, in
-      // which case we discard the head.
+      // We had a contiguous stream, with no missing events.
+      // Erase bytes that have been fully processed.
+      // If anything was processed at all, reset stuck count.
       if (parse_result.end_position != 0) {
         data_buffer_.RemovePrefix(parse_result.end_position);
       }
@@ -212,6 +206,7 @@ void DataStream::ProcessBytesToFrames(message_type_t type, TStateType* state) {
     data_buffer_.RemovePrefix(data_buffer_.size());
     UpdateLastProgressTime();
   }
+
   // Keep track of "lost" data in prometheus. "lost" data includes any gaps in the data stream as
   // well as data that wasn't able to be successfully parsed.
   ssize_t num_bytes_advanced = data_buffer_.position() - last_processed_pos_;
