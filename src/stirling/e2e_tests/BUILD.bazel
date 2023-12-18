@@ -54,6 +54,27 @@ pl_cc_bpf_test(
     ],
 )
 
+pl_cc_bpf_test(
+    name = "fd_leak_bpf_test",
+    timeout = "moderate",
+    srcs = ["fd_leak_bpf_test.cc"],
+    data = [
+        "//src/stirling/testing/demo_apps/leaky_http_server:server",
+        "//src/stirling/testing/demo_apps/leaky_http_unix_socket_server:server",
+    ],
+    flaky = True,
+    tags = [
+        "cpu:16",
+        "requires_bpf",
+    ],
+    deps = [
+        "//src/common/testing/test_utils:cc_library",
+        "//src/stirling:cc_library",
+        "//src/stirling/source_connectors/socket_tracer/testing:cc_library",
+        "//src/stirling/testing:cc_library",
+    ],
+)
+
 pl_cc_test(
     name = "stirling_wrapper_size_test",
     srcs = ["stirling_wrapper_size_test.cc"],

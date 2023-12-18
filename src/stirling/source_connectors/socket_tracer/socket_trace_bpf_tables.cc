@@ -96,26 +96,34 @@ void ConnInfoMapManager::Disable(struct conn_id_t conn_id) {
 }
 
 void ConnInfoMapManager::CleanupBPFMapLeaks(ConnTrackersManager* conn_trackers_mgr) {
+  uint64_t leaked_fd_count = 0;
+  uint64_t fd_count = 0;
   for (const auto& [pid_fd, conn_info] : conn_info_map_->GetTableOffline()) {
+    fd_count += 1;
+    leaked_fd_count += 1;
     uint32_t pid = pid_fd >> 32;
     int32_t fd = pid_fd;
 
     // Check conn trackers to see if it's already tracked.
     // This is a performance optimization to avoid accessing /proc when not required.
     if (conn_trackers_mgr->GetConnTracker(pid, fd).ok()) {
+      leaked_fd_count -= 1;
       continue;
     }
 
     const auto fd_file_path = ProcPidPath(pid, "fd", std::to_string(fd));
 
     if (fs::Exists(fd_file_path)) {
+      leaked_fd_count -= 1;
       continue;
     }
 
     ReleaseResources(conn_info.conn_id);
-    VLOG(1) << absl::Substitute("Found conn_info_map leak: pid=$0 fd=$1 af=$2", pid, fd,
-                                conn_info.addr.sa.sa_family);
+    // LOG(INFO) << absl::Substitute("Found conn_info_map leak: pid=$0 fd=$1 af=$2", pid, fd,
+    //                             conn_info.addr.sa.sa_family);
   }
+  LOG(WARNING) << absl::Substitute("Found $0 leaked conn_info_map entries, $1 total entries",
+                                leaked_fd_count, fd_count);
 }
 
 }  // namespace stirling

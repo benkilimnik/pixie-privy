@@ -83,6 +83,19 @@ pl_cc_bpf_test(
     ],
 )
 
+pl_cc_bpf_test(
+    name = "fd_leak_bpf_test",
+    srcs = ["fd_leak_bpf_test.cc"],
+    tags = [
+        "cpu:16",
+        "requires_bpf",
+    ],
+    deps = [
+        ":cc_library",
+        "//src/stirling/source_connectors/perf_profiler/testing/bpf:stringifier_test_bpf_text",
+    ],
+)
+
 pl_cc_test(
     name = "stack_trace_id_cache_test",
     srcs = ["stack_trace_id_cache_test.cc"],

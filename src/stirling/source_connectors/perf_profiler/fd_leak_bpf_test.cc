@@ -24,6 +24,10 @@
 #include <set>
 #include <vector>
 
+#include <unistd.h>
+#include <cstdlib>
+#include <cstdio>
+
 #include "src/common/testing/testing.h"
 #include "src/stirling/bpf_tools/bcc_wrapper.h"
 #include "src/stirling/bpf_tools/macros.h"
@@ -34,6 +38,16 @@
 #include "src/stirling/source_connectors/perf_profiler/stringifier.h"
 #include "src/stirling/source_connectors/perf_profiler/symbolizers/bcc_symbolizer.h"
 #include "src/stirling/utils/proc_path_tools.h"
+
+// I've tried a number of things to try to better understand the reason
+// FDs get opened. It has been a bit challenging to piece together when
+// clean up
+
+// written some test cases tried
+// There is some function in the test program.
+// We get its binary address using VirtualAddrToBinaryAddr
+// We use AttachUProbe
+// also embedded bpf program from rr_bpf_test.cc
 
 // Create a std::string_view named stringifer_test_bcc_script based
 // on the bazel target :stringifier_test_bpf_text.
@@ -118,10 +132,14 @@ class StringifierTest : public ::testing::Test {
 
  protected:
   void SetUp() override {
+    sleep(5000);
+    return;
+    LOG(INFO) << "open file descriptors: " << CountOpenFileDescriptors();
     bcc_wrapper_ = bpf_tools::CreateBCC();
 
     // Register our BPF program in the kernel.
     ASSERT_OK(bcc_wrapper_->InitBPFProgram(stringifer_test_bcc_script));
+    LOG(INFO) << "open file descriptors: " << CountOpenFileDescriptors();
 
     // Bind the BCC API to the shared BPF maps created by our BPF program.
     stack_traces_ = WrappedBCCStackTable::Create(bcc_wrapper_.get(), "stack_traces");
@@ -134,6 +152,17 @@ class StringifierTest : public ::testing::Test {
     // It needs a symbolizer and a shared BPF stack traces map.
     stringifier_ =
         std::make_unique<Stringifier>(symbolizer_.get(), symbolizer_.get(), stack_traces_.get());
+    
+// Create a separate program “other-proc” that periodically runs a function, say Foo().
+
+// Create a bpf program that just counts how many times it gets invoked, and writes that value to a BPF array.
+// nvm, the basic version of this bpf program does nothing.
+// later we can write something to an array.
+// Create a test case that uprobes Foo in other-proc.
+
+// Start “other-proc”
+// Run the test, and count uprobes.
+// Kill the “other-proc” and count uprobes.
   }
 
   void TearDown() override {}
@@ -192,20 +221,34 @@ class StringifierTest : public ::testing::Test {
   absl::flat_hash_map<int, std::string> folded_strings_map_;
 };
 
+// empty test that just prints FDs
+TEST_F(StringifierTest, PrintFDs) {
+  LOG(INFO) << "open file descriptors: " << CountOpenFileDescriptors();
+}
+
 TEST_F(StringifierTest, MemoizationTest) {
-  LOG(INFO) << "0 open file descriptors: " << CountOpenFileDescriptors();
+  LOG(INFO) << "open file descriptors: " << CountOpenFileDescriptors();
   const std::filesystem::path self_path = GetSelfPath().ValueOrDie();
   ASSERT_OK_AND_ASSIGN(auto elf_reader, obj_tools::ElfReader::Create(self_path.string()));
   const int64_t self_pid = getpid();
+  // Build the strace command
+  char cmd[128];
+  snprintf(cmd, sizeof(cmd), "strace -e trace=open,close,socket -fp %ld &", self_pid);
+  // Run the strace command in the background
+  ::system(cmd);
+
+  // Wait for a few seconds to ensure strace attaches
+  sleep(5);
+
   ASSERT_OK_AND_ASSIGN(auto converter,
                        obj_tools::ElfAddressConverter::Create(elf_reader.get(), self_pid));
   // Values used in creating the [u|k] probe specs.
   const uint64_t foo_addr =
       converter->VirtualAddrToBinaryAddr(reinterpret_cast<uint64_t>(&::test::Foo));
-  LOG(INFO) << "1 open file descriptors: " << CountOpenFileDescriptors();
+  LOG(INFO) << "open file descriptors: " << CountOpenFileDescriptors();
   const uint64_t bar_addr =
       converter->VirtualAddrToBinaryAddr(reinterpret_cast<uint64_t>(&::test::Bar));
-  LOG(INFO) << "2 open file descriptors: " << CountOpenFileDescriptors();
+  LOG(INFO) << "open file descriptors: " << CountOpenFileDescriptors();
 
   // uprobe specs, for Foo() and Bar(). We invoke our BPF program,
   // stack_trace_sampler, when Foo() or Bar() is called.

@@ -297,9 +297,46 @@ Status BCCWrapperImpl::DetachKProbe(const KProbeSpec& probe) {
   return Status::OK();
 }
 
+StatusOr<std::unique_ptr<UProbeSpec>> BCCWrapperImpl::GetUProbeSpecByPid(const int pid) {
+  for (const auto& probe : uprobes_) {
+    if (probe.pid == pid) {
+      LOG(INFO) << "Found uprobe for pid " << pid << ": " << probe.ToString();
+      return absl::make_unique<UProbeSpec>(probe);
+    }
+  }
+  LOG(ERROR) << "Uprobe for pid " << pid << " not found.";
+  return error::NotFound(absl::Substitute("Uprobe for pid $0 not found.", pid));
+}
+
+Status BCCWrapperImpl::DetachUProbeByPid(const int pid) {
+  LOG(INFO) << "Detaching uprobe by pid: " << pid;
+  auto probe_result = GetUProbeSpecByPid(pid);
+  if (!probe_result.ok()) {
+    LOG(INFO) << "Unable to find uprobe for pid " << pid << ", skipping.";
+    return error::Internal("Unable to find uprobe for pid $0", pid);
+  }
+  auto probe = std::move(probe_result.ValueOrDie());
+  PX_RETURN_IF_ERROR(DetachUProbe(*probe));
+  return Status::OK();
+}
+
 Status BCCWrapperImpl::DetachUProbe(const UProbeSpec& probe) {
   VLOG(1) << "Detaching uprobe " << probe.ToString();
 
+  // const auto binary_path = system::Config::GetInstance().ToHostPath(probe.binary_path);
+  // PX_ASSIGN_OR(std::filesystem::path proc_exe, proc_parser.GetExePath(upid.pid()), continue);
+  // Status s = fp_resolver->SetMountNamespace(upid.pid());
+  // if (!s.ok()) {
+  //   VLOG(1) << absl::Substitute("Could not set pid namespace. Did the pid terminate?");
+  //   continue;
+  // }
+
+  // PX_ASSIGN_OR(std::filesystem::path exe_path, fp_resolver->ResolvePath(proc_exe), continue);
+  // std::filesystem::path host_exe_path = sysconfig.ToHostPath(exe_path);
+
+  if (!fs::Exists(probe.binary_path)) {
+    LOG(WARNING) << "Unable to find binary path " << probe.binary_path << ", skipping.";
+  }
   if (fs::Exists(probe.binary_path)) {
     PX_RETURN_IF_ERROR(bpf_.detach_uprobe(probe.binary_path, probe.symbol, probe.address,
                                           static_cast<bpf_probe_attach_type>(probe.attach_type),

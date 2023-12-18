@@ -37,6 +37,7 @@ pl_cc_library(
         ["*.cc"],
         exclude = [
             "**/*_test.cc",
+            "other-program.cc",
         ],
     ),
     hdrs = glob(

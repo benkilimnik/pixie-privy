@@ -168,6 +168,23 @@ pl_cc_bpf_test(
 )
 
 pl_cc_bpf_test(
+    name = "fd_leak_bpf_test",
+    timeout = "long",
+    srcs = ["fd_leak_bpf_test.cc"],
+    flaky = True,
+    shard_count = 5,
+    tags = [
+        "cpu:16",
+        "requires_bpf",
+    ],
+    deps = [
+        ":cc_library",
+        "//src/stirling/source_connectors/socket_tracer/testing:cc_library",
+        "//src/stirling/testing:cc_library",
+    ],
+)
+
+pl_cc_bpf_test(
     name = "conn_stats_bpf_test",
     timeout = "moderate",
     srcs = ["conn_stats_bpf_test.cc"],

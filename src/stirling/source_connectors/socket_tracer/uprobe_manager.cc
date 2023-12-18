@@ -26,6 +26,9 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <iostream>
+#include <filesystem>
+#include <system_error>
 #include <filesystem>
 #include <map>
 #include <tuple>
@@ -66,6 +69,50 @@ UProbeManager::UProbeManager(bpf_tools::BCCWrapper* bcc) : bcc_(bcc) {
   proc_parser_ = std::make_unique<system::ProcParser>();
 }
 
+// attaching uprobe to smthn that the kernel no longer cleans up
+// proc/fs special file system that doesn't actually exist
+// switched to this to fix a bug with ssl tracing.
+// used to use FilePathResolver to switch namespace, then used filepath from container's
+// perspective. 
+// If reintroduce this, does issue dissapear
+// this bug that was fixed would have masked the FD leak issue
+
+// bcc folks said that api we use should clean things up 
+
+// consistent way to access container's files. This broke certain
+// things in ssl tracing
+
+// previous mount namespace, abs path 
+
+// reintroduce code that does mount namespace stuff. library class to add back in
+// minimal changes to Uprobe code. 
+
+// or try old vizier release
+
+// when uprobe, look at proc pid maps file
+// shows where things a mem mapped (shared objects mapped within a process)
+// use that to know where the file exists. In old method we were taking the
+// container's view of the map file should be consistent with its current mounts
+// when stirling toook that path needed to figure out 
+// but access thru pid/root different path taken thru special file system
+
+uint64_t file_descriptor_count() {
+    uint64_t count = 0;
+    std::string fd_path = "/proc/self/fd";
+
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(fd_path)) {
+            if (entry.is_symlink()) {
+                count++;
+            }
+        }
+    } catch (const std::filesystem::filesystem_error& e) {
+        std::cerr << "Error accessing " << fd_path << ": " << e.what() << '\n';
+    }
+
+    return count;
+}
+
 void UProbeManager::Init(bool disable_go_tls_tracing, bool enable_http2_tracing,
                          bool disable_self_probing) {
   cfg_disable_go_tls_tracing_ = disable_go_tls_tracing;
@@ -96,6 +143,26 @@ Status UProbeManager::LogAndAttachUProbe(const bpf_tools::UProbeSpec& spec) {
   }
   return s;
 }
+
+// bpftrace aggregate stack traces
+// hook into kprobe, whatever root FD creation fun
+// look at ustack (user space stack trace)
+// pinpoint the time window
+// cases for leaking would show up many times. 
+// Need to catch it in the act. Need to know that the stack traces we collect are representative of the problem
+
+// take node container Node12_3_1ContainerWrapper push to registry, while loop, start container every 10sec
+// injecting the problem via TLS tracing. Bazel build container, docker run on my cluster. Give standalone PEM
+// something to trace and attach uprobes to. Then kill it off to see if kernel cleans up FDs. scp tar file and docker load
+// or push it to PX_dev_infra. Docker pull and docker run it. 
+
+// bazel target that test depends on. Bazel build that test, would get the container. Bazel run the container
+// bazel run it, then from there docker push into registry.
+// node_12_3_1_container.h
+// bazel run the image
+
+// test case where we attach an ssl uprobe, then
+// terminate process to see if kernel cleans up the FDs as expected.
 
 StatusOr<int> UProbeManager::AttachUProbeTmpl(const ArrayView<UProbeTmpl>& probe_tmpls,
                                               const std::string& binary,
@@ -216,12 +283,13 @@ enum class HostPathForPIDPathSearchType { kSearchTypeEndsWith, kSearchTypeContai
 // "/usr/lib/mount/abc...def/usr/lib/libcrypto.so.1.1"}
 StatusOr<std::vector<std::filesystem::path>> FindHostPathForPIDLibs(
     const std::vector<std::string_view>& lib_names, uint32_t pid, system::ProcParser* proc_parser,
-    HostPathForPIDPathSearchType search_type) {
+    LazyLoadedFPResolver* fp_resolver, HostPathForPIDPathSearchType search_type) {
   // TODO(jps): use a mutable map<string, path> as the function argument.
   // i.e. mapping from lib_name to lib_path.
   // This would relieve the caller of the burden of tracking which entry
   // in the vector belonged to which library it wanted to find.
 
+  PX_RETURN_IF_ERROR(fp_resolver->SetMountNamespace(pid));
   PX_ASSIGN_OR_RETURN(const absl::flat_hash_set<std::string> mapped_lib_paths,
                       proc_parser->GetMapPaths(pid));
 
@@ -251,12 +319,22 @@ StatusOr<std::vector<std::filesystem::path>> FindHostPathForPIDLibs(
       }
 
       // We found a mapped_lib_path that matches to the desired lib_name.
-      const auto container_lib_path = ProcPidRootPath(pid, mapped_lib_path);
+      // First, get the containerized file path using ResolvePath().
+      StatusOr<std::filesystem::path> container_lib_status =
+          fp_resolver->ResolvePath(mapped_lib_path);
+
+      if (!container_lib_status.ok()) {
+        VLOG(1) << absl::Substitute("Unable to resolve $0 path. Message: $1", lib_name,
+                                    container_lib_status.msg());
+        continue;
+      }
+      // const auto container_lib_path = ProcPidRootPath(pid, mapped_lib_path);
 
       // Assign the resolved path into the output vector at the appropriate index.
       // Update found status,
       // and continue to search current set of mapped libs for next desired lib.
-      container_libs[lib_idx] = container_lib_path;
+      // container_libs[lib_idx] = container_lib_path;
+      container_libs[lib_idx] = container_lib_status.ValueOrDie();
       found_vector[lib_idx] = true;
       VLOG(1) << absl::Substitute("Resolved lib $0 to $1", lib_name,
                                   container_libs[lib_idx].string());
@@ -267,8 +345,9 @@ StatusOr<std::vector<std::filesystem::path>> FindHostPathForPIDLibs(
 }
 
 StatusOr<std::vector<std::filesystem::path>> FindHostPathForPIDLibs(
-    const std::vector<std::string_view>& lib_names, uint32_t pid, system::ProcParser* proc_parser) {
-  return FindHostPathForPIDLibs(lib_names, pid, proc_parser,
+    const std::vector<std::string_view>& lib_names, uint32_t pid, system::ProcParser* proc_parser,
+    LazyLoadedFPResolver* fp_resolver) {
+  return FindHostPathForPIDLibs(lib_names, pid, proc_parser, fp_resolver,
                                 HostPathForPIDPathSearchType::kSearchTypeEndsWith);
 }
 
@@ -360,6 +439,8 @@ std::string ProbeFuncForSocketAccessMethod(std::string_view probe_fn,
 // Return error if something unexpected occurs.
 // Return 0 if nothing unexpected, but there is nothing to deploy (e.g. no OpenSSL detected).
 StatusOr<int> UProbeManager::AttachOpenSSLUProbesOnDynamicLib(uint32_t pid) {
+  LOG(INFO) << absl::Substitute("AttachOpenSSLUProbesOnDymanicLib: FD count = $0", file_descriptor_count());
+  const system::Config& sysconfig = system::Config::GetInstance();
   for (auto ssl_library_match : kLibSSLMatchers) {
     const auto libssl = ssl_library_match.libssl;
     const auto libcrypto = ssl_library_match.libcrypto;
@@ -368,11 +449,15 @@ StatusOr<int> UProbeManager::AttachOpenSSLUProbesOnDynamicLib(uint32_t pid) {
     const auto search_type = ssl_library_match.search_type;
 
     // Find paths to libssl.so and libcrypto.so for the pid, if they are in use (i.e. mapped).
-    PX_ASSIGN_OR_RETURN(const std::vector<std::filesystem::path> container_lib_paths,
-                        FindHostPathForPIDLibs(lib_names, pid, proc_parser_.get(), search_type));
+    PX_ASSIGN_OR_RETURN(
+      const std::vector<std::filesystem::path> container_lib_paths,
+      FindHostPathForPIDLibs(lib_names, pid, proc_parser_.get(), &fp_resolver_, search_type));
+    // PX_ASSIGN_OR_RETURN(const std::vector<std::filesystem::path> container_lib_paths,
+    //                     FindHostPathForPIDLibs(lib_names, pid, proc_parser_.get(), search_type));
+    LOG(INFO) << absl::Substitute("AttachOpenSSLUProbesOnDymanicLib 2: FD count = $0", file_descriptor_count());
 
-    const std::filesystem::path container_libssl = container_lib_paths[0];
-    const std::filesystem::path container_libcrypto = container_lib_paths[1];
+    std::filesystem::path container_libssl = container_lib_paths[0];
+    std::filesystem::path container_libcrypto = container_lib_paths[1];
 
     if ((container_libssl.empty() || container_libcrypto.empty())) {
       // Looks like this process doesn't have dynamic OpenSSL library installed, because it did not
@@ -380,6 +465,26 @@ StatusOr<int> UProbeManager::AttachOpenSSLUProbesOnDynamicLib(uint32_t pid) {
       // Move on to the next possible SSL library. This is not an error.
       continue;
     }
+
+    // resurrect old file path resolver
+    // which processes have died
+    // periodic cleanup
+    // go from upid to uprobespec
+    // adding calls to DetachUprobes
+
+    // bcc should know fd. internal DS mapping FD
+    // hijack bcc to give us back the FD
+
+    // our problem: we're not detaching probes
+    // also, we don't know real path to the binary
+
+    // experimnet: see if FDs leaking in some random pixie component
+    // run any node container, keep creating new processes and letting them die
+    // could churn thru FDs.
+    // Could have dev cluster and ask are FDs leaking
+
+    container_libssl = sysconfig.ToHostPath(container_libssl);
+    container_libcrypto = sysconfig.ToHostPath(container_libcrypto);
 
     if (!fs::Exists(container_libssl)) {
       return error::Internal("libssl not found [path = $0]", container_libssl.string());
@@ -392,6 +497,7 @@ StatusOr<int> UProbeManager::AttachOpenSSLUProbesOnDynamicLib(uint32_t pid) {
       auto fptr_manager = std::make_unique<obj_tools::RawFptrManager>(container_libcrypto);
 
       PX_RETURN_IF_ERROR(UpdateOpenSSLSymAddrs(fptr_manager.get(), container_libcrypto, pid));
+      LOG(INFO) << absl::Substitute("AttachOpenSSLUProbesOnDymanicLib 3: FD count = $0", file_descriptor_count());
     }
 
     // Only try probing .so files that we haven't already set probes on.
@@ -411,9 +517,13 @@ StatusOr<int> UProbeManager::AttachOpenSSLUProbesOnDynamicLib(uint32_t pid) {
       spec.probe_fn =
           ProbeFuncForSocketAccessMethod(spec.probe_fn, ssl_library_match.socket_fd_access);
 
+      LOG(INFO) << absl::Substitute("AttachOpenSSLUProbesOnDymanicLib probe_fn = $0", spec.probe_fn);
+      LOG(INFO) << absl::Substitute("AttachOpenSSLUProbesOnDymanicLib binary_path = $0", spec.binary_path.string());
       PX_RETURN_IF_ERROR(LogAndAttachUProbe(spec));
+      LOG(INFO) << absl::Substitute("AttachOpenSSLUProbesOnDymanicLib 4: FD count = $0", file_descriptor_count());
     }
   }
+  LOG(INFO) << absl::Substitute("End AttachOpenSSLUProbesOnDymanicLib: FD count = $0", file_descriptor_count());
   return kOpenSSLUProbes.size();
 }
 
@@ -448,61 +558,100 @@ StatusOr<std::array<UProbeTmpl, 6>> UProbeManager::GetNodeOpensslUProbeTmpls(con
 }
 
 StatusOr<int> UProbeManager::AttachOpenSSLUProbesOnStaticBinary(const uint32_t pid) {
+  LOG(INFO) << absl::Substitute("AttachOpenSSLUProbesOnStaticBinary: FD count = $0", file_descriptor_count());
   PX_ASSIGN_OR_RETURN(const std::filesystem::path proc_exe, proc_parser_->GetExePath(pid));
+  LOG(INFO) << absl::Substitute("AttachOpenSSLUProbesOnStaticBinary 2: FD count = $0", file_descriptor_count());
   const auto host_proc_exe = ProcPidRootPath(pid, proc_exe);
 
   PX_ASSIGN_OR_RETURN(auto elf_reader, ElfReader::Create(host_proc_exe));
+  LOG(INFO) << absl::Substitute("AttachOpenSSLUProbesOnStaticBinary 3: FD count = $0", file_descriptor_count());
   auto statusor = elf_reader->SearchTheOnlySymbol("SSL_write");
 
   if (error::IsNotFound(statusor.status())) {
     return 0;
   }
   PX_RETURN_IF_ERROR(statusor);
+  LOG(INFO) << absl::Substitute("AttachOpenSSLUProbesOnStaticBinary 4: FD count = $0", file_descriptor_count());
 
   for (auto spec : kOpenSSLUProbes) {
     spec.binary_path = host_proc_exe.string();
     spec.probe_fn = absl::StrCat(spec.probe_fn, "_syscall_fd_access");
     PX_RETURN_IF_ERROR(LogAndAttachUProbe(spec));
+    LOG(INFO) << absl::Substitute("AttachOpenSSLUProbesOnStaticBinary 5: FD count = $0", file_descriptor_count());
   }
+  LOG(INFO) << absl::Substitute("End AttachOpenSSLUProbesOnStaticBinary: FD count = $0", file_descriptor_count());
   return kOpenSSLUProbes.size();
 }
 
-StatusOr<int> UProbeManager::AttachNodeJsOpenSSLUprobes(const uint32_t pid) {
-  PX_ASSIGN_OR_RETURN(const std::filesystem::path proc_exe, proc_parser_->GetExePath(pid));
+// StatusOr<int> UProbeManager::AttachNodeJsOpenSSLUprobes(const uint32_t pid) {
+StatusOr<int> UProbeManager::AttachNodeJsOpenSSLUprobes(uint32_t pid) {
+  LOG(INFO) << absl::Substitute("AttachNodeJsOpenSSLUprobes: FD count = $0", file_descriptor_count());
+  PX_ASSIGN_OR_RETURN(std::filesystem::path proc_exe, proc_parser_->GetExePath(pid));
+  // PX_ASSIGN_OR_RETURN(const std::filesystem::path proc_exe, proc_parser_->GetExePath(pid));
+  LOG(INFO) << absl::Substitute("AttachNodeJsOpenSSLUprobes 2: FD count = $0", file_descriptor_count());
 
   if (DetectApplication(proc_exe) != Application::kNode) {
     return 0;
   }
 
-  const auto host_proc_exe = ProcPidRootPath(pid, proc_exe);
+  std::string proc_exe_str = proc_exe.string();
+  PX_ASSIGN_OR_RETURN(
+      const std::vector<std::filesystem::path> proc_exe_paths,
+      FindHostPathForPIDLibs({proc_exe_str}, pid, proc_parser_.get(), &fp_resolver_));
 
-  const auto [_, inserted] = nodejs_binaries_.insert(host_proc_exe.string());
-  if (!inserted) {
+  if (proc_exe_paths.size() != 1) {
+    return error::Internal(
+        "Expect get exactly 1 host path for pid path $0, got [$1]", proc_exe_str,
+        absl::StrJoin(proc_exe_paths, ",", [](std::string* s, const std::filesystem::path& p) {
+          s->append(p.string());
+        }));
+  }
+
+  std::filesystem::path host_proc_exe = system::Config::GetInstance().ToHostPath(proc_exe_paths[0]);
+  const auto host_proc_exe_alternative = ProcPidRootPath(pid, proc_exe);
+  LOG(WARNING) << absl::Substitute("AttachNodeJsOpenSSLUprobes host_proc_exe = $0", host_proc_exe.string());
+  LOG(WARNING) << absl::Substitute("AttachNodeJsOpenSSLUprobes host_proc_exe_alternative = $0", host_proc_exe_alternative.string());
+
+  auto result = nodejs_binaries_.insert(host_proc_exe.string());
+  if (!result.second) {
+  // const auto [_, inserted] = nodejs_binaries_.insert(host_proc_exe.string());
+  // if (!inserted) {
     // This is not a new binary, so nothing more to do.
     return 0;
   }
 
   PX_ASSIGN_OR_RETURN(const SemVer ver, GetNodeVersion(pid, proc_exe));
+  LOG(INFO) << absl::Substitute("AttachNodeJsOpenSSLUprobes 3: FD count = $0", file_descriptor_count());
   PX_RETURN_IF_ERROR(UpdateNodeTLSWrapSymAddrs(pid, host_proc_exe, ver));
+  LOG(INFO) << absl::Substitute("AttachNodeJsOpenSSLUprobes 4: FD count = $0", file_descriptor_count());
 
   // Optimisitcally update the SSL lib source since the probes can trigger
   // before the BPF map is updated. This value is cleaned up when the upid is
   // terminated, so if attachment fails it will be deleted prior to the pid being
   // reused.
-  PX_UNUSED(openssl_source_map_->SetValue(pid, kNodeJSSource));
+  LOG(INFO) << absl::Substitute("AttachNodeJsOpenSSLUprobes 4.1: FD count = $0", file_descriptor_count());
+  PX_UNUSED(openssl_source_map_->SetValue(pid, kNodeJSSource)); // ? here
 
   // These probes are attached on OpenSSL dynamic library (if present) as well.
   // Here they are attached on statically linked OpenSSL library (eg. for node).
-  for (auto spec : kOpenSSLUProbes) {
+  for (auto spec : kOpenSSLUProbes) { // can be multiple
     spec.binary_path = host_proc_exe.string();
-    PX_RETURN_IF_ERROR(LogAndAttachUProbe(spec));
+    LOG(WARNING) << absl::Substitute("AttachNodeJsOpenSSLUprobes PID = $0", pid);
+    // ? pid is never set for some reason
+    spec.pid = pid;
+    LOG(WARNING) << absl::Substitute("AttachNodeJsOpenSSLUprobes spec PID = $0", spec.pid);
+    PX_RETURN_IF_ERROR(LogAndAttachUProbe(spec)); // ? here
   }
+  LOG(INFO) << absl::Substitute("AttachNodeJsOpenSSLUprobes 5: FD count = $0", file_descriptor_count());
 
   // These are node-specific probes.
   PX_ASSIGN_OR_RETURN(auto uprobe_tmpls, GetNodeOpensslUProbeTmpls(ver));
-  PX_ASSIGN_OR_RETURN(auto elf_reader, ElfReader::Create(host_proc_exe));
+  LOG(INFO) << absl::Substitute("AttachNodeJsOpenSSLUprobes 6: FD count = $0", file_descriptor_count());
+  PX_ASSIGN_OR_RETURN(auto elf_reader, ElfReader::Create(host_proc_exe)); // ? here
+  LOG(INFO) << absl::Substitute("AttachNodeJsOpenSSLUprobes 7: FD count = $0", file_descriptor_count());
   PX_ASSIGN_OR_RETURN(int count, AttachUProbeTmpl(uprobe_tmpls, host_proc_exe, elf_reader.get()));
 
+  LOG(INFO) << absl::Substitute("End AttachNodeJsOpenSSLUprobes: FD count = $0", file_descriptor_count());
   return kOpenSSLUProbes.size() + count;
 }
 
@@ -551,7 +700,10 @@ namespace {
 
 // Convert PID list from list of UPIDs to a map with key=binary name, value=PIDs
 std::map<std::string, std::vector<int32_t>> ConvertPIDsListToMap(
-    const absl::flat_hash_set<md::UPID>& upids) {
+    // const absl::flat_hash_set<md::UPID>& upids) {
+    const absl::flat_hash_set<md::UPID>& upids, LazyLoadedFPResolver* fp_resolver) {
+  const system::Config& sysconfig = system::Config::GetInstance();
+  // const system::ProcParser proc_parser(sysconfig);
   const system::ProcParser proc_parser;
 
   // Convert to a map of binaries, with the upids that are instances of that binary.
@@ -559,8 +711,16 @@ std::map<std::string, std::vector<int32_t>> ConvertPIDsListToMap(
 
   for (const auto& upid : upids) {
     // TODO(yzhao): Might need to check the start time.
-    PX_ASSIGN_OR(const auto exe_path, proc_parser.GetExePath(upid.pid()), continue);
-    const auto host_exe_path = ProcPidRootPath(upid.pid(), exe_path);
+    PX_ASSIGN_OR(std::filesystem::path proc_exe, proc_parser.GetExePath(upid.pid()), continue);
+
+    Status s = fp_resolver->SetMountNamespace(upid.pid());
+    if (!s.ok()) {
+      VLOG(1) << absl::Substitute("Could not set pid namespace. Did the pid terminate?");
+      continue;
+    }
+
+    PX_ASSIGN_OR(std::filesystem::path exe_path, fp_resolver->ResolvePath(proc_exe), continue);
+    std::filesystem::path host_exe_path = sysconfig.ToHostPath(exe_path);
 
     if (!fs::Exists(host_exe_path)) {
       continue;
@@ -589,12 +749,16 @@ std::thread UProbeManager::RunDeployUProbesThread(const absl::flat_hash_set<md::
 
 void UProbeManager::CleanupPIDMaps(const absl::flat_hash_set<md::UPID>& deleted_upids) {
   for (const auto& pid : deleted_upids) {
+    LOG(INFO) << absl::Substitute("Cleaning up maps for PID $0", pid.pid());
     PX_UNUSED(openssl_source_map_->RemoveValue(pid.pid()));
     PX_UNUSED(openssl_symaddrs_map_->RemoveValue(pid.pid()));
     PX_UNUSED(go_common_symaddrs_map_->RemoveValue(pid.pid()));
     PX_UNUSED(go_tls_symaddrs_map_->RemoveValue(pid.pid()));
     PX_UNUSED(go_http2_symaddrs_map_->RemoveValue(pid.pid()));
     PX_UNUSED(node_tlswrap_symaddrs_map_->RemoveValue(pid.pid()));
+    // PX_UNUSED(node_ssl_tls_wrap_map->RemoveValue(pid.pid()));
+    // detach. probe specs stored in bcc wrapper
+    PX_UNUSED(bcc_->DetachUProbeByPid(pid.pid()));
   }
 }
 
@@ -608,6 +772,7 @@ int UProbeManager::DeployOpenSSLUProbes(const absl::flat_hash_set<md::UPID>& pid
       continue;
     }
 
+    // print out total FDs here
     auto count_or = AttachOpenSSLUProbesOnDynamicLib(pid.pid());
     if (count_or.ok()) {
       uprobe_count += count_or.ValueOrDie();
@@ -714,18 +879,21 @@ StatusOr<int> UProbeManager::AttachGrpcCUProbesOnDynamicPythonLib(uint32_t pid) 
   static constexpr std::string_view kGrpcCPythonLibPrefix = "cygrpc.cpython";
   const std::vector<std::string_view> lib_names = {kGrpcCPythonLibPrefix};
 
+  const system::Config& sysconfig = system::Config::GetInstance();
+
   // Find path to grpc-c shared object, if it's used (i.e. mapped).
   PX_ASSIGN_OR_RETURN(const std::vector<std::filesystem::path> container_lib_paths,
-                      FindHostPathForPIDLibs(lib_names, pid, proc_parser_.get(),
+                      FindHostPathForPIDLibs(lib_names, pid, proc_parser_.get(), &fp_resolver_,
                                              HostPathForPIDPathSearchType::kSearchTypeContains));
 
-  const std::filesystem::path container_libgrpcc = container_lib_paths[0];
+  std::filesystem::path container_libgrpcc = container_lib_paths[0];
 
   if (container_libgrpcc.empty()) {
     // Looks like this process doesn't have dynamic grpc-c library mapped.
     return 0;
   }
 
+  container_libgrpcc = sysconfig.ToHostPath(container_libgrpcc);
   if (!fs::Exists(container_libgrpcc)) {
     return error::Internal("grpc-c library not found [path=$0 pid=$1]", container_libgrpcc.string(),
                            pid);
@@ -816,7 +984,7 @@ int UProbeManager::DeployGoUProbes(const absl::flat_hash_set<md::UPID>& pids) {
 
   static int32_t kPID = getpid();
 
-  for (const auto& [binary, pid_vec] : ConvertPIDsListToMap(pids)) {
+  for (const auto& [binary, pid_vec] : ConvertPIDsListToMap(pids, &fp_resolver_)) {
     // Don't bother rescanning binaries that have been scanned before to avoid unnecessary work.
     if (!scanned_binaries_.insert(binary).second) {
       continue;
@@ -956,6 +1124,7 @@ bool KernelVersionAllowsGRPCCTracing() {
 }
 
 void UProbeManager::DeployUProbes(const absl::flat_hash_set<md::UPID>& pids) {
+  const uint64_t nopen0 = file_descriptor_count();
   const std::lock_guard<std::mutex> lock(deploy_uprobes_mutex_);
 
   proc_tracker_.Update(pids);
@@ -963,25 +1132,42 @@ void UProbeManager::DeployUProbes(const absl::flat_hash_set<md::UPID>& pids) {
   // Before deploying new probes, clean-up map entries for old processes that are now dead.
   CleanupPIDMaps(proc_tracker_.deleted_upids());
 
-  int uprobe_count = 0;
+  // Refresh our file path resolver so it is aware of all new mounts.
+  fp_resolver_.Refresh();
 
-  uprobe_count += DeployOpenSSLUProbes(proc_tracker_.new_upids());
+  int uprobe_count = 0;
+  uint32_t grpc_c_uprobe_count = 0;
+  uint32_t rescan_open_ssl_uprobe_count = 0;
+  uint32_t rescan_grpc_c_uprobe_count = 0;
+
+  // each of these returns an int that is the deployed probe count
+  rescan_open_ssl_uprobe_count = DeployOpenSSLUProbes(proc_tracker_.new_upids());
+  uprobe_count += rescan_open_ssl_uprobe_count;
 
   if (FLAGS_stirling_enable_grpc_c_tracing && KernelVersionAllowsGRPCCTracing()) {
-    uprobe_count += DeployGrpcCUProbes(proc_tracker_.new_upids());
+    grpc_c_uprobe_count = DeployGrpcCUProbes(proc_tracker_.new_upids());
+    uprobe_count += grpc_c_uprobe_count;
   }
 
   if (FLAGS_stirling_rescan_for_dlopen) {
     auto pids_to_rescan_for_uprobes = PIDsToRescanForUProbes();
-    uprobe_count += DeployOpenSSLUProbes(pids_to_rescan_for_uprobes);
+    rescan_open_ssl_uprobe_count = DeployOpenSSLUProbes(pids_to_rescan_for_uprobes);
+    uprobe_count += rescan_open_ssl_uprobe_count;
     if (FLAGS_stirling_enable_grpc_c_tracing && KernelVersionAllowsGRPCCTracing()) {
-      uprobe_count += DeployGrpcCUProbes(pids_to_rescan_for_uprobes);
+      rescan_grpc_c_uprobe_count = DeployGrpcCUProbes(pids_to_rescan_for_uprobes);
+      uprobe_count += rescan_grpc_c_uprobe_count;
     }
   }
 
   uprobe_count += DeployGoUProbes(proc_tracker_.new_upids());
 
   if (uprobe_count != 0) {
+    const uint64_t nopen1 = file_descriptor_count();
+    const int64_t delta = nopen1 - nopen0;
+
+// correlate to the uprobes that were attached, then goes by category
+    LOG(INFO) << absl::Substitute("fd count: $0, delta: $1, total uprobes added: $2, grpc-c: $3, open-ssl rescans: $4, grpc-c rescans: $5",
+                                  nopen1, delta, uprobe_count, grpc_c_uprobe_count, rescan_open_ssl_uprobe_count, rescan_grpc_c_uprobe_count);
     LOG(INFO) << absl::Substitute("Number of uprobes deployed = $0", uprobe_count);
   }
 }

@@ -34,6 +34,9 @@
 BPF_HASH(openssl_symaddrs_map, uint32_t, struct openssl_symaddrs_t);
 
 BPF_ARRAY(openssl_trace_state, int, 1);
+// add max size param to BPF HASH maps we suspect of leaking
+// bpftrace to count lookups
+// edit bcc to print fd 
 BPF_HASH(openssl_trace_state_debug, uint32_t, struct openssl_trace_state_debug_t);
 
 /***********************************************************

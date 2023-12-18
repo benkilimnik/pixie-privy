@@ -172,9 +172,13 @@ http::Record GetExpectedHTTPRecord() {
 }
 
 using OpenSSLServerImplementations =
+// todo: test one of these
+// cross product of these servers
     Types<NginxOpenSSL_1_1_0_ContainerWrapper, NginxOpenSSL_1_1_1_ContainerWrapper,
           NginxOpenSSL_3_0_8_ContainerWrapper, Python310ContainerWrapper,
           Node12_3_1ContainerWrapper, Node14_18_1AlpineContainerWrapper>;
+
+// and these tests. 18 tests total
 
 TYPED_TEST_SUITE(OpenSSLTraceTest, OpenSSLServerImplementations);
 

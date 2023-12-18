@@ -26,18 +26,9 @@
 // LINT_C_FILE: Do not remove this line. It ensures cpplint treats this as a C file.
 #include <linux/ptrace.h>
 
-BPF_PERF_OUTPUT(perf_buffer);
-BPF_HASH(map, int, int);
 BPF_ARRAY(state, int, 1);
-BPF_ARRAY(results, int, 1024);
-BPF_STACK_TRACE(stack_table, 1024);
-BPF_PERF_OUTPUT(stack_ids);
 
-// A minimal BPF program to:
-// 1. Push something into a perf buffer.
-// 2. Populate a BPF array.
-// 3. Populate a BPF hash map.
-int push_something_into_a_perf_buffer(struct pt_regs* ctx) {
+int count_invocations(struct pt_regs* ctx) {
   int count_idx = 0;
   int* pcount = state.lookup(&count_idx);
   if (pcount == NULL) {
@@ -45,19 +36,45 @@ int push_something_into_a_perf_buffer(struct pt_regs* ctx) {
   }
   int count = *pcount;
 
-  int arg_val = PT_REGS_PARM1(ctx);
-  perf_buffer.perf_submit(ctx, &arg_val, sizeof(int));
-  map.update(&count, &arg_val);
-  results.update(&count, &arg_val);
-
   ++count;
   state.update(&count_idx, &count);
   return 0;
 }
 
-// A minimal BPF program to sample a stack trace.
-int sample_a_stack_trace(struct pt_regs* ctx) {
-  int stack_id = stack_table.get_stackid(ctx, BPF_F_USER_STACK);
-  stack_ids.perf_submit(ctx, &stack_id, sizeof(int));
-  return 0;
-}
+// #include <linux/ptrace.h>
+
+// BPF_PERF_OUTPUT(perf_buffer);
+// BPF_HASH(map, int, int);
+// BPF_ARRAY(state, int, 1);
+// BPF_ARRAY(results, int, 1024);
+// BPF_STACK_TRACE(stack_table, 1024);
+// BPF_PERF_OUTPUT(stack_ids);
+
+// // A minimal BPF program to:
+// // 1. Push something into a perf buffer.
+// // 2. Populate a BPF array.
+// // 3. Populate a BPF hash map.
+// int push_something_into_a_perf_buffer(struct pt_regs* ctx) {
+//   int count_idx = 0;
+//   int* pcount = state.lookup(&count_idx);
+//   if (pcount == NULL) {
+//     return -1;
+//   }
+//   int count = *pcount;
+
+//   int arg_val = PT_REGS_PARM1(ctx);
+//   perf_buffer.perf_submit(ctx, &arg_val, sizeof(int));
+//   map.update(&count, &arg_val);
+//   results.update(&count, &arg_val);
+
+//   ++count;
+//   state.update(&count_idx, &count);
+//   return 0;
+// }
+
+// // A minimal BPF program to sample a stack trace.
+// int sample_a_stack_trace(struct pt_regs* ctx) {
+//   int stack_id = stack_table.get_stackid(ctx, BPF_F_USER_STACK);
+//   stack_ids.perf_submit(ctx, &stack_id, sizeof(int));
+//   return 0;
+// }

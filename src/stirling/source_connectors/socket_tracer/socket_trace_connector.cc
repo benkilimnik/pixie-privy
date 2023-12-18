@@ -637,6 +637,13 @@ void SocketTraceConnector::UpdateCommonState(ConnectorContext* ctx) {
     socket_info_mgr_->Flush();
   }
 
+  // leakage stops if redeploy with these lines commented out: 
+  // when we attach a uprobe it opens a FD.
+  // perf_event FD called [perf_event]. Probably Uprobe?
+  // standalone pem, client go on same host. 
+
+  // for loop sleeps, probes creating maps on accident, forget to close them
+
   // Deploy uprobes on newly discovered PIDs.
   std::thread thread = RunDeployUProbesThread(ctx->GetUPIDs());
   // Let it run in the background.
@@ -653,6 +660,7 @@ void SocketTraceConnector::UpdateCommonState(ConnectorContext* ctx) {
   if (FLAGS_stirling_enable_periodic_bpf_map_cleanup &&
       sampling_freq_mgr_.count() % kCleanupBPFMapLeaksSamplingRatio == 0) {
     if (conn_info_map_mgr_ != nullptr) {
+      LOG(WARNING) << "Checking for leaking conn_info_map entries.";
       conn_info_map_mgr_->CleanupBPFMapLeaks(&conn_trackers_mgr_);
     }
   }

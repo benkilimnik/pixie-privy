@@ -34,6 +34,8 @@
 using px::stirling::obj_tools::ElfAddressConverter;
 using px::stirling::obj_tools::ElfReader;
 
+DEFINE_uint32(other_program_pid, 0, "Other program pid.");
+
 // Create a std::string_view named rr_test_bcc_script based on the bazel target :rr_test_bpf_text.
 // This is the BPF program we will invoke for this test.
 OBJ_STRVIEW(rr_test_bcc_script, rr_test_bpf_text);
@@ -44,7 +46,6 @@ namespace test {
 // and expect that the eBPF recording mechanism records the perf buffer traffic generated
 // by our eBPF probe.
 NO_OPT_ATTR uint32_t Foo(const uint32_t arg) { return 1 + arg; }
-NO_OPT_ATTR uint32_t Bar(const uint32_t arg) { return 2 + arg; }
 
 std::vector<int> gold_data;
 uint32_t test_idx = 0;
@@ -79,212 +80,79 @@ using bpf_tools::WrappedBCCArrayTable;
 using bpf_tools::WrappedBCCMap;
 using bpf_tools::WrappedBCCStackTable;
 
+uint64_t CountOpenFileDescriptors() {
+    uint64_t count = 0;
+    for (const auto& entry : std::filesystem::directory_iterator("/proc/self/fd")) {
+        if (entry.is_symlink()) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+std::string readSymbolicLink(const std::string& linkPath) {
+    char path[PATH_MAX];
+    ssize_t len = ::readlink(linkPath.c_str(), path, sizeof(path)-1);
+    if (len != -1) {
+        path[len] = '\0';
+        return std::string(path);
+    }
+    return "";
+}
+
 class BasicRecorderTest : public ::testing::Test {
  public:
   BasicRecorderTest() {}
 
  protected:
   void SetUp() override {
-    recording_bcc_ = std::make_unique<bpf_tools::RecordingBCCWrapperImpl>();
-    replaying_bcc_ = std::make_unique<bpf_tools::ReplayingBCCWrapperImpl>();
+    LOG(INFO) << absl::Substitute("Starting FD count: $0", CountOpenFileDescriptors());
+    bcc_ = std::make_unique<bpf_tools::BCCWrapperImpl>();
 
     // Register our BPF program in the kernel, for real (recording), and for fake (replaying).
-    ASSERT_OK(recording_bcc_->InitBPFProgram(rr_test_bcc_script));
-    ASSERT_OK(replaying_bcc_->InitBPFProgram(rr_test_bcc_script));
+    ASSERT_OK(bcc_->InitBPFProgram(rr_test_bcc_script));
+    LOG(INFO) << absl::Substitute("Post InitBPFProgram FD count: $0", CountOpenFileDescriptors());
 
-    const auto recording_perf_buffer_specs = MakeArray<bpf_tools::PerfBufferSpec>({
-        .name = std::string("perf_buffer"),
-        .probe_output_fn = test::PerfBufferRecordingDataFn,
-        .probe_loss_fn = test::PerfBufferLossFn,
-        .cb_cookie = this,
-    });
-    const auto replaying_perf_buffer_specs = MakeArray<bpf_tools::PerfBufferSpec>({
-        .name = std::string("perf_buffer"),
-        .probe_output_fn = test::PerfBufferReplayingDataFn,
-        .probe_loss_fn = test::PerfBufferLossFn,
-        .cb_cookie = this,
-    });
+    // const int64_t self_pid = getpid();
+    const std::filesystem::path other_program_path = "/home/bkilimnik/pixie-privy/src/stirling/bpf_tools/rr/other-program";
+    LOG(INFO) << "Path to other program: " << other_program_path.string();
+    // /proc/<other-program-pid>/root/normal/path/to/binary
+    const std::filesystem::path proc_other_program_path = "/proc/" + std::to_string(FLAGS_other_program_pid) + "/root" + other_program_path.string();
+    LOG(INFO) << "Path to other program in proc: " << proc_other_program_path.string();
+    LOG(INFO) << "Resolved path of symbolic link: " << readSymbolicLink("/proc/" + std::to_string(FLAGS_other_program_pid) + "/root");
 
-    // Open perf buffers for real (recording), and for fake (replaying).
-    ASSERT_OK(recording_bcc_->OpenPerfBuffers(recording_perf_buffer_specs));
-    ASSERT_OK(replaying_bcc_->OpenPerfBuffers(replaying_perf_buffer_specs));
-
-    const int64_t self_pid = getpid();
-    const std::filesystem::path self_path = GetSelfPath().ValueOrDie();
-    ASSERT_OK_AND_ASSIGN(auto elf_reader, ElfReader::Create(self_path.string()));
-    ASSERT_OK_AND_ASSIGN(auto converter, ElfAddressConverter::Create(elf_reader.get(), self_pid));
-
-    // For the uprobe spec.
-    const uint64_t foo_virt_addr = reinterpret_cast<uint64_t>(&::test::Foo);
-    const uint64_t bar_virt_addr = reinterpret_cast<uint64_t>(&::test::Bar);
-    const uint64_t foo_bin_addr = converter->VirtualAddrToBinaryAddr(foo_virt_addr);
-    const uint64_t bar_bin_addr = converter->VirtualAddrToBinaryAddr(bar_virt_addr);
-
-    const UProbeSpec kFooUprobe{.binary_path = self_path,
-                                .symbol = {},
-                                .address = foo_bin_addr,
-                                .attach_type = BPFProbeAttachType::kEntry,
-                                .probe_fn = "push_something_into_a_perf_buffer"};
-    const UProbeSpec kBarUprobe{.binary_path = self_path,
-                                .symbol = {},
-                                .address = bar_bin_addr,
-                                .attach_type = BPFProbeAttachType::kEntry,
-                                .probe_fn = "push_something_into_a_perf_buffer"};
+    UProbeSpec kFooUprobe;
+    kFooUprobe.binary_path = proc_other_program_path;
+    // kFooUprobe.binary_path = other_program_path;
+    kFooUprobe.pid = FLAGS_other_program_pid;
+    kFooUprobe.symbol = "_Z3Foov";
+    kFooUprobe.attach_type = BPFProbeAttachType::kEntry;
+    kFooUprobe.probe_fn = "count_invocations";
 
     // Attach uprobes for this test case:
-    ASSERT_OK(recording_bcc_->AttachUProbe(kFooUprobe));
-    ASSERT_OK(recording_bcc_->AttachUProbe(kBarUprobe));
-    ASSERT_OK(replaying_bcc_->AttachUProbe(kFooUprobe));
-    ASSERT_OK(replaying_bcc_->AttachUProbe(kBarUprobe));
+    LOG(INFO) << absl::Substitute("Pre AttachUProbe FD count: $0", CountOpenFileDescriptors());
+    ASSERT_OK(bcc_->AttachUProbe(kFooUprobe));
+    LOG(INFO) << absl::Substitute("Post AttachUProbe FD count: $0", CountOpenFileDescriptors());
   }
 
   void TearDown() override {
-    recording_bcc_->Close();
-    replaying_bcc_->Close();
+    bcc_->Close();
   }
 
-  std::unique_ptr<bpf_tools::RecordingBCCWrapperImpl> recording_bcc_;
-  std::unique_ptr<bpf_tools::ReplayingBCCWrapperImpl> replaying_bcc_;
+  std::unique_ptr<bpf_tools::BCCWrapperImpl> bcc_;
 };
 
-TEST_F(BasicRecorderTest, PerfBufferRRTest) {
-  constexpr uint32_t kLoopIters = 16;
-
-  for (uint32_t i = 0; i < kLoopIters; ++i) {
-    // Invoking Foo() or Bar() triggers our eBPF uprobe, which will capture the function argument.
-    PX_UNUSED(::test::Foo(2 * i + 0));
-    PX_UNUSED(::test::Bar(2 * i + 1));
-  }
-
-  const std::string pb_file_name = "perf_buffer_replay_test.pb";
-
-  // Polling perf buffers will cause the recording BCC wrapper to record each perf buffer event.
-  recording_bcc_->PollPerfBuffers();
-
-  // Write out the protobuf file and close the recording BCC wrapper.
-  recording_bcc_->WriteProto(pb_file_name);
-  recording_bcc_->Close();
-
-  // Open the protobuf file in the replaying BCC wrapper.
-  // The "replaying" data callback will check "test" (replay) data vs. "gold" data (captured
-  // on the side during original recording when we invoked functions Foo() and Bar()).
-  // Finally, we check that the "test" event count (from replay)
-  // is the same as the "gold" event count (from recording).
-  ASSERT_OK(replaying_bcc_->OpenReplayProtobuf(pb_file_name));
-  replaying_bcc_->PollPerfBuffers();
-  EXPECT_EQ(test::test_idx, test::gold_data.size());
-
-  // TODO(jps): add the expectations.
-}
-
 TEST_F(BasicRecorderTest, BPFArrayRRTest) {
-  auto recording_bpf_array = WrappedBCCArrayTable<int>::Create(recording_bcc_.get(), "results");
 
-  constexpr uint32_t kLoopIters = 16;
-
-  for (uint32_t i = 0; i < kLoopIters; ++i) {
-    // Invoking Foo() or Bar() triggers our eBPF uprobe, which will capture the function argument.
-    PX_UNUSED(::test::Foo(2 * i + 0));
-    PX_UNUSED(::test::Bar(2 * i + 1));
-  }
-  for (uint32_t i = 0; i < 2 * kLoopIters; ++i) {
-    ASSERT_OK_AND_ASSIGN(const int r, recording_bpf_array->GetValue(i));
-    EXPECT_EQ(r, i);
-  }
-
-  constexpr int k100 = 0;
-  constexpr int k200 = 100;
-  ASSERT_OK(recording_bpf_array->SetValue(k100, 100));
-  ASSERT_OK(recording_bpf_array->SetValue(k200, 200));
-
-  {
-    ASSERT_OK_AND_ASSIGN(const int r100, recording_bpf_array->GetValue(k100));
-    ASSERT_OK_AND_ASSIGN(const int r200, recording_bpf_array->GetValue(k200));
-    EXPECT_EQ(r100, 100);
-    EXPECT_EQ(r200, 200);
-  }
-
-  const std::string pb_file_name = "bpf_array_replay_test.pb";
-
-  // Write out the protobuf file and close the recording BCC wrapper.
-  recording_bcc_->WriteProto(pb_file_name);
-  recording_bcc_->Close();
-
-  // Open the protobuf file in the replaying BCC wrapper.
-  ASSERT_OK(replaying_bcc_->OpenReplayProtobuf(pb_file_name));
-
-  // Get a pointer to the replay mode BPF map.
-  auto replaying_bpf_array = WrappedBCCArrayTable<int>::Create(replaying_bcc_.get(), "results");
-
-  // Test the first N map get value results.
-  // These key/val pairs were set by triggering the BPF program.
-  for (uint32_t i = 0; i < 2 * kLoopIters; ++i) {
-    ASSERT_OK_AND_ASSIGN(const int r, replaying_bpf_array->GetValue(i));
-    EXPECT_EQ(r, i);
-  }
-
-  // Test the the last two map get value results where we set the value from user space.
-  {
-    ASSERT_OK_AND_ASSIGN(const int r100, replaying_bpf_array->GetValue(k100));
-    ASSERT_OK_AND_ASSIGN(const int r200, replaying_bpf_array->GetValue(k200));
-    EXPECT_EQ(r100, 100);
-    EXPECT_EQ(r200, 200);
-  }
-}
-
-TEST_F(BasicRecorderTest, BPFMapRRTest) {
-  auto recording_bpf_map = WrappedBCCMap<int, int>::Create(recording_bcc_.get(), "map");
-
-  constexpr uint32_t kLoopIters = 16;
-
-  for (uint32_t i = 0; i < kLoopIters; ++i) {
-    // Invoking Foo() or Bar() triggers our eBPF uprobe, which will capture the function argument.
-    PX_UNUSED(::test::Foo(2 * i + 0));
-    PX_UNUSED(::test::Bar(2 * i + 1));
-  }
-  for (uint32_t i = 0; i < 2 * kLoopIters; ++i) {
-    ASSERT_OK_AND_ASSIGN(const int r, recording_bpf_map->GetValue(i));
-    EXPECT_EQ(r, i);
-  }
-
-  constexpr int k100 = 0;
-  constexpr int k200 = 100;
-  ASSERT_OK(recording_bpf_map->SetValue(k100, 100));
-  ASSERT_OK(recording_bpf_map->SetValue(k200, 200));
-
-  {
-    ASSERT_OK_AND_ASSIGN(const int r100, recording_bpf_map->GetValue(k100));
-    ASSERT_OK_AND_ASSIGN(const int r200, recording_bpf_map->GetValue(k200));
-    EXPECT_EQ(r100, 100);
-    EXPECT_EQ(r200, 200);
-  }
-
-  const std::string pb_file_name = "bpf_map_replay_test.pb";
-
-  // Write out the protobuf file and close the recording BCC wrapper.
-  recording_bcc_->WriteProto(pb_file_name);
-  recording_bcc_->Close();
-
-  // Open the protobuf file in the replaying BCC wrapper.
-  ASSERT_OK(replaying_bcc_->OpenReplayProtobuf(pb_file_name));
-
-  // Get a pointer to the replay mode BPF map.
-  auto replaying_bpf_map = WrappedBCCMap<int, int>::Create(replaying_bcc_.get(), "map");
-
-  // Test the first N map get value results.
-  // These key/val pairs were set by triggering the BPF program.
-  for (uint32_t i = 0; i < 2 * kLoopIters; ++i) {
-    ASSERT_OK_AND_ASSIGN(const int r, replaying_bpf_map->GetValue(i));
-    EXPECT_EQ(r, i);
-  }
-
-  // Test the the last two map get value results where we set the value from user space.
-  {
-    ASSERT_OK_AND_ASSIGN(const int r100, recording_bpf_map->GetValue(k100));
-    ASSERT_OK_AND_ASSIGN(const int r200, recording_bpf_map->GetValue(k200));
-    EXPECT_EQ(r100, 100);
-    EXPECT_EQ(r200, 200);
-  }
+  LOG(INFO) << "other_program_pid: " << FLAGS_other_program_pid;
+  auto bpf_array = WrappedBCCArrayTable<int>::Create(bcc_.get(), "state");
+  LOG(INFO) << "Sleeping for 5.";
+  sleep(5);
+  int x = bpf_array->GetValue(0).ValueOrDie();
+  LOG(INFO) << x;
+  LOG(INFO) << "Pre Close FD count: " << CountOpenFileDescriptors();
+  bcc_->Close();
+  LOG(INFO) << "Post Close FD count (should be pre close count - 2): " << CountOpenFileDescriptors();
 }
 
 }  // namespace stirling

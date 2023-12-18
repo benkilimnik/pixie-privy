@@ -126,6 +126,16 @@ class BCCWrapper {
   virtual Status AttachUProbe(const UProbeSpec& probe) = 0;
 
   /**
+    * Get the UProbeSpec for a given PID.
+  */
+  virtual StatusOr<std::unique_ptr<UProbeSpec>> GetUProbeSpecByPid(const int pid) = 0;
+
+  /**
+  * Detach Uprobe by Pid
+  */
+  virtual Status DetachUProbeByPid(const int pid) = 0;
+
+  /**
    * Attach a single tracepoint
    * @param probe Specifications of the tracepoint (attach point, trace function, etc.).
    * @return Error if probe fails to attach.
@@ -287,6 +297,9 @@ class BCCWrapperImpl : public BCCWrapper {
                         bool always_infer_task_struct_offsets = false) override;
   Status AttachKProbe(const KProbeSpec& probe) override;
   Status AttachUProbe(const UProbeSpec& probe) override;
+  // StatusOr<UProbeSpec&> GetUProbeSpecByPid(const int pid) override;
+  StatusOr<std::unique_ptr<UProbeSpec>> GetUProbeSpecByPid(const int pid) override;
+  Status DetachUProbeByPid(const int pid) override;
   Status AttachTracepoint(const TracepointSpec& probe) override;
   Status AttachSamplingProbe(const SamplingProbeSpec& probe) override;
   Status OpenPerfBuffer(const PerfBufferSpec& perf_buffer) override;
