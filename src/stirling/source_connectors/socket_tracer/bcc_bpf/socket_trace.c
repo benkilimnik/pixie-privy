@@ -382,13 +382,14 @@ static __inline void submit_new_conn(struct pt_regs* ctx, uint32_t tgid, int32_t
   struct conn_info_t conn_info = {};
   init_conn_info(tgid, fd, &conn_info);
   if (addr != NULL) {
-    conn_info.raddr = *((union sockaddr_t*)addr);
     if (socket != NULL) {
       bpf_trace_printk("submit_new_conn a1: raddr.sa.sa_family = %d\n", conn_info.raddr.sa.sa_family);
       bpf_trace_printk("submit_new_conn a2: laddr.sa.sa_family = %d\n", conn_info.laddr.sa.sa_family);
       read_sockaddr_kernel(&conn_info, socket);
       bpf_trace_printk("submit_new_conn a3: raddr.sa.sa_family = %d\n", conn_info.raddr.sa.sa_family);
       bpf_trace_printk("submit_new_conn a4: laddr.sa.sa_family = %d\n", conn_info.laddr.sa.sa_family);
+    } else {
+      conn_info.raddr = *((union sockaddr_t*)addr);
     }
   } else if (socket != NULL) {
     read_sockaddr_kernel(&conn_info, socket);
