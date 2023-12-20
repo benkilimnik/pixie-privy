@@ -1742,6 +1742,9 @@ void SocketTraceConnector::TransferConnStats(ConnectorContext* ctx, DataTable* d
       r.Append<idx::kUPID>(upid.value());
       r.Append<idx::kRemoteAddr>(key.remote_addr);
       r.Append<idx::kRemotePort>(key.remote_port);
+      // TODO(@benkilimnik: uncomment when we have local addr/port in the key)
+      // r.Append<idx::kLocalAddr>(key.local_addr);
+      // r.Append<idx::kLocalPort>(key.local_port);
       r.Append<idx::kAddrFamily>(static_cast<int>(stats.addr_family));
       r.Append<idx::kProtocol>(stats.protocol);
       r.Append<idx::kRole>(stats.role);

@@ -382,10 +382,16 @@ static __inline void submit_new_conn(struct pt_regs* ctx, uint32_t tgid, int32_t
   struct conn_info_t conn_info = {};
   init_conn_info(tgid, fd, &conn_info);
   if (addr != NULL) {
+    bpf_trace_printk("submit_new_conn 0: addr is not NULL\n");
     conn_info.raddr = *((union sockaddr_t*)addr);
   } else if (socket != NULL) {
+    bpf_trace_printk("submit_new_conn 1: addr is NULL, socket is not NULL\n");
     // ? local address is not available for accept() calls.
     read_sockaddr_kernel(&conn_info, socket);
+    bpf_trace_printk("submit_new_conn 2: laddr.sa.sa_family = %d\n", conn_info.laddr.sa.sa_family);
+    bpf_trace_printk("submit_new_conn 3: laddr.in4.sin_port = %d\n", conn_info.laddr.in4.sin_port);
+    bpf_trace_printk("submit_new_conn 4: laddr.in4.sin_addr.s_addr = %d\n",
+                     conn_info.laddr.in4.sin_addr.s_addr);
   }
   conn_info.role = role;
 
@@ -396,6 +402,7 @@ static __inline void submit_new_conn(struct pt_regs* ctx, uint32_t tgid, int32_t
   // we only send connections with supported protocols to user-space.
   // We use the same filter function to avoid sending data of unwanted connections as well.
   if (!should_trace_sockaddr_family(conn_info.raddr.sa.sa_family)) {
+    bpf_trace_printk("submit_new_conn 5: should_trace_sockaddr_family = false\n");
     return;
   }
 
@@ -405,7 +412,11 @@ static __inline void submit_new_conn(struct pt_regs* ctx, uint32_t tgid, int32_t
   control_event.conn_id = conn_info.conn_id;
   control_event.source_fn = source_fn;
   control_event.open.raddr = conn_info.raddr;
+  bpf_trace_printk("submit_new_conn: raddr.sa.sa_family = %d\n", conn_info.raddr.sa.sa_family);
+  bpf_trace_printk("submit_new_conn: raddr.sa.sa_family = %d\n", control_event.open.raddr.sa.sa_family);
   control_event.open.laddr = conn_info.laddr;
+  bpf_trace_printk("submit_new_conn: laddr.sa.sa_family = %d\n", conn_info.laddr.sa.sa_family);
+  bpf_trace_printk("submit_new_conn: laddr.sa.sa_family = %d\n", control_event.open.laddr.sa.sa_family);
   control_event.open.role = conn_info.role;
 
   socket_control_events.perf_submit(ctx, &control_event, sizeof(struct socket_control_event_t));

@@ -68,6 +68,10 @@ absl::flat_hash_map<ConnStats::AggKey, ConnStats::Stats>& ConnStats::UpdateStats
     AggKey key = BuildAggKey(tracker->conn_id().upid, tracker->role(), tracker->remote_endpoint());
     auto& stats = agg_stats_[key];
 
+    // TODO: figure out if need to add local port here
+    // add printk to bcc code, run standalone, grep and view
+    // share unittest with Pete
+
     stats.addr_family = tracker->remote_endpoint().family;
     stats.role = tracker->role();
     stats.protocol = tracker->protocol();
