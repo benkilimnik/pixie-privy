@@ -98,6 +98,9 @@ static int tcp_sendstat(struct pt_regs* ctx, uint32_t tgid, uint32_t id, int siz
   return 0;
 }
 
+// alternative: join with tcp stats table
+// productionize tcp stats connector, add to list of default source connectors
+
 int probe_ret_tcp_sendmsg(struct pt_regs* ctx) {
   int size = PT_REGS_RC(ctx);
   if (size > 0) {

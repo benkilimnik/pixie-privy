@@ -92,6 +92,7 @@ std::vector<std::string_view> GetSourceNamesForGroup(SourceConnectorGroup group)
       return {};
     case SourceConnectorGroup::kProd:
       return {
+        TCPStatsConnector::kName,
         ProcessStatsConnector::kName,
         NetworkStatsConnector::kName,
         JVMStatsConnector::kName,
@@ -102,6 +103,7 @@ std::vector<std::string_view> GetSourceNamesForGroup(SourceConnectorGroup group)
       };
     case SourceConnectorGroup::kAll:
       return {
+        TCPStatsConnector::kName,
         ProcessStatsConnector::kName,
         NetworkStatsConnector::kName,
         JVMStatsConnector::kName,
