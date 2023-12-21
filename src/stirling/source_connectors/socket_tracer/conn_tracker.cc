@@ -483,7 +483,6 @@ void ConnTracker::SetLocalAddr(const union sockaddr_t addr, std::string_view rea
   LOG(WARNING) << "SetLocalAddr called. Initial addr family: " << addr.sa.sa_family;
   if (open_info_.local_addr.family == SockAddrFamily::kUnspecified) {
     PopulateSockAddr(&addr.sa, &open_info_.local_addr);
-    LOG(WARNING) << "Final local addr: " << open_info_.local_addr.AddrStr();
     if (addr.sa.sa_family == PX_AF_UNKNOWN) {
       open_info_.local_addr.family = SockAddrFamily::kUnspecified;
     }
@@ -904,19 +903,25 @@ double ConnTracker::StitchFailureRate() const {
 
 namespace {
 
-Status ParseSocketInfoAddr(const system::SocketInfo& socket_info, SockAddr* addr) {
+Status ParseSocketInfoAddr(const system::SocketInfo& socket_info, SockAddr* remote_addr, SockAddr* local_addr) {
   switch (socket_info.family) {
     case AF_INET:
       PopulateInetAddr(std::get<struct in_addr>(socket_info.remote_addr), socket_info.remote_port,
-                       addr);
+                       remote_addr);
+      PopulateInetAddr(std::get<struct in_addr>(socket_info.local_addr), socket_info.local_port,
+                       local_addr);
       break;
     case AF_INET6:
       PopulateInet6Addr(std::get<struct in6_addr>(socket_info.remote_addr), socket_info.remote_port,
-                        addr);
+                        remote_addr);
+      PopulateInet6Addr(std::get<struct in6_addr>(socket_info.local_addr), socket_info.local_port,
+                        local_addr);
       break;
     case AF_UNIX:
       PopulateUnixAddr(std::get<struct un_path_t>(socket_info.remote_addr).path,
-                       socket_info.remote_port, addr);
+                       socket_info.remote_port, remote_addr);
+      PopulateUnixAddr(std::get<struct un_path_t>(socket_info.local_addr).path,
+                       socket_info.local_port, local_addr);
       break;
     default:
       return error::Internal("Unknown socket_info family: $0", socket_info.family);
@@ -1020,22 +1025,16 @@ void ConnTracker::InferConnInfo(system::ProcParser* proc_parser,
 
   // Success! Now copy the inferred socket information into the ConnTracker.
 
-  Status s = ParseSocketInfoAddr(socket_info, &open_info_.remote_addr);
+  Status s = ParseSocketInfoAddr(socket_info, &open_info_.remote_addr, &open_info_.local_addr);
   if (!s.ok()) {
     conn_resolver_.reset();
     conn_resolution_failed_ = true;
-    LOG(ERROR) << absl::Substitute("Remote address (type=$0) parsing failed. Message: $1",
+    LOG(ERROR) << absl::Substitute("Remote and local address (type=$0) parsing failed. Message: $1",
                                    socket_info.family, s.msg());
     return;
   }
-  Status s2 = ParseSocketInfoAddr(socket_info, &open_info_.local_addr);
-  if (!s2.ok()) {
-    conn_resolver_.reset();
-    conn_resolution_failed_ = true;
-    LOG(ERROR) << absl::Substitute("Local address (type=$0) parsing failed. Message: $1",
-                                   socket_info.family, s2.msg());
-    return;
-  }
+  LOG(WARNING) << absl::Substitute("Remote and local address (type=$0) parsed successfully.",
+                                   socket_info.family);
 
   endpoint_role_t inferred_role = TranslateRole(socket_info.role);
   SetRole(inferred_role, "inferred from socket info");

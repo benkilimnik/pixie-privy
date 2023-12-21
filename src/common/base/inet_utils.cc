@@ -171,13 +171,11 @@ InetAddr MapIPv4ToIPv6(const InetAddr& addr) {
 }
 
 void PopulateInetAddr(struct in_addr in_addr, in_port_t port, SockAddr* addr) {
-  // LOG(WARNING) << "PopulateInetAddr called. Port: " << port;
   addr->family = SockAddrFamily::kIPv4;
   addr->addr = SockAddrIPv4{in_addr, ntohs(port)};
 }
 
 void PopulateInet6Addr(struct in6_addr in6_addr, in_port_t port, SockAddr* addr) {
-  // LOG(WARNING) << "PopulateInet6Addr called. Port: " << port;
   addr->family = SockAddrFamily::kIPv6;
   addr->addr = SockAddrIPv6{in6_addr, ntohs(port)};
 }
@@ -188,7 +186,6 @@ void PopulateUnixAddr(const char* sun_path, uint32_t inode_num, SockAddr* addr) 
 }
 
 void PopulateSockAddr(const struct sockaddr* sa, SockAddr* addr) {
-  // LOG(WARNING) << "PopulateSockAddr called. sa_family: " << sa->sa_family;
   switch (sa->sa_family) {
     case AF_INET: {
       const auto* sa_in = reinterpret_cast<const struct sockaddr_in*>(sa);
@@ -211,7 +208,6 @@ void PopulateSockAddr(const struct sockaddr* sa, SockAddr* addr) {
       break;
     }
     default: {
-      LOG(WARNING) << "PopulateSockAddr default case hit";
       addr->family = SockAddrFamily::kOther;
       addr->addr = std::monostate();
     }

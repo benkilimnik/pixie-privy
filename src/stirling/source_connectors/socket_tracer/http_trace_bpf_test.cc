@@ -93,6 +93,9 @@ TEST_F(GoHTTPTraceTest, RequestAndResponse) {
       std::string(record_batch[kHTTPRemoteAddrIdx]->Get<types::StringValue>(target_record_idx)),
       // On IPv6 host, localhost is resolved to ::1.
       AnyOf(HasSubstr("127.0.0.1"), HasSubstr("::1")));
+  EXPECT_THAT(
+      std::string(record_batch[kHTTPLocalAddrIdx]->Get<types::StringValue>(target_record_idx)),
+      AnyOf(HasSubstr("127.0.0.1"), HasSubstr("::1")));
   EXPECT_THAT(record_batch[kHTTPRespBodyIdx]->Get<types::StringValue>(target_record_idx),
               StrEq(absl::StrCat(R"({"greeter":"Hello PixieLabs!"})", "\n")));
   // This test currently performs client-side tracing because of the cluster CIDR in
